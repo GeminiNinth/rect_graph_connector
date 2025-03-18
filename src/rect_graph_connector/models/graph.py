@@ -5,6 +5,12 @@ This module contains the Graph class which manages the graph structure and node 
 from typing import List, Tuple, Optional, Set, Dict
 from PyQt5.QtCore import QPointF
 from .rect_node import RectNode
+from ..utils.naming_utils import (
+    generate_unique_name,
+    rename_node,
+    generate_unique_name_if_needed,
+)
+from ..config import config
 
 
 class NodeGroup:
@@ -151,13 +157,11 @@ class Graph:
             name = f"Node {self.next_group_number}"
             self.next_group_number += 1
 
-        # Add sequential number if a group with the same name exists
-        original_name = name
-        existing_names = {g.name for g in self.node_groups}
-        counter = 1
-        while name in existing_names:
-            name = f"{original_name}({counter})"
-            counter += 1
+        # Use naming utility to generate a unique name if duplicates are not allowed
+        existing_names = [g.name for g in self.node_groups]
+        name = generate_unique_name_if_needed(
+            name, existing_names, allow_duplicates=config.allow_duplicate_names
+        )
 
         new_group = NodeGroup(name=name, nodes=new_nodes)
         self.node_groups.append(new_group)
@@ -551,15 +555,18 @@ class Graph:
 
             for grp in groups:
                 original_name = grp.get("name", "")
-                if original_name in existing_group_names:
-                    counter = 1
-                    new_name = original_name
-                    while new_name in existing_group_names:
-                        new_name = f"{base_name}({counter})"
-                        counter += 1
+                if (
+                    original_name in existing_group_names
+                    and not config.allow_duplicate_names
+                ):
+                    # Use naming utility to generate unique name only if duplicates are not allowed
+                    new_name = generate_unique_name(
+                        original_name, list(existing_group_names)
+                    )
                     group_name_mapping[original_name] = new_name
                     existing_group_names.add(new_name)
                 else:
+                    # Keep original name if duplicates are allowed or name doesn't exist
                     group_name_mapping[original_name] = original_name
 
         # Second pass: Create groups maintaining original order
@@ -614,9 +621,21 @@ class Graph:
         Returns:
             NodeGroup: The newly created group object
         """
-        # Get group name (duplicate check and sequential numbering already done in _load_graph_data)
-        group_name = group_data.get("name", f"ImportedGroup{self.next_group_number}")
+        # Get group name and ensure it's unique
+        default_name = f"ImportedGroup{self.next_group_number}"
         self.next_group_number += 1
+
+        group_name = group_data.get("name", default_name)
+        existing_names = [g.name for g in self.node_groups]
+
+        # Use naming utility to generate a unique name if duplicates are not allowed
+        # and this is not handled by the caller
+        if (
+            not no_append
+            and group_name in existing_names
+            and not config.allow_duplicate_names
+        ):
+            group_name = generate_unique_name(group_name, existing_names)
 
         node_ids = group_data.get("node_ids", [])
         label_position = group_data.get("label_position", NodeGroup.POSITION_TOP)
@@ -758,21 +777,26 @@ class Graph:
 
     def rename_group(self, group: NodeGroup, new_name: str) -> None:
         """
-        Rename a node group.
+        Rename a node group. If duplicate names are allowed (controlled by global config),
+        the new name will be used as-is without generating a unique variant.
 
         Args:
             group (NodeGroup): The group to rename
             new_name (str): The new name for the group
         """
         if group in self.node_groups:
-            # Check for existing group names and append incrementing number if necessary
-            existing_names = {g.name for g in self.node_groups}
-            original_name = new_name
-            counter = 1
-            while new_name in existing_names:
-                new_name = f"{original_name} ({counter})"
-                counter += 1
-            group.name = new_name
+            # Get existing names excluding the current group's name
+            existing_names = [g.name for g in self.node_groups if g != group]
+
+            # Use naming utility to handle renaming with proper name conflict resolution
+            # Pass the duplicate names allowance flag from global config
+            final_name = rename_node(
+                group.name,
+                new_name,
+                existing_names,
+                allow_duplicates=config.allow_duplicate_names,
+            )
+            group.name = final_name
 
     def find_node_at_position(self, point: QPointF) -> Optional[RectNode]:
         """
