@@ -33,18 +33,14 @@ cd rect_graph_connector
 ```
 
 2. Install uv:
-Follow the instructions on the [uv official installation guide](https://uv-installation-guide-link).
+Follow the instructions on the [uv official installation guide](https://docs.astral.sh/uv/getting-started/installation/).
 
-3. Install dependencies:
-```bash
-uv install
-```
 
 ## Usage
 
 Run the application:
 ```bash
-python main.py
+uv run main.py
 ```
 
 ### Basic Operations
