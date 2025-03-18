@@ -165,6 +165,22 @@ class Graph:
         self.group_map[new_group.id] = new_group
         return new_group
 
+    def has_edge(self, source_node: RectNode, target_node: RectNode) -> bool:
+        """
+        Check if there is an edge between two nodes.
+
+        Args:
+            source_node (RectNode): Source node of the edge
+            target_node (RectNode): Target node of the edge
+
+        Returns:
+            bool: True if an edge exists between the nodes, False otherwise
+        """
+        return (source_node.id, target_node.id) in self.edges or (
+            target_node.id,
+            source_node.id,
+        ) in self.edges
+
     def add_edge(self, source_node: RectNode, target_node: RectNode) -> None:
         """
         Add an edge between two nodes.
