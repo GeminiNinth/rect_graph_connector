@@ -434,29 +434,85 @@ class Graph:
             data (Dict): Graph data including "nodes", "edges", and optional "groups"
             prepend (bool): If True, new groups come before existing ones. If False, they come after.
         """
-        # Get existing node IDs
+        # First, organize nodes by their groups to maintain group order
+        incoming_groups = data.get("groups", [])
+        nodes_by_group = {}
+        ungrouped_nodes = []
+
+        # Create a mapping of node IDs to their group
+        node_to_group = {}
+        for group in incoming_groups:
+            for node_id in group.get("node_ids", []):
+                node_to_group[node_id] = group.get("name", "")
+
+        # Organize nodes by their groups
+        for nd in data.get("nodes", []):
+            group_name = node_to_group.get(nd["id"])
+            if group_name:
+                if group_name not in nodes_by_group:
+                    nodes_by_group[group_name] = []
+                nodes_by_group[group_name].append(nd)
+            else:
+                ungrouped_nodes.append(nd)
+
+        # Get existing node IDs and count
         existing_node_ids = {n.id for n in self.nodes}
-        highest_node_id = max(existing_node_ids) if existing_node_ids else -1
-        id_offset = highest_node_id + 1  # ID offset for new nodes
+        incoming_node_count = len(data.get("nodes", []))
 
         # Create mapping from original IDs to new IDs
         original_to_new_node_id = {}
 
-        # Process node data - assign new IDs to all nodes
+        if prepend:
+            # For insert_before, new nodes get IDs starting from 0
+            # and existing nodes are shifted up
+            id_shift = incoming_node_count
+
+            # First, shift existing node IDs up
+            for node in self.nodes:
+                node.id += id_shift
+
+            # Update edges for existing nodes
+            self.edges = [(src + id_shift, dst + id_shift) for src, dst in self.edges]
+
+            # Update node_ids in existing groups
+            for group in self.node_groups:
+                group.node_ids = [nid + id_shift for nid in group.node_ids]
+
+        # Process nodes group by group to maintain order
         incoming_nodes = []
-        for nd in data.get("nodes", []):
-            # Check basic data
+        id_offset = (
+            0 if prepend else (max(existing_node_ids) + 1 if existing_node_ids else 0)
+        )
+
+        # Process grouped nodes first, maintaining group order
+        for group in incoming_groups:
+            group_name = group.get("name", "")
+            group_nodes = nodes_by_group.get(group_name, [])
+
+            for nd in group_nodes:
+                if "row" not in nd:
+                    nd["row"] = 0
+                if "col" not in nd:
+                    nd["col"] = 0
+
+                original_id = nd["id"]
+                new_id = id_offset
+                nd["id"] = new_id
+                original_to_new_node_id[original_id] = new_id
+                id_offset += 1
+
+                incoming_nodes.append(RectNode(**nd))
+
+        # Process ungrouped nodes last
+        for nd in ungrouped_nodes:
             if "row" not in nd:
                 nd["row"] = 0
             if "col" not in nd:
                 nd["col"] = 0
 
-            # Assign new IDs to all new nodes (to avoid conflicts)
             original_id = nd["id"]
             new_id = id_offset
             nd["id"] = new_id
-
-            # Save ID mapping
             original_to_new_node_id[original_id] = new_id
             id_offset += 1
 
@@ -472,23 +528,45 @@ class Graph:
             if new_src is not None and new_dst is not None:
                 incoming_edges.append((new_src, new_dst))
 
-        # Process group data
+        # First pass: Analyze groups and create rename mapping
         incoming_groups = data.get("groups", [])
-        new_node_groups = []
-
-        # Get existing group names
         existing_group_names = {g.name for g in self.node_groups}
+        group_name_mapping = {}  # Original name -> Final name
+        group_order = []  # Maintain original order of groups
 
+        # Create a mapping of base names to their groups for proper ordering
+        base_name_groups = {}
         for grp in incoming_groups:
-            # Adjust group name
             original_name = grp.get("name", "")
-            if original_name in existing_group_names:
-                counter = 1
-                while f"{original_name}({counter})" in existing_group_names:
-                    counter += 1
-                new_name = f"{original_name}({counter})"
-                grp["name"] = new_name
-                existing_group_names.add(new_name)
+            base_name = original_name.split("(")[0]
+            if base_name not in base_name_groups:
+                base_name_groups[base_name] = []
+            base_name_groups[base_name].append(grp)
+            group_order.append(original_name)
+
+        # Assign new names while preserving order relationships
+        for base_name, groups in base_name_groups.items():
+            # Sort groups by their original order in the file
+            groups.sort(key=lambda g: group_order.index(g.get("name", "")))
+
+            for grp in groups:
+                original_name = grp.get("name", "")
+                if original_name in existing_group_names:
+                    counter = 1
+                    new_name = original_name
+                    while new_name in existing_group_names:
+                        new_name = f"{base_name}({counter})"
+                        counter += 1
+                    group_name_mapping[original_name] = new_name
+                    existing_group_names.add(new_name)
+                else:
+                    group_name_mapping[original_name] = original_name
+
+        # Second pass: Create groups maintaining original order
+        new_node_groups = []
+        for original_name in group_order:
+            grp = next(g for g in incoming_groups if g.get("name", "") == original_name)
+            grp["name"] = group_name_mapping[original_name]
 
             # Update node IDs (apply new mapping)
             if "node_ids" in grp:
@@ -506,10 +584,10 @@ class Graph:
 
         # Set position of new groups
         if prepend:
-            # new groups first
+            # new groups first, maintaining their original order
             self.node_groups = new_node_groups + self.node_groups
         else:
-            # new groups last
+            # new groups last, maintaining their original order
             self.node_groups = self.node_groups + new_node_groups
 
         # Add nodes and edges
