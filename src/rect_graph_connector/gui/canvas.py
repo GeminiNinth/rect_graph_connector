@@ -2,10 +2,9 @@
 This module contains the Canvas widget for graph visualization.
 """
 
-from PyQt5.QtWidgets import QWidget
-from PyQt5.QtGui import QPainter, QColor, QPen
-from PyQt5.QtCore import Qt, QRectF, QPointF, QMimeData
-from PyQt5.QtWidgets import QInputDialog
+from PyQt5.QtWidgets import QWidget, QMenu, QAction, QInputDialog
+from PyQt5.QtGui import QPainter, QColor, QPen, QCursor
+from PyQt5.QtCore import Qt, QRectF, QPointF, QMimeData, pyqtSignal
 
 from ..models.graph import Graph
 from ..models.rect_node import RectNode
@@ -19,7 +18,19 @@ class Canvas(QWidget):
 
     This widget handles the rendering of nodes and edges, as well as
     user interactions such as dragging nodes and creating edges.
+    It supports multiple interaction modes for different editing operations.
     """
+
+    # Define mode constants
+    NORMAL_MODE = "normal"
+    EDIT_MODE = "edit"
+
+    # Define edit sub-modes
+    EDIT_SUBMODE_CONNECT = "connect"  # Default edit submode for edge connection
+    EDIT_SUBMODE_ERASER = "eraser"  # Eraser submode for edge deletion
+
+    # Signal to notify mode changes
+    mode_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
         """
@@ -37,6 +48,15 @@ class Canvas(QWidget):
         self.current_edge_start = None
         self.temp_edge_end = None
 
+        # Mode management
+        self.current_mode = self.NORMAL_MODE
+        self.edit_target_group = None  # Target group in edit mode
+        self.edit_submode = self.EDIT_SUBMODE_CONNECT  # Default edit submode
+
+        # Context menu
+        self.context_menu = None
+        self._create_context_menu()
+
         # Enable mouse tracking for hover effects
         self.setMouseTracking(True)
 
@@ -45,6 +65,147 @@ class Canvas(QWidget):
 
         # Set minimum size for better usability
         self.setMinimumHeight(500)
+
+        # Enable keyboard focus
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def set_mode(self, mode):
+        """
+        Set the current interaction mode.
+
+        Args:
+            mode (str): The mode to set (NORMAL_MODE or EDIT_MODE)
+        """
+        if mode not in [self.NORMAL_MODE, self.EDIT_MODE]:
+            return
+
+        old_mode = self.current_mode
+        self.current_mode = mode
+
+        # カーソルをモードに合わせて変更
+        if mode == self.EDIT_MODE:
+            self.setCursor(Qt.CrossCursor)
+        else:
+            self.setCursor(Qt.ArrowCursor)
+
+        # モード変更通知
+        if old_mode != mode:
+            self.mode_changed.emit(mode)
+
+        # 再描画
+        self.update()
+
+    def _create_context_menu(self):
+        """
+        Create the context menu for the edit mode.
+        """
+        self.context_menu = QMenu(self)
+
+        # Connect all nodes in 4 directions action
+        self.connect_4_directions_action = QAction(
+            "Connect all nodes in 4 directions", self
+        )
+        self.connect_4_directions_action.triggered.connect(
+            self._connect_nodes_in_4_directions
+        )
+        self.context_menu.addAction(self.connect_4_directions_action)
+
+        self.context_menu.addSeparator()
+
+        # Toggle eraser mode action
+        self.toggle_eraser_action = QAction("Eraser Mode (Delete Edges)", self)
+        self.toggle_eraser_action.setCheckable(True)
+        self.toggle_eraser_action.triggered.connect(self._toggle_eraser_mode)
+        self.context_menu.addAction(self.toggle_eraser_action)
+
+    def toggle_edit_mode(self, target_group=None):
+        """
+        Toggle between normal and edit modes.
+
+        Args:
+            target_group (NodeGroup, optional): The group to be edited in edit mode
+        """
+        if self.current_mode == self.NORMAL_MODE:
+            self.edit_target_group = target_group
+            self.edit_submode = (
+                self.EDIT_SUBMODE_CONNECT
+            )  # Reset to default connect submode
+            self.set_mode(self.EDIT_MODE)
+        else:
+            self.edit_target_group = None
+            self.set_mode(self.NORMAL_MODE)
+
+    def set_edit_submode(self, submode):
+        """
+        Set the edit submode and update the cursor.
+
+        Args:
+            submode (str): The submode to set (EDIT_SUBMODE_CONNECT or EDIT_SUBMODE_ERASER)
+        """
+        self.edit_submode = submode
+
+        # Update cursor based on submode
+        if submode == self.EDIT_SUBMODE_ERASER:
+            # Eraser cursor
+            self.setCursor(Qt.ForbiddenCursor)
+        else:
+            # Default edit mode cursor
+            self.setCursor(Qt.CrossCursor)
+
+        # Emit mode changed signal to update the UI
+        self.mode_changed.emit(self.current_mode)
+
+    def _toggle_eraser_mode(self, checked):
+        """
+        Toggle between eraser mode and normal edit mode.
+
+        Args:
+            checked (bool): Whether the eraser mode is enabled
+        """
+        if checked:
+            self.set_edit_submode(self.EDIT_SUBMODE_ERASER)
+        else:
+            self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+
+    def _connect_nodes_in_4_directions(self):
+        """
+        Connect all nodes in the current edit target group in 4 directions.
+        Each node gets connected to its adjacent neighbors in 4 directions (up, down, left, right)
+        based on their row and column positions in the grid.
+        """
+        if not self.edit_target_group:
+            return
+
+        # Get all nodes in the target group
+        group_nodes = self.edit_target_group.get_nodes(self.graph.nodes)
+        if not group_nodes:
+            return
+
+        # Create a grid structure: store nodes with row and col as keys
+        grid = {}
+        for node in group_nodes:
+            grid[(node.row, node.col)] = node
+
+        # For each node, connects to adjacent nodes in four directions (up, down, left, right)
+        for node in group_nodes:
+            # Calculate the coordinates of adjacent cells in four directions
+            neighbors = [
+                (node.row - 1, node.col),  # up
+                (node.row + 1, node.col),  # down
+                (node.row, node.col - 1),  # right
+                (node.row, node.col + 1),  # left
+            ]
+
+            # Connecting with adjacent nodes
+            for neighbor_pos in neighbors:
+                if neighbor_pos in grid:
+                    neighbor_node = grid[neighbor_pos]
+                    # Added only if the connection does not already exist
+                    if not self.graph.has_edge(node, neighbor_node):
+                        self.graph.add_edge(node, neighbor_node)
+
+        # Update display
+        self.update()
 
     def paintEvent(self, event):
         """
@@ -56,7 +217,7 @@ class Canvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw canvas border
+        # Draw canvas border with mode-specific color
         self._draw_canvas_border(painter)
 
         # Draw edges
@@ -68,12 +229,29 @@ class Canvas(QWidget):
         # Draw nodes
         self._draw_nodes(painter)
 
+        # Mode display (for debugging)
+        # self._draw_mode_indicator(painter)
+
     def _draw_canvas_border(self, painter: QPainter):
-        """Draw the canvas border."""
-        pen = QPen(QColor("black"))
+        """Draw the canvas border with mode-specific color."""
+        # Set border color according to the mode
+        if self.current_mode == self.EDIT_MODE:
+            pen = QPen(QColor(255, 100, 100))  # Edit mode is reddish
+        else:
+            pen = QPen(QColor("black"))
+
         pen.setWidth(2)
         painter.setPen(pen)
         painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
+
+    def _draw_mode_indicator(self, painter: QPainter):
+        """Draw a mode indicator for debugging."""
+        text = f"Mode: {self.current_mode}"
+        if self.current_mode == self.EDIT_MODE and self.edit_target_group:
+            text += f" (Editing: {self.edit_target_group.name})"
+
+        painter.setPen(QColor("black"))
+        painter.drawText(10, 20, text)
 
     def _draw_edges(self, painter: QPainter):
         """Draw all edges in the graph."""
@@ -294,6 +472,20 @@ class Canvas(QWidget):
                 alignment,
             )  # Draw half of the fixed width (50px)
 
+    def keyPressEvent(self, event):
+        """
+        Handle keyboard events for mode switching.
+
+        Args:
+            event: Keyboard event
+        """
+        # Use the 'e' key to switch to edit mode (only if NodeGroup is selected)
+        if event.key() == Qt.Key_E and self.graph.selected_group:
+            self.toggle_edit_mode(self.graph.selected_group)
+        # Esc key to always return to normal mode
+        elif event.key() == Qt.Key_Escape and self.current_mode == self.EDIT_MODE:
+            self.toggle_edit_mode()
+
     def mousePressEvent(self, event):
         """
         Handle mouse press events for node selection and edge creation.
@@ -303,41 +495,75 @@ class Canvas(QWidget):
         """
         point = event.pos()
 
-        if event.button() == Qt.LeftButton:
-            node = self.graph.find_node_at_position(point)
-            if node:
-                self.dragging = True
-                self.drag_start = point
+        # Process based on operation mode
+        if self.current_mode == self.NORMAL_MODE:
+            # Normal mode - Node selection and movement
+            if event.button() == Qt.LeftButton:
+                node = self.graph.find_node_at_position(point)
+                if node:
+                    self.dragging = True
+                    self.drag_start = point
 
-                # Identify the current group
-                group = self.graph.get_group_for_node(node)
+                    # Identify the current group
+                    group = self.graph.get_group_for_node(node)
 
-                # If you select a different group than the previous one, clear the previous selection.
-                if self.graph.selected_group != group:
-                    self.graph.selected_nodes.clear()
+                    # If you select a different group than the previous one, clear the previous selection.
+                    if self.graph.selected_group != group:
+                        self.graph.selected_nodes.clear()
 
-                if group:
-                    # Select a group and only that node is selected
-                    self.graph.selected_group = group
-                    self.graph.selected_nodes = group.get_nodes(self.graph.nodes)
+                    if group:
+                        # Select a group and only that node is selected
+                        self.graph.selected_group = group
+                        self.graph.selected_nodes = group.get_nodes(self.graph.nodes)
+                    else:
+                        # If the node is not part of a group, select only that node
+                        self.graph.selected_group = None
+                        self.graph.selected_nodes = [node]
+
+                    self.update()
                 else:
-                    # If the node is not part of a group, select only that node
+                    # Deselect if clicking on empty space
+                    self.graph.selected_nodes.clear()
                     self.graph.selected_group = None
-                    self.graph.selected_nodes = [node]
+                    self.update()
 
-                self.update()
-            else:
-                # Deselect if clicking on empty space
-                self.graph.selected_nodes.clear()
-                self.graph.selected_group = None
-                self.update()
+            elif event.button() == Qt.RightButton:
+                # Right-click in normal mode - No edge creation (removed functionality)
+                # Edge editing is now exclusive to edit mode
+                pass
 
-        elif event.button() == Qt.RightButton:
-            # Edge creation mode
-            node = self.graph.find_node_at_position(point)
-            if node:
-                self.current_edge_start = node
-                self.temp_edge_end = point
+        elif self.current_mode == self.EDIT_MODE:
+            # Edit mode
+            if event.button() == Qt.LeftButton:
+                if self.edit_submode == self.EDIT_SUBMODE_CONNECT:
+                    # Edge connection mode - start connecting edges
+                    node = self.graph.find_node_at_position(point)
+                    if node:
+                        # Check if node belongs to target group
+                        if (
+                            self.edit_target_group
+                            and node
+                            in self.edit_target_group.get_nodes(self.graph.nodes)
+                        ):
+                            # Use for edge creation in edit mode
+                            self.current_edge_start = node
+                            self.temp_edge_end = point
+                            # Change cursor during edit mode
+                            self.setCursor(Qt.CrossCursor)
+
+                elif self.edit_submode == self.EDIT_SUBMODE_ERASER:
+                    # Eraser mode - delete edge at click point
+                    self._delete_edge_at_position(point)
+
+            elif event.button() == Qt.RightButton:
+                # Right-click in edit mode - show context menu
+                if self.edit_target_group:
+                    # Update toggle eraser action state
+                    self.toggle_eraser_action.setChecked(
+                        self.edit_submode == self.EDIT_SUBMODE_ERASER
+                    )
+                    # Show context menu
+                    self.context_menu.popup(self.mapToGlobal(point))
 
     def mouseMoveEvent(self, event):
         """
@@ -348,17 +574,24 @@ class Canvas(QWidget):
         """
         point = event.pos()
 
-        if self.dragging and self.drag_start:
-            dx = point.x() - self.drag_start.x()
-            dy = point.y() - self.drag_start.y()
+        if self.current_mode == self.NORMAL_MODE:
+            # Normal mode - You can drag nodes
+            if self.dragging and self.drag_start:
+                dx = point.x() - self.drag_start.x()
+                dy = point.y() - self.drag_start.y()
 
-            for node in self.graph.selected_nodes:
-                node.move(dx, dy)
+                for node in self.graph.selected_nodes:
+                    node.move(dx, dy)
 
-            self.drag_start = point
-            self.update()
+                self.drag_start = point
+                self.update()
+        elif self.current_mode == self.EDIT_MODE:
+            # Edit Mode - NodeGroups are fixed and cannot be moved
+            # ドラッグ操作を無視するだけで良い
+            pass
 
-        elif self.current_edge_start:
+        # Update edge previews in both modes
+        if self.current_edge_start:
             self.temp_edge_end = point
             self.update()
 
@@ -371,13 +604,48 @@ class Canvas(QWidget):
         """
         point = event.pos()
 
-        if event.button() == Qt.LeftButton:
-            self.dragging = False
-            self.drag_start = None
+        if self.current_mode == self.NORMAL_MODE:
+            # Normal mode - Only handle dragging
+            if event.button() == Qt.LeftButton:
+                self.dragging = False
+                self.drag_start = None
 
-        elif event.button() == Qt.RightButton and self.current_edge_start:
-            target_node = self.graph.find_node_at_position(point)
-            if target_node and target_node != self.current_edge_start:
+            # Edge creation in normal mode is disabled
+            elif event.button() == Qt.RightButton:
+                # Clear any accidentally started edge (shouldn't happen with updated code)
+                self.current_edge_start = None
+                self.temp_edge_end = None
+                self.update()
+
+        elif self.current_mode == self.EDIT_MODE:
+            # Edit mode - Support left-click edge creation
+            if event.button() == Qt.LeftButton and self.current_edge_start:
+                # In edit mode, create edge with left-click
+                self._complete_edge_creation(point)
+
+            elif event.button() == Qt.RightButton:
+                # Right-click will be used for context menu in the future
+                # Currently no action
+                pass
+
+    def _complete_edge_creation(self, point):
+        """
+        Complete the edge creation process by connecting to a target node.
+
+        Args:
+            point (QPointF): The point where the mouse was released
+        """
+        target_node = self.graph.find_node_at_position(point)
+        if target_node and target_node != self.current_edge_start:
+            # Edit mode specific processing
+            if self.current_mode == self.EDIT_MODE:
+                # Edit mode allows connections only if the target node does not belong to the edited group
+                # This allows nodes within the group to not connect, but only allow connections to nodes outside the group.
+                source_group = self.graph.get_group_for_node(self.current_edge_start)
+                target_group = self.graph.get_group_for_node(target_node)
+
+                # In edit mode, the node group is fixed so the selection group is not changed
+            elif self.current_mode == self.NORMAL_MODE:
                 # Before creating an edge, check if both nodes belong to the same group
                 source_group = self.graph.get_group_for_node(self.current_edge_start)
                 target_group = self.graph.get_group_for_node(target_node)
@@ -392,10 +660,11 @@ class Canvas(QWidget):
                     # If only the endpoint belongs to the group
                     self.graph.selected_group = target_group
 
-                # Add Edge
-                self.graph.add_edge(self.current_edge_start, target_node)
+            # Add Edge
+            self.graph.add_edge(self.current_edge_start, target_node)
 
-                # Update selection status
+            # Update selection status (only in normal mode)
+            if self.current_mode == self.NORMAL_MODE:
                 if self.graph.selected_group:
                     self.graph.selected_nodes = self.graph.selected_group.get_nodes(
                         self.graph.nodes
@@ -404,9 +673,14 @@ class Canvas(QWidget):
                     # If neither of them belongs to a group, select both nodes
                     self.graph.selected_nodes = [self.current_edge_start, target_node]
 
-            self.current_edge_start = None
-            self.temp_edge_end = None
-            self.update()
+        # After the edge creation is complete, the cursor is returned in edit mode.
+        if self.current_mode == self.EDIT_MODE:
+            self.setCursor(Qt.CrossCursor)
+
+        # Reset
+        self.current_edge_start = None
+        self.temp_edge_end = None
+        self.update()
 
     def dragEnterEvent(self, event):
         """
@@ -448,6 +722,82 @@ class Canvas(QWidget):
                     self._handle_file_drop(file_path)
                     event.acceptProposedAction()
                     break
+
+    def _delete_edge_at_position(self, point):
+        """
+        Delete an edge near the given point.
+
+        Args:
+            point (QPoint): The point to check for nearby edges
+        """
+        # Threshold distance for edge detection
+        threshold = 10.0
+
+        # Find the closest edge
+        closest_edge = None
+        min_distance = float("inf")
+
+        for source_id, target_id in self.graph.edges:
+            # Get source and target nodes
+            source_node = None
+            target_node = None
+
+            try:
+                source_node = next(n for n in self.graph.nodes if n.id == source_id)
+                target_node = next(n for n in self.graph.nodes if n.id == target_id)
+            except StopIteration:
+                continue
+
+            if source_node and target_node:
+                # Calculate distance from point to line segment (edge)
+                distance = self._point_to_line_distance(
+                    point.x(),
+                    point.y(),
+                    source_node.x,
+                    source_node.y,
+                    target_node.x,
+                    target_node.y,
+                )
+
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_edge = (source_id, target_id)
+
+        # Delete the edge if it's close enough
+        if closest_edge and min_distance <= threshold:
+            self.graph.edges.remove(closest_edge)
+            self.update()
+
+    def _point_to_line_distance(self, px, py, x1, y1, x2, y2):
+        """
+        Calculate the minimum distance from a point to a line segment.
+
+        Args:
+            px, py: Point coordinates
+            x1, y1: Line segment start coordinates
+            x2, y2: Line segment end coordinates
+
+        Returns:
+            float: The minimum distance from the point to the line segment
+        """
+        # Line length squared
+        line_length_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2
+
+        # If the line is actually a point
+        if line_length_sq == 0:
+            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+
+        # Calculate projection of point onto line
+        t = max(
+            0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_sq)
+        )
+
+        # Calculate closest point on line segment
+        closest_x = x1 + t * (x2 - x1)
+        closest_y = y1 + t * (y2 - y1)
+
+        # Return distance to closest point
+        return ((px - closest_x) ** 2 + (py - closest_y) ** 2) ** 0.5
 
     def _handle_file_drop(self, file_path):
         """

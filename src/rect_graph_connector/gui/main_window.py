@@ -15,9 +15,11 @@ from PyQt5.QtWidgets import (
     QSplitter,
     QInputDialog,
     QAbstractItemView,
+    QFrame,
 )
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QColor
 
 from .canvas import Canvas
 from ..utils.file_handler import FileHandler
@@ -80,6 +82,15 @@ class MainWindow(QMainWindow):
         self.move_down_button.setToolTip("Move group down")
         self.move_down_button.setFixedWidth(40)
 
+        # Mode display window
+        self.mode_indicator = QFrame()
+        self.mode_indicator.setFrameShape(QFrame.NoFrame)  # Remove frame shape
+        self.mode_indicator.setMinimumHeight(30)
+        self.mode_indicator.setMaximumHeight(30)
+
+        self.mode_label = QLabel("Mode: Normal")
+        self.mode_label.setAlignment(Qt.AlignCenter)
+
     def _setup_layout(self):
         # Set main widget as central widget
         self.setCentralWidget(self.main_widget)
@@ -103,7 +114,13 @@ class MainWindow(QMainWindow):
         splitter.setSizes([150, 650])
 
         # Add splitter to layout
-        layout.addWidget(splitter, stretch=90)
+        layout.addWidget(splitter, stretch=85)
+
+        # Mode Display Window Settings
+        mode_layout = QHBoxLayout()
+        mode_layout.addWidget(self.mode_label)
+        self.mode_indicator.setLayout(mode_layout)
+        layout.addWidget(self.mode_indicator, stretch=5)
 
         # Create and set up control panel
         control_panel = self._create_control_panel()
@@ -173,6 +190,9 @@ class MainWindow(QMainWindow):
         self.group_list.itemClicked.connect(self._handle_select_group)
         self.move_up_button.clicked.connect(self._handle_move_group_up)
         self.move_down_button.clicked.connect(self._handle_move_group_down)
+
+        # Connecting mode change signal
+        self.canvas.mode_changed.connect(self._update_mode_indicator)
 
     def _handle_add(self):
         """Handle the Add button click event."""
@@ -351,6 +371,32 @@ class MainWindow(QMainWindow):
                     # Select the moved group
                     self.group_list.setCurrentRow(index + 1)
                     self.canvas.update()
+
+    def _update_mode_indicator(self, mode):
+        """
+        Update the mode display window.
+
+        Args:
+            mode (str): Current mode ("normal" or "edit")
+        """
+        # Update mode display text
+        if mode == self.canvas.EDIT_MODE:
+            # Edit mode display
+            edit_target = ""
+            if self.canvas.edit_target_group:
+                edit_target = f" - {self.canvas.edit_target_group.name}"
+            self.mode_label.setText(f"Mode: Edit{edit_target}")
+            # Visual feedback - set reddish color (no border)
+            self.mode_indicator.setStyleSheet(
+                "background-color: rgba(255, 220, 220, 180);"
+            )
+        else:
+            # Normal mode display
+            self.mode_label.setText("Mode: Normal")
+            # Visual feedback - return to normal color (no border)
+            self.mode_indicator.setStyleSheet(
+                "background-color: rgba(240, 240, 240, 180);"
+            )
 
     def _update_group_list(self):
         """Update the group list to reflect the current state of node groups."""
