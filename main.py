@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QApplication
 from rect_graph_connector.gui.main_window import MainWindow
 
 
-def main():
+def main() -> int:
     """
     Initialize and run the application.
 

@@ -4,10 +4,13 @@ This module contains the Canvas widget for graph visualization.
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QColor, QPen
-from PyQt5.QtCore import Qt, QRectF, QPointF
+from PyQt5.QtCore import Qt, QRectF, QPointF, QMimeData
+from PyQt5.QtWidgets import QInputDialog
 
 from ..models.graph import Graph
 from ..models.rect_node import RectNode
+from ..utils.file_handler import FileHandler
+from .import_dialog import ImportModeDialog
 
 
 class Canvas(QWidget):
@@ -36,6 +39,9 @@ class Canvas(QWidget):
 
         # Enable mouse tracking for hover effects
         self.setMouseTracking(True)
+
+        # Enable drag and drop
+        self.setAcceptDrops(True)
 
         # Set minimum size for better usability
         self.setMinimumHeight(500)
@@ -72,14 +78,27 @@ class Canvas(QWidget):
     def _draw_edges(self, painter: QPainter):
         """Draw all edges in the graph."""
         for source_id, target_id in self.graph.edges:
-            source_node = next(n for n in self.graph.nodes if n.id == source_id)
-            target_node = next(n for n in self.graph.nodes if n.id == target_id)
-            painter.drawLine(
-                int(source_node.x),
-                int(source_node.y),
-                int(target_node.x),
-                int(target_node.y),
-            )
+            # Skip if no node with the specified ID is found
+            source_node = None
+            target_node = None
+
+            try:
+                source_node = next(n for n in self.graph.nodes if n.id == source_id)
+            except StopIteration:
+                continue
+
+            try:
+                target_node = next(n for n in self.graph.nodes if n.id == target_id)
+            except StopIteration:
+                continue
+
+            if source_node and target_node:
+                painter.drawLine(
+                    int(source_node.x),
+                    int(source_node.y),
+                    int(target_node.x),
+                    int(target_node.y),
+                )
 
     def _draw_temp_edge(self, painter: QPainter):
         """Draw temporary edge during edge creation."""
@@ -93,35 +112,121 @@ class Canvas(QWidget):
 
     def _draw_nodes(self, painter: QPainter):
         """Draw all nodes in the graph."""
-        # Draw group labels first
-        for i, group in enumerate(self.graph.node_groups):
-            if group.nodes:
-                # Find the position for the label based on the group's label_position
-                label_x, label_y, alignment = self._get_label_position(group)
+        # Identify the selected group
+        selected_group_id = None
+        if self.graph.selected_group:
+            selected_group_id = self.graph.selected_group.id
 
-                # Draw group name
-                painter.setPen(QColor("black"))
-                painter.drawText(
-                    label_x,
-                    label_y,
-                    100,
-                    20,
-                    alignment,
-                    group.name,
+        # Draw group frames and labels
+        for group in self.graph.node_groups:
+            group_nodes = group.get_nodes(self.graph.nodes)
+            if not group_nodes:
+                continue
+
+            # Calculate group boundaries
+            min_x = min(node.x - node.size / 2 for node in group_nodes) - 5
+            min_y = min(node.y - node.size / 2 for node in group_nodes) - 5
+            max_x = max(node.x + node.size / 2 for node in group_nodes) + 5
+            max_y = max(node.y + node.size / 2 for node in group_nodes) + 5
+            group_width = max_x - min_x
+            group_height = max_y - min_y
+
+            # Selected groups are displayed in special display
+            is_selected = group.id == selected_group_id
+
+            # Draw group background (semi-transparent)
+            bg_color = (
+                QColor(230, 230, 255, 40) if is_selected else QColor(245, 245, 245, 20)
+            )
+            # The position must be specified as an integer
+            min_x_int = int(min_x)
+            min_y_int = int(min_y)
+            group_width_int = int(group_width)
+            group_height_int = int(group_height)
+            painter.fillRect(
+                min_x_int, min_y_int, group_width_int, group_height_int, bg_color
+            )
+
+            # Draw a group frame
+            pen_color = QColor(100, 100, 255) if is_selected else QColor(200, 200, 200)
+            pen = QPen(pen_color)
+            pen.setWidth(2 if is_selected else 1)
+            pen.setStyle(Qt.DashLine if not is_selected else Qt.SolidLine)
+            painter.setPen(pen)
+            painter.drawRect(min_x_int, min_y_int, group_width_int, group_height_int)
+
+            # Calculate the width of the group name (gives some room)
+            font_metrics = painter.fontMetrics()
+            text_width = font_metrics.width(group.name) + 10  # 10px margin
+            half_width = text_width // 2
+
+            # Get label position (pass text width)
+            label_x, label_y, alignment = self._get_label_position(
+                group, group_nodes, text_width, half_width
+            )
+
+            # Get group width
+            group_width_int = int(group_width)
+
+            # Set the display width
+            # Fixed width (100px) when not selected
+            # When selected, the width is based on the number of characters (minimum width is 100px)
+            fixed_width = 100  # Fixed web
+
+            if is_selected:
+                # When selected, the width is based on the number of characters (minimum width is fixed width)
+                display_width = max(text_width, fixed_width)
+            else:
+                # Fixed width when not selected
+                display_width = fixed_width
+
+            # Determine the text to be displayed (whole displays when selected, omits if necessary)
+            display_text = group.name
+            if not is_selected and text_width > fixed_width:
+                display_text = font_metrics.elidedText(
+                    group.name, Qt.ElideRight, fixed_width
                 )
 
-        # Draw nodes
+            # Draw label background (semi-transparent)
+            label_bg = (
+                QColor(240, 240, 255, 200)
+                if is_selected
+                else QColor(240, 240, 240, 180)
+            )
+            # label_x and label_y have already been converted to int using the _get_label_position method, but just to be safe
+            label_x_int = int(label_x)
+            label_y_int = int(label_y)
+            painter.fillRect(label_x_int, label_y_int, display_width, 20, label_bg)
+
+            # Draw label frame
+            painter.setPen(pen_color)
+            painter.drawRect(label_x_int, label_y_int, display_width, 20)
+
+            # Draw group name
+            painter.setPen(QColor("black"))
+            painter.drawText(
+                label_x_int,
+                label_y_int,
+                display_width,
+                20,
+                Qt.AlignCenter,
+                display_text,
+            )
+
+        # Draw a node
         for node in self.graph.nodes:
             rect = QRectF(
                 node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
             )
 
-            # Fill rectangle
-            painter.fillRect(rect, QColor("skyblue"))
+            # Selected nodes are displayed in different colors
+            is_selected = node in self.graph.selected_nodes
+            node_color = QColor(173, 216, 230) if is_selected else QColor("skyblue")
+            painter.fillRect(rect, node_color)
 
-            # Draw border
-            if node in self.graph.selected_nodes:
-                pen = QPen(QColor("black"))
+            # Draw a frame
+            if is_selected:
+                pen = QPen(QColor("blue"))
                 pen.setWidth(2)
             else:
                 pen = QPen(QColor("gray"))
@@ -129,45 +234,65 @@ class Canvas(QWidget):
             painter.setPen(pen)
             painter.drawRect(rect)
 
-            # Draw node ID
+            # Draw Node ID
+            painter.setPen(QColor("black"))
             painter.drawText(rect, Qt.AlignCenter, str(node.id))
 
-    def _get_label_position(self, group):
+    def _get_label_position(self, group, nodes=None, text_width=0, half_width=0):
         """
         Calculate the position for the group label based on the group's label_position.
 
         Args:
             group: The node group
+            nodes: Optional list of nodes in the group. If not provided, will be retrieved from group.
+            text_width: Width of the text in pixels
+            half_width: Half of the text width in pixels
 
         Returns:
             Tuple[int, int, int]: x, y coordinates and alignment flag for the label
         """
+        # Get nodes if not provided
+        if nodes is None:
+            nodes = group.get_nodes(self.graph.nodes)
+
+        if not nodes:
+            return (
+                0,
+                0,
+                Qt.AlignCenter,
+            )  # Default position if no nodes, now center-aligned
+
         # Find min/max coordinates of the group
-        min_x = min(node.x - node.size / 2 for node in group.nodes)
-        min_y = min(node.y - node.size / 2 for node in group.nodes)
-        max_x = max(node.x + node.size / 2 for node in group.nodes)
-        max_y = max(node.y + node.size / 2 for node in group.nodes)
+        min_x = min(node.x - node.size / 2 for node in nodes)
+        min_y = min(node.y - node.size / 2 for node in nodes)
+        max_x = max(node.x + node.size / 2 for node in nodes)
+        max_y = max(node.y + node.size / 2 for node in nodes)
         center_x = (min_x + max_x) / 2
 
-        # Default alignment is left-aligned
-        alignment = Qt.AlignLeft
+        # Default alignment is center-aligned
+        alignment = Qt.AlignCenter
+
+        # Margin to avoid overlapping with dotted lines
+        margin = 30
 
         # Calculate position based on label_position
-        if group.label_position == group.POSITION_TOP_LEFT:
-            return int(min_x), int(min_y - 20), alignment
-        elif group.label_position == group.POSITION_TOP_CENTER:
-            return int(center_x - 50), int(min_y - 20), Qt.AlignCenter
-        elif group.label_position == group.POSITION_TOP_RIGHT:
-            return int(max_x - 100), int(min_y - 20), Qt.AlignRight
-        elif group.label_position == group.POSITION_BOTTOM_LEFT:
-            return int(min_x), int(max_y + 5), alignment
-        elif group.label_position == group.POSITION_BOTTOM_CENTER:
-            return int(center_x - 50), int(max_y + 5), Qt.AlignCenter
-        elif group.label_position == group.POSITION_BOTTOM_RIGHT:
-            return int(max_x - 100), int(max_y + 5), Qt.AlignRight
-        else:
-            # Default to top-left
-            return int(min_x), int(min_y - 20), alignment
+        if group.label_position == group.POSITION_RIGHT:
+            # Normally displayed on the right of NodeGroups
+            return int(max_x + margin), int((min_y + max_y) / 2 - 10), alignment
+        elif group.label_position == group.POSITION_BOTTOM:
+            # Place directly below the group (fixed position)
+            return (
+                int(center_x - 50),
+                int(max_y + margin),
+                alignment,
+            )  # Draw half of the fixed width (50px)
+        else:  # POSITION_TOP as default
+            # Displays in the same position when selected or not selected
+            return (
+                int(center_x - 50),
+                int(min_y - margin),
+                alignment,
+            )  # Draw half of the fixed width (50px)
 
     def mousePressEvent(self, event):
         """
@@ -183,18 +308,32 @@ class Canvas(QWidget):
             if node:
                 self.dragging = True
                 self.drag_start = point
+
+                # Identify the current group
                 group = self.graph.get_group_for_node(node)
+
+                # If you select a different group than the previous one, clear the previous selection.
+                if self.graph.selected_group != group:
+                    self.graph.selected_nodes.clear()
+
                 if group:
-                    self.graph.selected_nodes = group.nodes
+                    # Select a group and only that node is selected
                     self.graph.selected_group = group
+                    self.graph.selected_nodes = group.get_nodes(self.graph.nodes)
+                else:
+                    # If the node is not part of a group, select only that node
+                    self.graph.selected_group = None
+                    self.graph.selected_nodes = [node]
+
                 self.update()
             else:
                 # Deselect if clicking on empty space
-                self.graph.selected_nodes = []
+                self.graph.selected_nodes.clear()
                 self.graph.selected_group = None
                 self.update()
 
         elif event.button() == Qt.RightButton:
+            # Edge creation mode
             node = self.graph.find_node_at_position(point)
             if node:
                 self.current_edge_start = node
@@ -239,8 +378,100 @@ class Canvas(QWidget):
         elif event.button() == Qt.RightButton and self.current_edge_start:
             target_node = self.graph.find_node_at_position(point)
             if target_node and target_node != self.current_edge_start:
+                # Before creating an edge, check if both nodes belong to the same group
+                source_group = self.graph.get_group_for_node(self.current_edge_start)
+                target_group = self.graph.get_group_for_node(target_node)
+
+                # Select groups with priority
+                if source_group and target_group:
+                    self.graph.selected_group = source_group
+                elif source_group:
+                    # If only the starting point belongs to the group
+                    self.graph.selected_group = source_group
+                elif target_group:
+                    # If only the endpoint belongs to the group
+                    self.graph.selected_group = target_group
+
+                # Add Edge
                 self.graph.add_edge(self.current_edge_start, target_node)
+
+                # Update selection status
+                if self.graph.selected_group:
+                    self.graph.selected_nodes = self.graph.selected_group.get_nodes(
+                        self.graph.nodes
+                    )
+                else:
+                    # If neither of them belongs to a group, select both nodes
+                    self.graph.selected_nodes = [self.current_edge_start, target_node]
 
             self.current_edge_start = None
             self.temp_edge_end = None
             self.update()
+
+    def dragEnterEvent(self, event):
+        """
+        Handle drag enter events for file drag and drop.
+
+        Args:
+            event: Drag enter event
+        """
+        # Check if the drag contains URLs (files)
+        if event.mimeData().hasUrls():
+            # Only accept if there's at least one file with .yaml extension
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith(".yaml"):
+                    event.acceptProposedAction()
+                    return
+
+    def dragMoveEvent(self, event):
+        """
+        Handle drag move events for file drag and drop.
+
+        Args:
+            event: Drag move event
+        """
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """
+        Handle drop events for file drag and drop.
+
+        Args:
+            event: Drop event
+        """
+        if event.mimeData().hasUrls():
+            # Get the first YAML file from the dropped files
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if file_path.lower().endswith(".yaml"):
+                    self._handle_file_drop(file_path)
+                    event.acceptProposedAction()
+                    break
+
+    def _handle_file_drop(self, file_path):
+        """
+        Handle the dropped file by showing import mode dialog and importing the file.
+
+        Args:
+            file_path (str): Path to the dropped file
+        """
+        try:
+            # Import graph data from the selected file
+            imported_data = FileHandler.import_graph_from_yaml(file_path)
+
+            # Show custom import mode dialog
+            dialog = ImportModeDialog(self)
+            if dialog.exec_():
+                mode = dialog.get_selected_mode()
+                # Import graph data with the selected mode
+                self.graph.import_graph(imported_data, mode)
+                # Update the parent window's group list
+                if hasattr(self.parent(), "_update_group_list"):
+                    self.parent()._update_group_list()
+                elif hasattr(self.parent().parent(), "_update_group_list"):
+                    self.parent().parent()._update_group_list()
+                self.update()
+
+        except IOError as e:
+            print(f"Failed to import graph: {e}")

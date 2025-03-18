@@ -16,10 +16,12 @@ from PyQt5.QtWidgets import (
     QInputDialog,
     QAbstractItemView,
 )
+from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import Qt, QSize
 
 from .canvas import Canvas
 from ..utils.file_handler import FileHandler
+from .import_dialog import ImportModeDialog
 
 
 class MainWindow(QMainWindow):
@@ -59,7 +61,8 @@ class MainWindow(QMainWindow):
         self.col_input.setFixedWidth(50)
 
         self.add_button = QPushButton("Add")
-        self.export_button = QPushButton("Export CSV")
+        self.import_button = QPushButton("Import")
+        self.export_button = QPushButton("Export YAML")
         self.reset_button = QPushButton("Reset All")
         self.delete_button = QPushButton("Delete Group")
         self.rotate_button = QPushButton("Rotate Group")
@@ -145,6 +148,7 @@ class MainWindow(QMainWindow):
 
         # Add buttons
         layout.addWidget(self.add_button)
+        layout.addWidget(self.import_button)
         layout.addWidget(self.export_button)
         layout.addWidget(self.reset_button)
         layout.addWidget(self.delete_button)
@@ -158,6 +162,7 @@ class MainWindow(QMainWindow):
     def _connect_signals(self):
         """Connect all signal handlers."""
         self.add_button.clicked.connect(self._handle_add)
+        self.import_button.clicked.connect(self._handle_import)
         self.export_button.clicked.connect(self._handle_export)
         self.reset_button.clicked.connect(self._handle_reset)
         self.delete_button.clicked.connect(self._handle_delete)
@@ -174,7 +179,7 @@ class MainWindow(QMainWindow):
         try:
             rows = int(self.row_input.text())
             cols = int(self.col_input.text())
-            group = self.canvas.graph.add_node_group(rows, cols)
+            _ = self.canvas.graph.add_node_group(rows, cols)
             self._update_group_list()
             # Select the newly added group
             self.group_list.setCurrentRow(len(self.canvas.graph.node_groups) - 1)
@@ -183,11 +188,89 @@ class MainWindow(QMainWindow):
             print("Please enter valid numbers for rows and columns")
 
     def _handle_export(self):
-        """Handle the Export CSV button click event."""
+        """Handle the Export YAML button click event."""
         try:
-            FileHandler.export_graph_to_csv(self.canvas.graph.edges)
+            # Prepare node information (including row and col information)
+            nodes = [
+                {
+                    "id": node.id,
+                    "x": node.x,
+                    "y": node.y,
+                    "row": node.row,
+                    "col": node.col,
+                }
+                for node in self.canvas.graph.nodes
+            ]
+
+            # Prepare group information
+            groups = []
+            for group in self.canvas.graph.node_groups:
+                # Get nodes for each group
+                group_nodes = group.get_nodes(self.canvas.graph.nodes)
+                group_data = {
+                    "id": group.id,  # Store unique group ID
+                    "name": group.name,
+                    "node_ids": [node.id for node in group_nodes],
+                    "label_position": group.label_position,
+                }
+                groups.append(group_data)
+
+            # Export graph data to a YAML file
+            FileHandler.export_graph_to_yaml(nodes, self.canvas.graph.edges, groups)
         except IOError as e:
             print(f"Failed to export graph: {e}")
+
+    def _handle_import(self):
+        """Handle the Import button click event."""
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "グラフのインポート",
+            "",
+            "YAML Files (*.yaml);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            try:
+                # Import graph data from the selected file
+                imported_data = FileHandler.import_graph_from_yaml(file_path)
+
+                # Replace existing IDs with UUIDs to ensure data uniqueness
+                self._ensure_unique_identifiers(imported_data)
+
+                # If the drawing window is empty (if there are no nodes), import directly without displaying the confirmation window
+                if not self.canvas.graph.nodes:
+                    # Use "force" mode for empty graphs (full replacement)
+                    self.canvas.graph.import_graph(imported_data, "force")
+                    self._update_group_list()
+                    self.canvas.update()
+                else:
+                    # If there are existing nodes in the graph, display the Import Mode confirmation window
+                    dialog = ImportModeDialog(self)
+                    if dialog.exec_():
+                        mode = dialog.get_selected_mode()
+                        # Import graph data with the selected mode
+                        self.canvas.graph.import_graph(imported_data, mode)
+                        self._update_group_list()
+                        self.canvas.update()
+            except IOError as e:
+                print(f"Failed to import graph: {e}")
+
+    def _ensure_unique_identifiers(self, data):
+        """
+        Replace the group ID with the UUID to ensure the uniqueness of the imported data.
+
+        Args:
+            data (Dict): graph data to be imported
+        """
+        import uuid
+
+        # Assign a UUID to a group
+        if "groups" in data:
+            for group in data["groups"]:
+                # If no ID exists, create a new one
+                if "id" not in group:
+                    group["id"] = str(uuid.uuid4())
 
     def _handle_reset(self):
         """Handle the Reset All button click event."""
@@ -197,7 +280,13 @@ class MainWindow(QMainWindow):
 
     def _handle_delete(self):
         """Handle the Delete Group button click event."""
-        if self.canvas.graph.selected_nodes:
+        # First check if there is a selected group
+        if self.canvas.graph.selected_group:
+            self.canvas.graph.delete_group(self.canvas.graph.selected_group)
+            self._update_group_list()
+            self.canvas.update()
+        # If no group is selected, get groups from selected nodes
+        elif self.canvas.graph.selected_nodes:
             group = self.canvas.graph.get_group_for_node(
                 self.canvas.graph.selected_nodes[0]
             )
@@ -210,6 +299,7 @@ class MainWindow(QMainWindow):
         """Handle the Rotate Group button click event."""
         if self.canvas.graph.selected_nodes:
             self.canvas.graph.rotate_group(self.canvas.graph.selected_nodes)
+            # If necessary after rotating nodes, update the group's node_ids if necessary (not needed in the current implementation)
             self.canvas.update()
 
     def _handle_rename_group(self, item):
@@ -223,7 +313,7 @@ class MainWindow(QMainWindow):
             if ok and new_name:
                 self.canvas.graph.rename_group(group, new_name)
                 item.setText(new_name)
-                # Update the group list and canvas to reflect the name change
+                # Since IDs are managed, group references do not change even if the name changes.
                 self._update_group_list()
                 self.canvas.update()
 
@@ -232,7 +322,7 @@ class MainWindow(QMainWindow):
         index = self.group_list.row(item)
         if 0 <= index < len(self.canvas.graph.node_groups):
             group = self.canvas.graph.node_groups[index]
-            self.canvas.graph.selected_nodes = group.nodes
+            self.canvas.graph.selected_nodes = group.get_nodes(self.canvas.graph.nodes)
             self.canvas.graph.selected_group = group
             self.canvas.update()
 
