@@ -18,7 +18,7 @@ from ..models.rect_node import RectNode
 from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
 from .import_dialog import ImportModeDialog
-from .canvas_renderer import CanvasRenderer
+from .rendering import CompositeRenderer
 from .context_menus.normal_menu import NormalContextMenu
 from .context_menus.edit_menu import EditContextMenu
 from ..models.connectivity import delete_edge_at_position, find_intersecting_edges
@@ -80,7 +80,7 @@ class Canvas(QWidget):
         self.logger = get_logger(__name__)
 
         # Initialize renderer
-        self.renderer = CanvasRenderer(self, self.graph)
+        self.renderer = CompositeRenderer(self, self.graph)
 
         # Initialize zoom parameters for zoom functionality
         self.zoom = config.get_constant("zoom.default", 1.0)
@@ -357,52 +357,15 @@ class Canvas(QWidget):
         # Use the renderer to draw the graph
         self.renderer.draw(
             painter,
-            self.current_mode,
-            temp_edge_data,
-            None,  # edit_target_group parameter is deprecated
-            self.edit_target_groups,
-            knife_data,
-            self.selected_edges,  # Pass selected edges for highlighting
-            all_for_one_data,  # Pass All-For-One connection selected nodes for highlighting
-            selection_rect_data,  # Pass selection rectangle data
-            parallel_data,  # Pass Parallel connection data
+            mode=self.current_mode,
+            temp_edge_data=temp_edge_data,
+            edit_target_groups=self.edit_target_groups,
+            knife_data=knife_data,
+            selected_edges=self.selected_edges,
+            all_for_one_selected_nodes=all_for_one_data,
+            selection_rect_data=selection_rect_data,
+            parallel_data=parallel_data,
         )
-
-    def _calculate_edge_endpoints(self, source_node, target_node):
-        """
-        Calculate the actual visual endpoints of an edge considering node sizes.
-
-        Args:
-            source_node (RectNode): The source node
-            target_node (RectNode): The target node
-
-        Returns:
-            tuple: (start_point, end_point) as QPointF objects representing the edge endpoints
-        """
-        # Get node centers
-        start_center = QPointF(source_node.x, source_node.y)
-        end_center = QPointF(target_node.x, target_node.y)
-
-        # Calculate direction vector
-        direction = end_center - start_center
-        if direction.manhattanLength() == 0:
-            return start_center, end_center
-
-        # Normalize direction vector
-        length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
-        normalized_dir = QPointF(direction.x() / length, direction.y() / length)
-
-        # Calculate actual endpoints considering node sizes
-        start_point = QPointF(
-            start_center.x() + normalized_dir.x() * source_node.size / 2,
-            start_center.y() + normalized_dir.y() * source_node.size / 2,
-        )
-        end_point = QPointF(
-            end_center.x() - normalized_dir.x() * target_node.size / 2,
-            end_center.y() - normalized_dir.y() * target_node.size / 2,
-        )
-
-        return start_point, end_point
 
     def find_edge_at_position(self, point, tolerance=5):
         """
@@ -426,8 +389,10 @@ class Canvas(QWidget):
                 target_node = next(n for n in self.graph.nodes if n.id == edge[1])
 
                 # Calculate actual edge endpoints considering node sizes
-                start_pos, end_pos = self._calculate_edge_endpoints(
-                    source_node, target_node
+                start_pos, end_pos = (
+                    self.renderer.edge_renderer.calculate_edge_endpoints(
+                        source_node, target_node
+                    )
                 )
 
                 # Calculate distance from point to line segment
@@ -1598,8 +1563,10 @@ class Canvas(QWidget):
                         ):
 
                             # Get edge endpoints
-                            start_point, end_point = self._calculate_edge_endpoints(
-                                source_node, target_node
+                            start_point, end_point = (
+                                self.renderer.edge_renderer.calculate_edge_endpoints(
+                                    source_node, target_node
+                                )
                             )
 
                             # Check if line intersects with selection rectangle
