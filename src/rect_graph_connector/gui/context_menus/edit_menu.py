@@ -28,21 +28,24 @@ class EditContextMenu(QMenu):
 
     def _create_actions(self):
         """Create the actions for the context menu."""
+        # Create Connection submenu
+        self.connection_menu = QMenu("Connection", self)
+
         # Connect all nodes in 4 directions action
-        self.connect_4_directions_action = QAction(
-            "Connect all nodes in 4 directions", self
-        )
+        self.connect_4_directions_action = QAction("4-neighborhood", self)
         self.connect_4_directions_action.triggered.connect(
             self._connect_nodes_in_4_directions
         )
 
         # Connect all nodes in 8 directions action
-        self.connect_8_directions_action = QAction(
-            "Connect all nodes in 8 directions", self
-        )
+        self.connect_8_directions_action = QAction("8-neighborhood", self)
         self.connect_8_directions_action.triggered.connect(
             self._connect_nodes_in_8_directions
         )
+
+        # Add connection actions to the submenu
+        self.connection_menu.addAction(self.connect_4_directions_action)
+        self.connection_menu.addAction(self.connect_8_directions_action)
 
         # Toggle eraser mode action
         self.toggle_eraser_action = QAction("Eraser Mode (Delete Edges)", self)
@@ -51,8 +54,7 @@ class EditContextMenu(QMenu):
 
     def _build_menu(self):
         """Build the menu structure by adding actions."""
-        self.addAction(self.connect_4_directions_action)
-        self.addAction(self.connect_8_directions_action)
+        self.addMenu(self.connection_menu)
         self.addSeparator()
         self.addAction(self.toggle_eraser_action)
 
