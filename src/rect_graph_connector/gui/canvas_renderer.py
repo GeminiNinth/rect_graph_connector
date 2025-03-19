@@ -66,6 +66,7 @@ class CanvasRenderer:
         edit_target_groups=None,
         knife_data=None,
         selected_edges=None,
+        shadow_selected_nodes=None,
     ):
         """
         Draw the complete graph on the canvas.
@@ -77,6 +78,8 @@ class CanvasRenderer:
             edit_target_group: Deprecated. Use edit_target_groups instead.
             edit_target_groups: List of groups being edited in edit mode
             knife_data (dict, optional): Data for knife tool rendering
+            selected_edges (list, optional): List of edges that are selected
+            shadow_selected_nodes (list, optional): List of nodes selected in shadow mode
         """
         # Draw canvas border without scaling
         self._draw_canvas_border(painter, mode)
@@ -158,7 +161,7 @@ class CanvasRenderer:
             self._draw_temp_edge(painter, temp_edge_data)
 
         # グループのノード、枠線、ラベルを描画（z-indexの順）
-        self._draw_nodes(painter)
+        self._draw_nodes(painter, shadow_selected_nodes)
 
         # Knifeツールのパスを描画（最前面）
         if knife_data and knife_data.get("path"):
@@ -358,6 +361,7 @@ class CanvasRenderer:
 
         Args:
             painter (QPainter): The painter to use for drawing
+            selected_edges (list, optional): List of edges that are selected
         """
         # Set up pen for normal edges
         edge_color = config.get_color("edge.normal", "#000000")
@@ -539,13 +543,14 @@ class CanvasRenderer:
                 min_x_int, min_y_int, group_width_int, group_height_int, bg_color
             )
 
-    def _draw_nodes(self, painter: QPainter):
+    def _draw_nodes(self, painter: QPainter, shadow_selected_nodes=None):
         """
         Draw nodes, group borders, and labels (but not backgrounds).
         Uses z-index ordering to maintain proper visual layering.
 
         Args:
             painter (QPainter): The painter to use for drawing
+            shadow_selected_nodes (list, optional): List of nodes selected in shadow mode
         """
         # Get selected group IDs
         selected_group_ids = [group.id for group in self.graph.selected_groups]
@@ -597,18 +602,39 @@ class CanvasRenderer:
                     node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
                 )
 
-                # 選択されたノードは異なる色で表示
+                # Determine node selection state
                 is_node_selected = node in self.graph.selected_nodes
-                node_fill_color = (
-                    config.get_color("node.fill.selected", "#ADD8E6")
-                    if is_node_selected
-                    else config.get_color("node.fill.normal", "skyblue")
+                is_shadow_selected = (
+                    shadow_selected_nodes and node in shadow_selected_nodes
                 )
+
+                # Fill color based on selection state
+                if is_shadow_selected:
+                    node_fill_color = config.get_color(
+                        "node.fill.shadow_selected", "#FFA500"
+                    )  # Orange for shadow selection
+                elif is_node_selected:
+                    node_fill_color = config.get_color(
+                        "node.fill.selected", "#ADD8E6"
+                    )  # Selected blue
+                else:
+                    node_fill_color = config.get_color(
+                        "node.fill.normal", "skyblue"
+                    )  # Normal blue
+
                 node_color = QColor(node_fill_color)
                 painter.fillRect(rect, node_color)
 
-                # 枠線を描画
-                if is_node_selected:
+                # Draw border based on selection state
+                if is_shadow_selected:
+                    border_color = config.get_color(
+                        "node.border.shadow_selected", "#FF6600"
+                    )  # Dark orange for shadow selection
+                    pen = QPen(QColor(border_color))
+                    pen.setWidth(
+                        config.get_dimension("node.border_width.shadow_selected", 3)
+                    )
+                elif is_node_selected:
                     border_color = config.get_color("node.border.selected", "blue")
                     pen = QPen(QColor(border_color))
                     pen.setWidth(config.get_dimension("node.border_width.selected", 2))
@@ -710,24 +736,43 @@ class CanvasRenderer:
                 display_text,
             )
 
-        # グループに属さないノードを描画（最前面）
+        # Draw standalone nodes (nodes not belonging to any group)
         for node in standalone_nodes:
             rect = QRectF(
                 node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
             )
 
-            # 選択されたノードは異なる色で表示
-            is_selected = node in self.graph.selected_nodes
-            node_fill_color = (
-                config.get_color("node.fill.selected", "#ADD8E6")
-                if is_selected
-                else config.get_color("node.fill.normal", "skyblue")
-            )
+            # Determine node selection state
+            is_node_selected = node in self.graph.selected_nodes
+            is_shadow_selected = shadow_selected_nodes and node in shadow_selected_nodes
+
+            # Fill color based on selection state
+            if is_shadow_selected:
+                node_fill_color = config.get_color(
+                    "node.fill.shadow_selected", "#FFA500"
+                )  # Orange for shadow selection
+            elif is_node_selected:
+                node_fill_color = config.get_color(
+                    "node.fill.selected", "#ADD8E6"
+                )  # Selected blue
+            else:
+                node_fill_color = config.get_color(
+                    "node.fill.normal", "skyblue"
+                )  # Normal blue
+
             node_color = QColor(node_fill_color)
             painter.fillRect(rect, node_color)
 
-            # 枠線を描画
-            if is_selected:
+            # Draw border based on selection state
+            if is_shadow_selected:
+                border_color = config.get_color(
+                    "node.border.shadow_selected", "#FF6600"
+                )  # Dark orange for shadow selection
+                pen = QPen(QColor(border_color))
+                pen.setWidth(
+                    config.get_dimension("node.border_width.shadow_selected", 3)
+                )
+            elif is_node_selected:
                 border_color = config.get_color("node.border.selected", "blue")
                 pen = QPen(QColor(border_color))
                 pen.setWidth(config.get_dimension("node.border_width.selected", 2))

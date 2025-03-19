@@ -31,9 +31,11 @@ light:
     fill:
       normal: "skyblue"
       selected: "#ADD8E6"
+      shadow_selected: "#FFA07A" # Light salmon color for shadow mode selected nodes
     border:
       normal: "gray"
       selected: "blue"
+      shadow_selected: "#FF4500" # OrangeRed for shadow mode selected node border
     text: "#000000" # Node ID display text color
 
   mode_indicator:
@@ -72,9 +74,11 @@ dark:
     fill:
       normal: "#3399CC"
       selected: "#66CCFF"
+      shadow_selected: "#FF6347" # Darker salmon for dark mode
     border:
       normal: "#999999"
       selected: "#AACCFF"
+      shadow_selected: "#FF6600" # Brighter orange for dark mode
     text: "#FFFFFF"
 
   mode_indicator:

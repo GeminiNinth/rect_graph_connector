@@ -51,9 +51,23 @@ class EditContextMenu(QMenu):
             self._connect_nodes_in_8_directions
         )
 
+        # Shadow edge connection action
+        shadow_edge_text = config.get_string(
+            "edit_menu.connection.shadow_edge", "Shadow edge connection"
+        )
+        self.shadow_edge_action = QAction(shadow_edge_text, self)
+        self.shadow_edge_action.setToolTip(
+            config.get_string(
+                "edit_menu.connection.shadow_edge_tooltip",
+                "Enables multiple node selection. When drawing from a selected node, identical edges extend from all selected nodes automatically.",
+            )
+        )
+        self.shadow_edge_action.triggered.connect(self._toggle_shadow_edge_mode)
+
         # Add connection actions to the submenu
         self.connection_menu.addAction(self.connect_4_directions_action)
         self.connection_menu.addAction(self.connect_8_directions_action)
+        self.connection_menu.addAction(self.shadow_edge_action)
 
         # Toggle knife mode action
         knife_text = config.get_string(
@@ -81,6 +95,19 @@ class EditContextMenu(QMenu):
                 self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_KNIFE)
             else:
                 self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
+
+    def _toggle_shadow_edge_mode(self):
+        """
+        Toggle shadow edge connection mode.
+
+        This mode allows selecting multiple nodes and drawing edges from all selected nodes at once.
+        """
+        if self.canvas:
+            # Check if already in shadow mode, if so go back to connect mode
+            if self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_SHADOW:
+                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
+            else:
+                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_SHADOW)
 
     def _connect_nodes_in_8_directions(self):
         """
@@ -132,4 +159,11 @@ class EditContextMenu(QMenu):
             # Update toggle knife action state
             self.toggle_knife_action.setChecked(
                 self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_KNIFE
+            )
+
+            # Update shadow edge action state (add checkable property first)
+            if not hasattr(self.shadow_edge_action, "setCheckable"):
+                self.shadow_edge_action.setCheckable(True)
+            self.shadow_edge_action.setChecked(
+                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_SHADOW
             )

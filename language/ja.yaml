@@ -1,5 +1,13 @@
 # Japanese language configuration
 
+edit_menu:
+  connection:
+    title: "接続"
+    four_directions: "4近傍"
+    eight_directions: "8近傍"
+    shadow_edge: "影エッジ接続"
+    shadow_edge_tooltip: "複数ノードの選択が可能になります。選択されたノードから描画すると、すべての選択されたノードから同一のエッジが自動的に伸びます。"
+
 import_dialog:
   window_title: "インポートモードの選択"
   description: "インポートするファイルの処理方法を選択してください。各モードの違いは以下の通りです："

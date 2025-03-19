@@ -300,6 +300,30 @@ def calculate_edge_endpoints(
     return ((start_x, start_y), (end_x, end_y))
 
 
+def connect_shadow_edge_selection(
+    graph: Graph, source_nodes: List[RectNode], target_node: RectNode
+) -> None:
+    """
+    Connect multiple source nodes to a single target node.
+
+    This function creates edges from all source nodes to the target node.
+    It's used by the Shadow edge connection mode to establish multiple connections simultaneously.
+
+    Args:
+        graph (Graph): The graph where connections will be added
+        source_nodes (List[RectNode]): List of source nodes to connect from
+        target_node (RectNode): The target node to connect to
+    """
+    if not source_nodes or not target_node:
+        return
+
+    # Create connections from each source node to the target node
+    for source_node in source_nodes:
+        # Skip self-connections
+        if source_node != target_node and not graph.has_edge(source_node, target_node):
+            graph.add_edge(source_node, target_node)
+
+
 def find_intersecting_edges(
     graph: Graph, path_points: List[Tuple[float, float]]
 ) -> List[Tuple[str, str]]:

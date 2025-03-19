@@ -38,6 +38,9 @@ class Canvas(QWidget):
     EDIT_SUBMODE_KNIFE = config.get_constant(
         "edit_submodes.knife", "knife"
     )  # Knife submode for edge deletion with path
+    EDIT_SUBMODE_SHADOW = config.get_constant(
+        "edit_submodes.shadow", "shadow"
+    )  # Shadow edge connection mode for multiple node selection
 
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
@@ -94,6 +97,9 @@ class Canvas(QWidget):
         self.knife_path = []  # List of points forming the knife path
         self.highlighted_edges = []  # List of edges intersecting with knife path
         self.is_cutting = False  # Flag to indicate active cutting operation
+
+        # Shadow edge mode state
+        self.shadow_selected_nodes = []  # Nodes selected in shadow edge mode
 
         # Mode management
         self.current_mode = self.NORMAL_MODE
@@ -204,20 +210,32 @@ class Canvas(QWidget):
         Set the edit submode and update the cursor.
 
         Args:
-            submode (str): The submode to set (EDIT_SUBMODE_CONNECT or EDIT_SUBMODE_KNIFE)
+            submode (str): The submode to set (EDIT_SUBMODE_CONNECT, EDIT_SUBMODE_KNIFE, or EDIT_SUBMODE_SHADOW)
         """
+        old_submode = self.edit_submode
         self.edit_submode = submode
 
         # Reset knife mode state
-        self.knife_path = []
-        self.highlighted_edges = []
-        self.is_cutting = False
+        if old_submode == self.EDIT_SUBMODE_KNIFE:
+            self.knife_path = []
+            self.highlighted_edges = []
+            self.is_cutting = False
+
+        # Reset shadow mode state when exiting shadow mode
+        if (
+            old_submode == self.EDIT_SUBMODE_SHADOW
+            and submode != self.EDIT_SUBMODE_SHADOW
+        ):
+            self.shadow_selected_nodes = []
 
         # Update cursor based on submode
         if submode == self.EDIT_SUBMODE_KNIFE:
             # Knife cursor (using CrossCursor as a temporary solution)
             # TODO: Create a custom knife cursor image
             self.setCursor(Qt.CrossCursor)
+        elif submode == self.EDIT_SUBMODE_SHADOW:
+            # Shadow mode cursor
+            self.setCursor(Qt.ArrowCursor)
         else:
             # Default edit mode cursor
             self.setCursor(Qt.CrossCursor)
@@ -251,6 +269,15 @@ class Canvas(QWidget):
                 "highlighted_edges": self.highlighted_edges,
             }
 
+        # Pass shadow selected nodes to renderer
+        shadow_data = None
+        if (
+            self.current_mode == self.EDIT_MODE
+            and self.edit_submode == self.EDIT_SUBMODE_SHADOW
+            and self.shadow_selected_nodes
+        ):
+            shadow_data = self.shadow_selected_nodes
+
         # Use the renderer to draw the graph
         self.renderer.draw(
             painter,
@@ -260,6 +287,7 @@ class Canvas(QWidget):
             self.edit_target_groups,
             knife_data,
             self.selected_edges,  # Pass selected edges for highlighting
+            shadow_data,  # Pass shadow selected nodes for highlighting
         )
 
     def _calculate_edge_endpoints(self, source_node, target_node):
@@ -417,6 +445,17 @@ class Canvas(QWidget):
             event: Keyboard event
         """
         if event.key() == Qt.Key_Escape:
+            # Handle shadow mode separately
+            if (
+                self.current_mode == self.EDIT_MODE
+                and self.edit_submode == self.EDIT_SUBMODE_SHADOW
+            ):
+                # Cancel shadow mode and go back to connect mode
+                self.shadow_selected_nodes = []
+                self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                self.update()
+                return
+
             # Only when deselection using the ESC key is enabled
             if self.enabled_deselect_methods.get(self.DESELECT_BY_ESCAPE, True):
                 # Clear all selections
@@ -425,6 +464,15 @@ class Canvas(QWidget):
                 self.selected_edges = []
                 if self.current_mode == self.EDIT_MODE:
                     self.toggle_edit_mode()
+                self.update()
+        elif event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+            # In shadow mode, confirm the connections and return to connect mode
+            if (
+                self.current_mode == self.EDIT_MODE
+                and self.edit_submode == self.EDIT_SUBMODE_SHADOW
+            ):
+                # Confirm connections by exiting shadow mode but keeping any changes
+                self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
                 self.update()
         elif event.key() == Qt.Key_E and self.graph.selected_groups:
             # When entering edit mode, use all selected groups
@@ -441,29 +489,48 @@ class Canvas(QWidget):
                         )
                     self.update()
             elif self.current_mode == self.EDIT_MODE:
-                # Ctrl+A in edit mode: Select all edges in target groups
-                self.selected_edges = []
-                for edge in self.graph.edges:
-                    try:
-                        # Get actual node objects
-                        source_node = next(
-                            n for n in self.graph.nodes if n.id == edge[0]
-                        )
-                        target_node = next(
-                            n for n in self.graph.nodes if n.id == edge[1]
-                        )
+                if self.edit_submode == self.EDIT_SUBMODE_SHADOW:
+                    # In shadow mode: toggle selection of all eligible nodes
+                    eligible_nodes = []
+                    for group in self.edit_target_groups:
+                        eligible_nodes.extend(group.get_nodes(self.graph.nodes))
 
-                        source_group = self.graph.get_group_for_node(source_node)
-                        target_group = self.graph.get_group_for_node(target_node)
+                    # Check if all eligible nodes are already selected
+                    # We need to compare node IDs instead of node objects since RectNode isn't hashable
+                    eligible_node_ids = {node.id for node in eligible_nodes}
+                    selected_node_ids = {node.id for node in self.shadow_selected_nodes}
 
-                        if (
-                            source_group in self.edit_target_groups
-                            and target_group in self.edit_target_groups
-                        ):
-                            self.selected_edges.append((source_node, target_node))
-                    except StopIteration:
-                        continue
-                self.update()
+                    if eligible_node_ids == selected_node_ids:
+                        # If all nodes are already selected, deselect all
+                        self.shadow_selected_nodes = []
+                    else:
+                        # Otherwise, select all eligible nodes
+                        self.shadow_selected_nodes = eligible_nodes.copy()
+                    self.update()
+                else:
+                    # Default behavior in other edit submodes: Select all edges
+                    self.selected_edges = []
+                    for edge in self.graph.edges:
+                        try:
+                            # Get actual node objects
+                            source_node = next(
+                                n for n in self.graph.nodes if n.id == edge[0]
+                            )
+                            target_node = next(
+                                n for n in self.graph.nodes if n.id == edge[1]
+                            )
+
+                            source_group = self.graph.get_group_for_node(source_node)
+                            target_group = self.graph.get_group_for_node(target_node)
+
+                            if (
+                                source_group in self.edit_target_groups
+                                and target_group in self.edit_target_groups
+                            ):
+                                self.selected_edges.append((source_node, target_node))
+                        except StopIteration:
+                            continue
+                    self.update()
         elif (
             event.key()
             == getattr(
@@ -672,6 +739,15 @@ class Canvas(QWidget):
                             # Change cursor during edit mode
                             self.setCursor(Qt.CrossCursor)
 
+                elif self.edit_submode == self.EDIT_SUBMODE_SHADOW:
+                    # In shadow mode, left click starts edge creation from a selected node
+                    node = self.graph.find_node_at_position(graph_point)
+                    if node and node in self.shadow_selected_nodes:
+                        # Start edge creation from this node
+                        self.current_edge_start = node
+                        self.temp_edge_end = graph_point
+                        self.update()
+
                 elif self.edit_submode == self.EDIT_SUBMODE_KNIFE:
                     # Knife mode - start cutting operation
                     self.is_cutting = True
@@ -680,7 +756,30 @@ class Canvas(QWidget):
                     self.update()
 
             elif event.button() == Qt.RightButton:
-                # Right-click in edit mode - show context menu
+                if self.edit_submode == self.EDIT_SUBMODE_SHADOW:
+                    # In shadow mode, right click toggles node selection
+                    node = self.graph.find_node_at_position(graph_point)
+                    if node:
+                        # Check if node belongs to any of the target groups
+                        node_belongs_to_target = False
+                        node_group = self.graph.get_group_for_node(node)
+
+                        if self.edit_target_groups and node_group:
+                            for group in self.edit_target_groups:
+                                if node in group.get_nodes(self.graph.nodes):
+                                    node_belongs_to_target = True
+                                    break
+
+                        if node_belongs_to_target:
+                            # Toggle node selection (first click selects, second click deselects)
+                            if node in self.shadow_selected_nodes:
+                                self.shadow_selected_nodes.remove(node)
+                            else:
+                                self.shadow_selected_nodes.append(node)
+                            self.update()
+                            return
+
+                # Right-click in edit mode - show context menu if not in shadow mode or if no node was clicked
                 if self.edit_target_groups:
                     # Prepare the menu before showing it
                     self.edit_context_menu.prepare_for_display()
@@ -797,10 +896,14 @@ class Canvas(QWidget):
                 self.update()
 
         elif self.current_mode == self.EDIT_MODE:
-            # Edit mode - Support left-click edge creation
+            # Edit mode - Handle edge creation differently based on submode
             if event.button() == Qt.LeftButton and self.current_edge_start:
-                # In edit mode, create edge with left-click
-                self._complete_edge_creation(graph_point)
+                if self.edit_submode == self.EDIT_SUBMODE_SHADOW:
+                    # In shadow mode, create edges from all selected nodes
+                    self._complete_shadow_edge_creation(graph_point)
+                else:
+                    # In normal edit mode, create single edge
+                    self._complete_edge_creation(graph_point)
 
             elif (
                 event.button() == Qt.LeftButton
@@ -911,6 +1014,34 @@ class Canvas(QWidget):
         # After the edge creation is complete, the cursor is returned in edit mode.
         if self.current_mode == self.EDIT_MODE:
             self.setCursor(Qt.CrossCursor)
+
+        # Reset
+        self.current_edge_start = None
+        self.temp_edge_end = None
+        self.update()
+
+    def _complete_shadow_edge_creation(self, point):
+        """
+        Complete the shadow edge creation process by connecting from all selected nodes to target node.
+
+        Args:
+            point (QPointF): The point where the mouse was released
+        """
+        target_node = self.graph.find_node_at_position(point)
+        if target_node and target_node not in self.shadow_selected_nodes:
+            # Check if target node belongs to any of the target groups
+            target_belongs = False
+
+            for group in self.edit_target_groups:
+                if target_node in group.get_nodes(self.graph.nodes):
+                    target_belongs = True
+                    break
+
+            if target_belongs:
+                # Create edges from all selected nodes to the target node
+                for source_node in self.shadow_selected_nodes:
+                    if source_node != target_node:  # Avoid self-loops
+                        self.graph.add_edge(source_node, target_node)
 
         # Reset
         self.current_edge_start = None
