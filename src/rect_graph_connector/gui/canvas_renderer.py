@@ -66,7 +66,8 @@ class CanvasRenderer:
         edit_target_groups=None,
         knife_data=None,
         selected_edges=None,
-        shadow_selected_nodes=None,
+        all_for_one_selected_nodes=None,
+        selection_rect_data=None,
     ):
         """
         Draw the complete graph on the canvas.
@@ -79,7 +80,7 @@ class CanvasRenderer:
             edit_target_groups: List of groups being edited in edit mode
             knife_data (dict, optional): Data for knife tool rendering
             selected_edges (list, optional): List of edges that are selected
-            shadow_selected_nodes (list, optional): List of nodes selected in shadow mode
+            all_for_one_selected_nodes (list, optional): List of nodes selected in All-For-One connection mode
         """
         # Draw canvas border without scaling
         self._draw_canvas_border(painter, mode)
@@ -161,11 +162,15 @@ class CanvasRenderer:
             self._draw_temp_edge(painter, temp_edge_data)
 
         # Draw group nodes, borders, and labels (in order of z-index)
-        self._draw_nodes(painter, shadow_selected_nodes)
+        self._draw_nodes(painter, all_for_one_selected_nodes)
 
         # Draw the path of the Knife tool (front)
         if knife_data and knife_data.get("path"):
             self._draw_knife_path(painter, knife_data["path"])
+
+        # Draw selection rectangle if active
+        if selection_rect_data:
+            self._draw_selection_rectangle(painter, selection_rect_data)
 
         # Restore painter state
         painter.restore()
@@ -541,14 +546,14 @@ class CanvasRenderer:
                 min_x_int, min_y_int, group_width_int, group_height_int, bg_color
             )
 
-    def _draw_nodes(self, painter: QPainter, shadow_selected_nodes=None):
+    def _draw_nodes(self, painter: QPainter, all_for_one_selected_nodes=None):
         """
         Draw nodes, group borders, and labels (but not backgrounds).
         Uses z-index ordering to maintain proper visual layering.
 
         Args:
             painter (QPainter): The painter to use for drawing
-            shadow_selected_nodes (list, optional): List of nodes selected in shadow mode
+            all_for_one_selected_nodes (list, optional): List of nodes selected in All-For-One connection mode
         """
         # Get selected group IDs
         selected_group_ids = [group.id for group in self.graph.selected_groups]
@@ -602,15 +607,15 @@ class CanvasRenderer:
 
                 # Determine node selection state
                 is_node_selected = node in self.graph.selected_nodes
-                is_shadow_selected = (
-                    shadow_selected_nodes and node in shadow_selected_nodes
+                is_all_for_one_selected = (
+                    all_for_one_selected_nodes and node in all_for_one_selected_nodes
                 )
 
                 # Fill color based on selection state
-                if is_shadow_selected:
+                if is_all_for_one_selected:
                     node_fill_color = config.get_color(
-                        "node.fill.shadow_selected", "#FFA500"
-                    )  # Orange for shadow selection
+                        "node.fill.all_for_one_selected", "#FFA500"
+                    )  # Orange for All-For-One connection selection
                 elif is_node_selected:
                     node_fill_color = config.get_color(
                         "node.fill.selected", "#ADD8E6"
@@ -624,13 +629,15 @@ class CanvasRenderer:
                 painter.fillRect(rect, node_color)
 
                 # Draw border based on selection state
-                if is_shadow_selected:
+                if is_all_for_one_selected:
                     border_color = config.get_color(
-                        "node.border.shadow_selected", "#FF6600"
-                    )  # Dark orange for shadow selection
+                        "node.border.all_for_one_selected", "#FF6600"
+                    )  # Dark orange for All-For-One connection selection
                     pen = QPen(QColor(border_color))
                     pen.setWidth(
-                        config.get_dimension("node.border_width.shadow_selected", 3)
+                        config.get_dimension(
+                            "node.border_width.all_for_one_selected", 3
+                        )
                     )
                 elif is_node_selected:
                     border_color = config.get_color("node.border.selected", "blue")
@@ -742,13 +749,15 @@ class CanvasRenderer:
 
             # Determine node selection state
             is_node_selected = node in self.graph.selected_nodes
-            is_shadow_selected = shadow_selected_nodes and node in shadow_selected_nodes
+            is_all_for_one_selected = (
+                all_for_one_selected_nodes and node in all_for_one_selected_nodes
+            )
 
             # Fill color based on selection state
-            if is_shadow_selected:
+            if is_all_for_one_selected:
                 node_fill_color = config.get_color(
-                    "node.fill.shadow_selected", "#FFA500"
-                )  # Orange for shadow selection
+                    "node.fill.all_for_one_selected", "#FFA500"
+                )  # Orange for All-For-One connection selection
             elif is_node_selected:
                 node_fill_color = config.get_color(
                     "node.fill.selected", "#ADD8E6"
@@ -762,13 +771,13 @@ class CanvasRenderer:
             painter.fillRect(rect, node_color)
 
             # Draw border based on selection state
-            if is_shadow_selected:
+            if is_all_for_one_selected:
                 border_color = config.get_color(
-                    "node.border.shadow_selected", "#FF6600"
-                )  # Dark orange for shadow selection
+                    "node.border.all_for_one_selected", "#FF6600"
+                )  # Dark orange for All-For-One connection selection
                 pen = QPen(QColor(border_color))
                 pen.setWidth(
-                    config.get_dimension("node.border_width.shadow_selected", 3)
+                    config.get_dimension("node.border_width.all_for_one_selected", 3)
                 )
             elif is_node_selected:
                 border_color = config.get_color("node.border.selected", "blue")
@@ -845,3 +854,71 @@ class CanvasRenderer:
                 int(min_y - margin),
                 alignment,
             )
+
+    def _draw_selection_rectangle(self, painter: QPainter, selection_rect_data):
+        """
+        Draw the selection rectangle during rectangle selection.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+            selection_rect_data (dict): Dictionary containing 'start' and 'end' points
+        """
+        if (
+            not selection_rect_data
+            or "start" not in selection_rect_data
+            or "end" not in selection_rect_data
+        ):
+            return
+
+        start = selection_rect_data["start"]
+        end = selection_rect_data["end"]
+
+        # Determine the selection direction
+        left_to_right = start.x() < end.x()
+
+        # Calculate rectangle bounds
+        x1, y1 = start.x(), start.y()
+        x2, y2 = end.x(), end.y()
+
+        # Create normalized rectangle (min_x, min_y, width, height)
+        min_x = min(x1, x2)
+        min_y = min(y1, y2)
+        width = abs(x2 - x1)
+        height = abs(y2 - y1)
+
+        # Set fill color based on selection direction
+        if left_to_right:
+            # Left-to-right selection (strict containment) - blue
+            fill_color = config.get_color(
+                "selection.rect.fill.strict", "rgba(0, 0, 255, 40)"
+            )
+        else:
+            # Right-to-left selection (intersection) - green
+            fill_color = config.get_color(
+                "selection.rect.fill.intersect", "rgba(0, 255, 0, 40)"
+            )
+
+        # Set border color and style
+        border_color = config.get_color("selection.rect.border", "#000000")
+
+        # Convert to integers for QPainter
+        min_x_int = int(min_x)
+        min_y_int = int(min_y)
+        width_int = int(width)
+        height_int = int(height)
+
+        # Fill rectangle with semi-transparent color
+        painter.fillRect(
+            min_x_int, min_y_int, width_int, height_int, parse_rgba(fill_color)
+        )
+
+        # Draw border
+        pen = QPen(QColor(border_color))
+        pen.setWidth(config.get_dimension("selection.rect.border_width", 1))
+
+        # Use dashed line for right-to-left (intersection) selection
+        if not left_to_right:
+            pen.setStyle(Qt.DashLine)
+
+        painter.setPen(pen)
+        painter.drawRect(min_x_int, min_y_int, width_int, height_int)

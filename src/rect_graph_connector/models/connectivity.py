@@ -300,14 +300,14 @@ def calculate_edge_endpoints(
     return ((start_x, start_y), (end_x, end_y))
 
 
-def connect_shadow_edge_selection(
+def connect_all_for_one_edge_selection(
     graph: Graph, source_nodes: List[RectNode], target_node: RectNode
 ) -> None:
     """
     Connect multiple source nodes to a single target node.
 
     This function creates edges from all source nodes to the target node.
-    It's used by the Shadow edge connection mode to establish multiple connections simultaneously.
+    It's used by the All-For-One connection mode to establish multiple connections simultaneously.
 
     Args:
         graph (Graph): The graph where connections will be added

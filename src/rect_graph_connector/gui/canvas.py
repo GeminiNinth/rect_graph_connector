@@ -2,9 +2,16 @@
 This module contains the Canvas widget for graph visualization.
 """
 
-from PyQt5.QtWidgets import QWidget, QMenu, QAction, QInputDialog, QMainWindow
+from PyQt5.QtWidgets import (
+    QWidget,
+    QMenu,
+    QAction,
+    QInputDialog,
+    QMainWindow,
+    QApplication,
+)
 from PyQt5.QtGui import QPainter, QColor, QPen, QCursor
-from PyQt5.QtCore import Qt, QRectF, QPointF, QMimeData, pyqtSignal
+from PyQt5.QtCore import Qt, QRectF, QPointF, QMimeData, pyqtSignal, QRect
 
 from ..models.graph import Graph
 from ..models.rect_node import RectNode
@@ -38,9 +45,9 @@ class Canvas(QWidget):
     EDIT_SUBMODE_KNIFE = config.get_constant(
         "edit_submodes.knife", "knife"
     )  # Knife submode for edge deletion with path
-    EDIT_SUBMODE_SHADOW = config.get_constant(
-        "edit_submodes.shadow", "shadow"
-    )  # Shadow edge connection mode for multiple node selection
+    EDIT_SUBMODE_ALL_FOR_ONE = config.get_constant(
+        "edit_submodes.all_for_one", "all_for_one"
+    )  # All-For-One connection mode for multiple node selection
 
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
@@ -98,8 +105,19 @@ class Canvas(QWidget):
         self.highlighted_edges = []  # List of edges intersecting with knife path
         self.is_cutting = False  # Flag to indicate active cutting operation
 
-        # Shadow edge mode state
-        self.shadow_selected_nodes = []  # Nodes selected in shadow edge mode
+        # All-For-One connection mode state
+        self.all_for_one_selected_nodes = (
+            []
+        )  # Nodes selected in All-For-One connection mode
+
+        # Rectangle selection state
+        self.selection_rect_start = (
+            None  # Start point of selection rectangle (in graph coordinates)
+        )
+        self.selection_rect_end = (
+            None  # End point of selection rectangle (in graph coordinates)
+        )
+        self.is_selecting = False  # Whether rectangle selection is active
 
         # Mode management
         self.current_mode = self.NORMAL_MODE
@@ -210,7 +228,7 @@ class Canvas(QWidget):
         Set the edit submode and update the cursor.
 
         Args:
-            submode (str): The submode to set (EDIT_SUBMODE_CONNECT, EDIT_SUBMODE_KNIFE, or EDIT_SUBMODE_SHADOW)
+            submode (str): The submode to set (EDIT_SUBMODE_CONNECT, EDIT_SUBMODE_KNIFE, or EDIT_SUBMODE_ALL_FOR_ONE)
         """
         old_submode = self.edit_submode
         self.edit_submode = submode
@@ -221,20 +239,20 @@ class Canvas(QWidget):
             self.highlighted_edges = []
             self.is_cutting = False
 
-        # Reset shadow mode state when exiting shadow mode
+        # Reset All-For-One connection mode state when exiting All-For-One connection mode
         if (
-            old_submode == self.EDIT_SUBMODE_SHADOW
-            and submode != self.EDIT_SUBMODE_SHADOW
+            old_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
+            and submode != self.EDIT_SUBMODE_ALL_FOR_ONE
         ):
-            self.shadow_selected_nodes = []
+            self.all_for_one_selected_nodes = []
 
         # Update cursor based on submode
         if submode == self.EDIT_SUBMODE_KNIFE:
             # Knife cursor (using CrossCursor as a temporary solution)
             # TODO: Create a custom knife cursor image
             self.setCursor(Qt.CrossCursor)
-        elif submode == self.EDIT_SUBMODE_SHADOW:
-            # Shadow mode cursor
+        elif submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+            # All-For-One connection mode cursor
             self.setCursor(Qt.ArrowCursor)
         else:
             # Default edit mode cursor
@@ -269,14 +287,22 @@ class Canvas(QWidget):
                 "highlighted_edges": self.highlighted_edges,
             }
 
-        # Pass shadow selected nodes to renderer
-        shadow_data = None
+        # Pass All-For-One connection selected nodes to renderer
+        all_for_one_data = None
         if (
             self.current_mode == self.EDIT_MODE
-            and self.edit_submode == self.EDIT_SUBMODE_SHADOW
-            and self.shadow_selected_nodes
+            and self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
+            and self.all_for_one_selected_nodes
         ):
-            shadow_data = self.shadow_selected_nodes
+            all_for_one_data = self.all_for_one_selected_nodes
+
+        # Prepare selection rectangle data
+        selection_rect_data = None
+        if self.is_selecting and self.selection_rect_start and self.selection_rect_end:
+            selection_rect_data = {
+                "start": self.selection_rect_start,
+                "end": self.selection_rect_end,
+            }
 
         # Use the renderer to draw the graph
         self.renderer.draw(
@@ -287,7 +313,8 @@ class Canvas(QWidget):
             self.edit_target_groups,
             knife_data,
             self.selected_edges,  # Pass selected edges for highlighting
-            shadow_data,  # Pass shadow selected nodes for highlighting
+            all_for_one_data,  # Pass All-For-One connection selected nodes for highlighting
+            selection_rect_data,  # Pass selection rectangle data
         )
 
     def _calculate_edge_endpoints(self, source_node, target_node):
@@ -445,13 +472,13 @@ class Canvas(QWidget):
             event: Keyboard event
         """
         if event.key() == Qt.Key_Escape:
-            # Handle shadow mode separately
+            # Handle All-For-One connection mode separately
             if (
                 self.current_mode == self.EDIT_MODE
-                and self.edit_submode == self.EDIT_SUBMODE_SHADOW
+                and self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
             ):
-                # Cancel shadow mode and go back to connect mode
-                self.shadow_selected_nodes = []
+                # Cancel All-For-One connection mode and go back to connect mode
+                self.all_for_one_selected_nodes = []
                 self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
                 self.update()
                 return
@@ -466,12 +493,12 @@ class Canvas(QWidget):
                     self.toggle_edit_mode()
                 self.update()
         elif event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
-            # In shadow mode, confirm the connections and return to connect mode
+            # In All-For-One connection mode, confirm the connections and return to connect mode
             if (
                 self.current_mode == self.EDIT_MODE
-                and self.edit_submode == self.EDIT_SUBMODE_SHADOW
+                and self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
             ):
-                # Confirm connections by exiting shadow mode but keeping any changes
+                # Confirm connections by exiting All-For-One connection mode but keeping any changes
                 self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
                 self.update()
         elif event.key() == Qt.Key_E and self.graph.selected_groups:
@@ -489,8 +516,8 @@ class Canvas(QWidget):
                         )
                     self.update()
             elif self.current_mode == self.EDIT_MODE:
-                if self.edit_submode == self.EDIT_SUBMODE_SHADOW:
-                    # In shadow mode: toggle selection of all eligible nodes
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    # In All-For-One connection mode: toggle selection of all eligible nodes
                     eligible_nodes = []
                     for group in self.edit_target_groups:
                         eligible_nodes.extend(group.get_nodes(self.graph.nodes))
@@ -498,14 +525,16 @@ class Canvas(QWidget):
                     # Check if all eligible nodes are already selected
                     # We need to compare node IDs instead of node objects since RectNode isn't hashable
                     eligible_node_ids = {node.id for node in eligible_nodes}
-                    selected_node_ids = {node.id for node in self.shadow_selected_nodes}
+                    selected_node_ids = {
+                        node.id for node in self.all_for_one_selected_nodes
+                    }
 
                     if eligible_node_ids == selected_node_ids:
                         # If all nodes are already selected, deselect all
-                        self.shadow_selected_nodes = []
+                        self.all_for_one_selected_nodes = []
                     else:
                         # Otherwise, select all eligible nodes
-                        self.shadow_selected_nodes = eligible_nodes.copy()
+                        self.all_for_one_selected_nodes = eligible_nodes.copy()
                     self.update()
                 else:
                     # Default behavior in other edit submodes: Select all edges
@@ -671,17 +700,22 @@ class Canvas(QWidget):
                         self.update()
                     else:
                         # If no node or group is found, it is considered a background click.
-                        # Only when background click deselection is enabled
-                        if (
-                            self.enabled_deselect_methods.get(
-                                self.DESELECT_BY_BACKGROUND, True
-                            )
-                            and self.graph.selected_groups
-                            and not shift_pressed
-                        ):
-                            # Deselect
-                            self.graph.selected_groups = []
-                            self.graph.selected_nodes = []
+                        # Start rectangle selection if not start dragging an edge
+                        if not self.dragging and not self.current_edge_start:
+                            self.is_selecting = True
+                            self.selection_rect_start = graph_point
+                            self.selection_rect_end = graph_point
+                            # Only deselect if background click deselection is enabled and not shift-clicking
+                            if (
+                                self.enabled_deselect_methods.get(
+                                    self.DESELECT_BY_BACKGROUND, True
+                                )
+                                and self.graph.selected_groups
+                                and not shift_pressed
+                            ):
+                                # Deselect
+                                self.graph.selected_groups = []
+                                self.graph.selected_nodes = []
                             self.update()
 
             elif event.button() == Qt.RightButton:
@@ -738,11 +772,23 @@ class Canvas(QWidget):
                             self.temp_edge_end = graph_point
                             # Change cursor during edit mode
                             self.setCursor(Qt.CrossCursor)
+                        else:
+                            # If no valid node was clicked, start rectangle selection
+                            self.is_selecting = True
+                            self.selection_rect_start = graph_point
+                            self.selection_rect_end = graph_point
+                            self.update()
+                    else:
+                        # If no node was clicked at all, start rectangle selection
+                        self.is_selecting = True
+                        self.selection_rect_start = graph_point
+                        self.selection_rect_end = graph_point
+                        self.update()
 
-                elif self.edit_submode == self.EDIT_SUBMODE_SHADOW:
-                    # In shadow mode, left click starts edge creation from a selected node
+                elif self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    # In All-For-One connection mode, left click starts edge creation from a selected node
                     node = self.graph.find_node_at_position(graph_point)
-                    if node and node in self.shadow_selected_nodes:
+                    if node and node in self.all_for_one_selected_nodes:
                         # Start edge creation from this node
                         self.current_edge_start = node
                         self.temp_edge_end = graph_point
@@ -756,8 +802,8 @@ class Canvas(QWidget):
                     self.update()
 
             elif event.button() == Qt.RightButton:
-                if self.edit_submode == self.EDIT_SUBMODE_SHADOW:
-                    # In shadow mode, right click toggles node selection
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    # In All-For-One connection mode, first check if clicked on a node
                     node = self.graph.find_node_at_position(graph_point)
                     if node:
                         # Check if node belongs to any of the target groups
@@ -772,14 +818,21 @@ class Canvas(QWidget):
 
                         if node_belongs_to_target:
                             # Toggle node selection (first click selects, second click deselects)
-                            if node in self.shadow_selected_nodes:
-                                self.shadow_selected_nodes.remove(node)
+                            if node in self.all_for_one_selected_nodes:
+                                self.all_for_one_selected_nodes.remove(node)
                             else:
-                                self.shadow_selected_nodes.append(node)
+                                self.all_for_one_selected_nodes.append(node)
                             self.update()
                             return
+                    else:
+                        # If clicked on background in All-For-One connection mode, start rectangle selection
+                        self.is_selecting = True
+                        self.selection_rect_start = graph_point
+                        self.selection_rect_end = graph_point
+                        self.update()
+                        return
 
-                # Right-click in edit mode - show context menu if not in shadow mode or if no node was clicked
+                # Right-click in edit mode - show context menu if not in All-For-One connection mode or if no node was clicked
                 if self.edit_target_groups:
                     # Prepare the menu before showing it
                     self.edit_context_menu.prepare_for_display()
@@ -803,6 +856,12 @@ class Canvas(QWidget):
             self.pan_offset = self.pan_offset_start + QPointF(dx, dy)
             self.update()
             return  # Skip other processes while panning
+
+        # Update selection rectangle if we're in selection mode (for any mouse button)
+        if self.is_selecting:
+            self.selection_rect_end = graph_point
+            self.update()
+            return
 
         if self.current_mode == self.NORMAL_MODE:
             if self._pending_deselect:
@@ -888,6 +947,18 @@ class Canvas(QWidget):
                 self.dragging = False
                 self.drag_start = None
 
+                # Handle rectangle selection completion
+                if (
+                    self.is_selecting
+                    and self.selection_rect_start
+                    and self.selection_rect_end
+                ):
+                    self._complete_rectangle_selection()
+                    self.is_selecting = False
+                    self.selection_rect_start = None
+                    self.selection_rect_end = None
+                    self.update()
+
             # Edge creation in normal mode is disabled
             elif event.button() == Qt.RightButton:
                 # Clear any accidentally started edge (shouldn't happen with updated code)
@@ -898,9 +969,9 @@ class Canvas(QWidget):
         elif self.current_mode == self.EDIT_MODE:
             # Edit mode - Handle edge creation differently based on submode
             if event.button() == Qt.LeftButton and self.current_edge_start:
-                if self.edit_submode == self.EDIT_SUBMODE_SHADOW:
-                    # In shadow mode, create edges from all selected nodes
-                    self._complete_shadow_edge_creation(graph_point)
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    # In All-For-One connection mode, create edges from all selected nodes
+                    self._complete_all_for_one_edge_creation(graph_point)
                 else:
                     # In normal edit mode, create single edge
                     self._complete_edge_creation(graph_point)
@@ -922,8 +993,38 @@ class Canvas(QWidget):
                 self.highlighted_edges = []
                 self.update()
 
+            # Handle rectangle selection in edit mode (left button)
+            elif event.button() == Qt.LeftButton:
+                if (
+                    self.is_selecting
+                    and self.selection_rect_start
+                    and self.selection_rect_end
+                ):
+                    self._complete_rectangle_selection()
+                    self.is_selecting = False
+                    self.selection_rect_start = None
+                    self.selection_rect_end = None
+                    self.update()
+
+            # Handle rectangle selection in All-For-One connection mode with right button
+            elif (
+                event.button() == Qt.RightButton
+                and self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
+            ):
+                if (
+                    self.is_selecting
+                    and self.selection_rect_start
+                    and self.selection_rect_end
+                ):
+                    self._complete_rectangle_selection()
+                    self.is_selecting = False
+                    self.selection_rect_start = None
+                    self.selection_rect_end = None
+                    self.update()
+                    return
+
             elif event.button() == Qt.RightButton:
-                # Right-click will be used for context menu in the future
+                # Right-click will be used for context menu in the future when not in rectangle selection
                 # Currently no action
                 pass
 
@@ -1020,33 +1121,207 @@ class Canvas(QWidget):
         self.temp_edge_end = None
         self.update()
 
-    def _complete_shadow_edge_creation(self, point):
+    def _complete_all_for_one_edge_creation(self, point):
         """
-        Complete the shadow edge creation process by connecting from all selected nodes to target node.
+        Complete the All-For-One connection creation process by connecting from all selected nodes to target node.
+        When dragging from a selected node to another node (selected or not), all selected nodes will create edges
+        to the target node.
 
         Args:
             point (QPointF): The point where the mouse was released
         """
         target_node = self.graph.find_node_at_position(point)
-        if target_node and target_node not in self.shadow_selected_nodes:
-            # Check if target node belongs to any of the target groups
-            target_belongs = False
+        if not target_node or target_node == self.current_edge_start:
+            # No target node or trying to connect to self
+            self.current_edge_start = None
+            self.temp_edge_end = None
+            self.update()
+            return
 
-            for group in self.edit_target_groups:
-                if target_node in group.get_nodes(self.graph.nodes):
-                    target_belongs = True
-                    break
+        # Check if target node belongs to any of the target groups
+        target_belongs = False
+        for group in self.edit_target_groups:
+            if target_node in group.get_nodes(self.graph.nodes):
+                target_belongs = True
+                break
 
-            if target_belongs:
-                # Create edges from all selected nodes to the target node
-                for source_node in self.shadow_selected_nodes:
-                    if source_node != target_node:  # Avoid self-loops
-                        self.graph.add_edge(source_node, target_node)
+        if target_belongs:
+            # Create edges from all selected nodes to the target node
+            # regardless of whether the target is selected or not
+            for source_node in self.all_for_one_selected_nodes:
+                if source_node != target_node:  # Avoid self-loops
+                    self.graph.add_edge(source_node, target_node)
 
         # Reset
         self.current_edge_start = None
         self.temp_edge_end = None
         self.update()
+
+    def _complete_rectangle_selection(self):
+        """
+        Complete the rectangle selection and select nodes/groups/edges based on the current mode.
+
+        Different selection behavior is implemented based on the direction of selection:
+        - Left to right (increasing X): Only objects completely inside the rectangle are selected
+        - Right to left (decreasing X): Objects that intersect with the rectangle are selected
+        """
+        if not self.selection_rect_start or not self.selection_rect_end:
+            return
+
+        # Calculate the rectangle bounds
+        x1, y1 = self.selection_rect_start.x(), self.selection_rect_start.y()
+        x2, y2 = self.selection_rect_end.x(), self.selection_rect_end.y()
+
+        # Create normalized rectangle (min_x, min_y, width, height)
+        min_x = min(x1, x2)
+        min_y = min(y1, y2)
+        width = abs(x2 - x1)
+        height = abs(y2 - y1)
+        rect = QRectF(min_x, min_y, width, height)
+
+        # Determine selection direction
+        left_to_right = x1 < x2
+        shift_pressed = QApplication.keyboardModifiers() & Qt.ShiftModifier
+
+        # Different handling based on mode
+        if self.current_mode == self.NORMAL_MODE:
+            # In normal mode, select NodeGroups
+            selected_groups = []
+
+            for group in self.graph.node_groups:
+                group_nodes = group.get_nodes(self.graph.nodes)
+                if not group_nodes:
+                    continue
+
+                # Calculate group bounds
+                group_min_x = min(node.x - node.size / 2 for node in group_nodes)
+                group_min_y = min(node.y - node.size / 2 for node in group_nodes)
+                group_max_x = max(node.x + node.size / 2 for node in group_nodes)
+                group_max_y = max(node.y + node.size / 2 for node in group_nodes)
+                group_rect = QRectF(
+                    group_min_x,
+                    group_min_y,
+                    group_max_x - group_min_x,
+                    group_max_y - group_min_y,
+                )
+
+                if left_to_right:
+                    # Strict containment for left-to-right selection
+                    if rect.contains(group_rect):
+                        selected_groups.append(group)
+                else:
+                    # Intersection for right-to-left selection
+                    if rect.intersects(group_rect):
+                        selected_groups.append(group)
+
+            # Apply the selection
+            if not shift_pressed:
+                self.graph.selected_groups = selected_groups
+            else:
+                # Additive selection with shift key
+                for group in selected_groups:
+                    if group not in self.graph.selected_groups:
+                        self.graph.selected_groups.append(group)
+
+            # Update selected nodes based on selected groups
+            self.graph.selected_nodes = []
+            for group in self.graph.selected_groups:
+                self.graph.selected_nodes.extend(group.get_nodes(self.graph.nodes))
+
+        elif self.current_mode == self.EDIT_MODE:
+            if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                # In All-For-One connection mode, select nodes for All-For-One connections
+                selected_nodes = []
+
+                for group in self.edit_target_groups:
+                    for node in group.get_nodes(self.graph.nodes):
+                        node_rect = QRectF(
+                            node.x - node.size / 2,
+                            node.y - node.size / 2,
+                            node.size,
+                            node.size,
+                        )
+
+                        if left_to_right:
+                            # Strict containment for left-to-right
+                            if rect.contains(node_rect):
+                                selected_nodes.append(node)
+                        else:
+                            # Intersection for right-to-left
+                            if rect.intersects(node_rect):
+                                selected_nodes.append(node)
+
+                # Apply the selection
+                if not shift_pressed:
+                    self.all_for_one_selected_nodes = selected_nodes
+                else:
+                    # Additive selection with shift key
+                    for node in selected_nodes:
+                        if node not in self.all_for_one_selected_nodes:
+                            self.all_for_one_selected_nodes.append(node)
+
+            else:  # Default edit mode - select edges
+                selected_edges = []
+
+                for edge in self.graph.edges:
+                    try:
+                        source_node = next(
+                            n for n in self.graph.nodes if n.id == edge[0]
+                        )
+                        target_node = next(
+                            n for n in self.graph.nodes if n.id == edge[1]
+                        )
+
+                        # Only consider edges within edit target groups
+                        source_group = self.graph.get_group_for_node(source_node)
+                        target_group = self.graph.get_group_for_node(target_node)
+
+                        if (
+                            source_group in self.edit_target_groups
+                            and target_group in self.edit_target_groups
+                        ):
+
+                            # Get edge endpoints
+                            start_point, end_point = self._calculate_edge_endpoints(
+                                source_node, target_node
+                            )
+
+                            # Check if line intersects with selection rectangle
+                            line_rect = QRectF(
+                                start_point.x(),
+                                start_point.y(),
+                                end_point.x() - start_point.x(),
+                                end_point.y() - start_point.y(),
+                            )
+                            line_rect = line_rect.normalized()
+
+                            # Check if edge intersects with or contained in rectangle
+                            # Use different selection logic based on direction
+                            if left_to_right:
+                                # Strict containment for left-to-right (match Normal mode)
+                                if rect.contains(start_point) and rect.contains(
+                                    end_point
+                                ):
+                                    selected_edges.append((source_node, target_node))
+                            else:
+                                # Intersection for right-to-left (keep existing behavior)
+                                if rect.intersects(line_rect) or (
+                                    rect.contains(start_point)
+                                    or rect.contains(end_point)
+                                ):
+                                    selected_edges.append((source_node, target_node))
+
+                    except StopIteration:
+                        continue
+
+                # Apply the selection
+                if not shift_pressed:
+                    self.selected_edges = selected_edges
+                else:
+                    # Additive selection with shift key
+                    for edge in selected_edges:
+                        if edge not in self.selected_edges:
+                            self.selected_edges.append(edge)
 
     def dragEnterEvent(self, event):
         """

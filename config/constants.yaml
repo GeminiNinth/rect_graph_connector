@@ -7,7 +7,7 @@ canvas_modes:
 edit_submodes:
   connect: "connect" # Edge Connection Mode (Default)
   knife: "knife" # Edge Cutting Mode
-  shadow: "shadow" # Shadow Edge Connection Mode
+  all_for_one: "all_for_one" # All-For-One Connection Mode
 
 # Flags for deselection method
 deselect_methods:

@@ -5,8 +5,8 @@ edit_menu:
     title: "Connection"
     four_directions: "4-neighborhood"
     eight_directions: "8-neighborhood"
-    shadow_edge: "Shadow edge connection"
-    shadow_edge_tooltip: "Enables multiple node selection. When drawing from a selected node, identical edges extend from all selected nodes automatically."
+    all_for_one: "All-For-One connection"
+    all_for_one_tooltip: "Enables multiple node selection. When drawing from a selected node, identical edges extend from all selected nodes automatically."
 
 import_dialog:
   window_title: "Import Mode Selection"
