@@ -58,6 +58,8 @@ class Canvas(QWidget):
         self.drag_start = None
         self.current_edge_start = None
         self.temp_edge_end = None
+        self._pending_deselect = False
+        self._press_pos = None
 
         # Mode management
         self.current_mode = self.NORMAL_MODE
@@ -592,10 +594,9 @@ class Canvas(QWidget):
                 if node:
                     group = self.graph.get_group_for_node(node)
                     if group and group == self.graph.selected_group:
-                        # Toggle deselection if the same group is clicked again.
-                        self.graph.selected_group = None
-                        self.graph.selected_nodes = []
-                        self.update()
+                        # Instead of immediate toggle, set pending deselect flag and record press position.
+                        self._pending_deselect = True
+                        self._press_pos = clicked_point
                     else:
                         self.dragging = True
                         self.drag_start = clicked_point
@@ -669,6 +670,12 @@ class Canvas(QWidget):
         widget_point = event.pos()
         graph_point = (widget_point - self.pan_offset) / self.zoom
         if self.current_mode == self.NORMAL_MODE:
+            if self._pending_deselect:
+                # If movement exceeds threshold, cancel pending deselect and start dragging.
+                if (graph_point - self._press_pos).manhattanLength() > 5:
+                    self._pending_deselect = False
+                    self.dragging = True
+                    self.drag_start = self._press_pos
             # Normal mode - You can drag nodes or pan the view
             if self.dragging and self.drag_start:
                 dx = graph_point.x() - self.drag_start.x()
@@ -705,6 +712,13 @@ class Canvas(QWidget):
         if self.current_mode == self.NORMAL_MODE:
             # Normal mode - Only handle dragging
             if event.button() == Qt.LeftButton:
+                if self._pending_deselect:
+                    # Deselect NodeGroup on a short click.
+                    self.graph.selected_group = None
+                    self.graph.selected_nodes = []
+                    self._pending_deselect = False
+                    self.update()
+                    return
                 self.dragging = False
                 self.drag_start = None
                 if self.panning:
