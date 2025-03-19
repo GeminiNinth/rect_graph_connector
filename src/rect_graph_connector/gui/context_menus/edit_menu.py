@@ -49,21 +49,21 @@ class EditContextMenu(QMenu):
 
     def _connect_nodes_in_4_directions(self):
         """
-        Connect all nodes in the current edit target group in 4 directions by
+        Connect all nodes in the current edit target groups in 4 directions by
         delegating to the graph service.
         """
-        if not self.canvas.edit_target_group:
+        if not self.canvas.edit_target_groups:
             return
 
         # Delegate the connection logic to the graph service
         from ...models.connectivity import connect_nodes_in_4_directions
 
-        # Get the nodes in the target group
-        group_nodes = self.canvas.edit_target_group.get_nodes(self.canvas.graph.nodes)
-        if not group_nodes:
-            return
-
-        connect_nodes_in_4_directions(self.canvas.graph, group_nodes)
+        # Process each target group
+        for group in self.canvas.edit_target_groups:
+            # Get the nodes in the target group
+            group_nodes = group.get_nodes(self.canvas.graph.nodes)
+            if group_nodes:
+                connect_nodes_in_4_directions(self.canvas.graph, group_nodes)
 
         # Update display
         self.canvas.update()

@@ -43,8 +43,8 @@ class CanvasRenderer:
             painter (QPainter): The painter to use for drawing
             mode (str): The current mode ("normal" or "edit")
             temp_edge_data (tuple, optional): Temporary edge data (start_node, end_point)
-            edit_target_group: The group being edited in edit mode (for backwards compatibility)
-            edit_target_groups: List of groups being edited in edit mode (for multi-selection)
+            edit_target_group: Deprecated. Use edit_target_groups instead.
+            edit_target_groups: List of groups being edited in edit mode
         """
         # Draw canvas border without scaling
         self._draw_canvas_border(painter, mode)
@@ -166,10 +166,7 @@ class CanvasRenderer:
         """
         # Identify the selected groups
         selected_group_ids = []
-        # Add from single selection (for backwards compatibility)
-        if self.graph.selected_group:
-            selected_group_ids.append(self.graph.selected_group.id)
-        # Add from multi-selection
+        # Add from multi-selection only
         for group in self.graph.selected_groups:
             if group.id not in selected_group_ids:
                 selected_group_ids.append(group.id)

@@ -424,8 +424,9 @@ class MainWindow(QMainWindow):
         if mode == self.canvas.EDIT_MODE:
             # Edit mode display
             edit_target = ""
-            if self.canvas.edit_target_group:
-                edit_target = f" - {self.canvas.edit_target_group.name}"
+            if self.canvas.edit_target_groups:
+                group_names = [group.name for group in self.canvas.edit_target_groups]
+                edit_target = f" - {', '.join(group_names)}"
             self.mode_label.setText(f"Mode: Edit{edit_target}")
             # Visual feedback - set reddish color (no border)
             self.mode_indicator.setStyleSheet(

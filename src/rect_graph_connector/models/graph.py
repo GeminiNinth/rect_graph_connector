@@ -107,7 +107,7 @@ class Graph:
         edges (List[Tuple[int, int]]): List of edges represented as (source_id, target_id)
         node_groups (List[NodeGroup]): List of node groups
         selected_nodes (List[RectNode]): Currently selected nodes
-        selected_group (Optional[NodeGroup]): Currently selected group
+        selected_groups (List[NodeGroup]): Currently selected groups
     """
 
     def __init__(self):
@@ -117,12 +117,7 @@ class Graph:
         self.node_groups: List[NodeGroup] = []
         self.group_map: Dict[str, NodeGroup] = {}  # Map with group ID as key
         self.selected_nodes: List[RectNode] = []
-        self.selected_group: Optional[NodeGroup] = (
-            None  # Maintain for backward compatibility
-        )
-        self.selected_groups: List[NodeGroup] = (
-            []
-        )  # New lists that support multiple selections
+        self.selected_groups: List[NodeGroup] = []
         self.next_group_number: int = 1
 
     def add_node_group(
@@ -295,16 +290,6 @@ class Graph:
             print(
                 f"Updated selected_nodes list, {len(self.selected_nodes)} nodes remain selected"
             )
-
-        # Clear selected_group if it was the deleted group
-        if self.selected_group == group:
-            self.selected_group = None
-            print(f"Cleared selected_group reference")
-
-            # If we still have selected groups, update the single selection reference
-            if self.selected_groups:
-                self.selected_group = self.selected_groups[0]
-                print(f"Updated selected_group to {self.selected_group.name}")
 
         # Reassign node IDs to ensure consistency after deletion
         self._reassign_node_ids(original_group_node_ids)
@@ -803,7 +788,7 @@ class Graph:
         self.node_groups.clear()
         self.group_map.clear()  # Also clear group map
         self.selected_nodes.clear()
-        self.selected_group = None
+        self.selected_groups.clear()
         self.next_group_number = 1
 
     def move_group_up(self, group: NodeGroup) -> bool:
