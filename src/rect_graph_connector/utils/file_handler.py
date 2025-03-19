@@ -9,6 +9,10 @@ from datetime import datetime
 import yaml
 from yaml import Loader
 
+from .logging_utils import get_logger
+
+logger = get_logger(__name__)
+
 
 class FileHandler:
     """
@@ -59,7 +63,7 @@ class FileHandler:
         try:
             with open(filepath, "w") as file:
                 yaml.dump(graph_data, file)
-            print(f"Graph data exported to: {filepath}")
+            logger.info(f"Graph data exported to: {filepath}")
         except IOError as e:
             raise IOError(f"Failed to write to YAML file: {e}")
 

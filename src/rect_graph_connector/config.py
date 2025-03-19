@@ -25,6 +25,7 @@ class Configuration:
             # Initialize default settings
             cls._instance._allow_duplicate_names = True
             cls._instance._node_id_start = 0
+            cls._instance._log_level = "INFO"  # Default log level
         return cls._instance
 
     @property
@@ -47,17 +48,38 @@ class Configuration:
         """Get the starting node ID."""
         return self._node_id_start
 
-    @node_id_start.setter
-    def node_id_start(self, value: int) -> None:
-        """
-        Set the starting node ID.
 
-        Args:
-            value (int): The starting node ID (must be a natural number including 0)
-        """
-        if value < 0:
-            value = 0  # Ensure it's a natural number including 0
-        self._node_id_start = value
+@node_id_start.setter
+def node_id_start(self, value: int) -> None:
+    """
+    Set the starting node ID.
+
+    Args:
+        value (int): The starting node ID (must be a natural number including 0)
+    """
+    if value < 0:
+        value = 0  # Ensure it's a natural number including 0
+    self._node_id_start = value
+
+
+@property
+def log_level(self) -> str:
+    """Get the current logging level."""
+    return self._log_level
+
+
+@log_level.setter
+def log_level(self, value: str) -> None:
+    """
+    Set the logging level.
+
+    Args:
+        value (str): The logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    """
+    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    if value.upper() not in valid_levels:
+        value = "INFO"  # Default to INFO if invalid level is provided
+    self._log_level = value.upper()
 
 
 # Global configuration instance

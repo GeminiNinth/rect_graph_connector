@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt, QRectF, QPointF, QMimeData, pyqtSignal
 from ..models.graph import Graph
 from ..models.rect_node import RectNode
 from ..utils.file_handler import FileHandler
+from ..utils.logging_utils import get_logger
 from .import_dialog import ImportModeDialog
 from .canvas_renderer import CanvasRenderer
 from .context_menus.normal_menu import NormalContextMenu
@@ -51,6 +52,9 @@ class Canvas(QWidget):
         """
         super().__init__(parent)
         self.graph = Graph()
+
+        # Initialize logger
+        self.logger = get_logger(__name__)
 
         # Initialize renderer
         self.renderer = CanvasRenderer(self, self.graph)
@@ -683,4 +687,4 @@ class Canvas(QWidget):
                 self.update()
 
         except IOError as e:
-            print(f"Failed to import graph: {e}")
+            self.logger.error(f"Failed to import graph: {e}")

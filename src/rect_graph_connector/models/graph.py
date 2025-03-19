@@ -11,6 +11,9 @@ from ..utils.naming_utils import (
     generate_unique_name_if_needed,
 )
 from ..config import config
+from ..utils.logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class NodeGroup:
@@ -215,14 +218,14 @@ class Graph:
             group (NodeGroup): The group of nodes to delete
         """
         if group is None:
-            print("Warning: Attempted to delete a None group")
+            logger.warning("Attempted to delete a None group")
             return
 
-        print(f"Deleting group: {group.name} (ID: {group.id})")
+        logger.info(f"Deleting group: {group.name} (ID: {group.id})")
 
         # Get nodes from the group
         group_nodes = group.get_nodes(self.nodes)
-        print(f"Group contains {len(group_nodes)} nodes")
+        logger.info(f"Group contains {len(group_nodes)} nodes")
 
         # Identify node IDs belonging to other groups
         node_ids_in_other_groups = set()
@@ -242,7 +245,7 @@ class Graph:
             node for node in group_nodes if node.id not in node_ids_in_other_groups
         ]
         node_ids_to_delete = {node.id for node in nodes_to_delete}
-        print(
+        logger.info(
             f"Will delete {len(nodes_to_delete)} nodes that don't belong to other groups"
         )
 
@@ -253,14 +256,14 @@ class Graph:
             for edge in self.edges
             if edge[0] not in node_ids_to_delete and edge[1] not in node_ids_to_delete
         ]
-        print(
+        logger.info(
             f"Removed {orig_edge_count - len(self.edges)} edges connected to deleted nodes"
         )
 
         # Remove only nodes that don't belong to any other group
         orig_node_count = len(self.nodes)
         self.nodes = [node for node in self.nodes if node not in nodes_to_delete]
-        print(f"Removed {orig_node_count - len(self.nodes)} nodes")
+        logger.info(f"Removed {orig_node_count - len(self.nodes)} nodes")
 
         # Delete the group itself
         if group in self.node_groups:
@@ -268,14 +271,14 @@ class Graph:
             # Also remove from group_map
             if group.id in self.group_map:
                 del self.group_map[group.id]
-            print(f"Removed group from node_groups and group_map")
+            logger.info("Removed group from node_groups and group_map")
 
         # Update selection states - need to handle multiple selections correctly
 
         # Remove the group from selected_groups if present
         if group in self.selected_groups:
             self.selected_groups.remove(group)
-            print(f"Removed group from selected_groups list")
+            logger.info("Removed group from selected_groups list")
 
         # Clear selection if it was part of the deleted group
         if self.selected_nodes and any(
@@ -287,7 +290,7 @@ class Graph:
                 for node in self.selected_nodes
                 if node.id not in node_ids_to_delete
             ]
-            print(
+            logger.info(
                 f"Updated selected_nodes list, {len(self.selected_nodes)} nodes remain selected"
             )
 
@@ -297,7 +300,7 @@ class Graph:
         # Ensuring continuity of group numbers
         self._recalculate_next_group_number()
 
-        print(f"Group deletion complete. {len(self.node_groups)} groups remain.")
+        logger.info(f"Group deletion complete. {len(self.node_groups)} groups remain.")
 
     def rotate_group(self, nodes: List[RectNode]) -> None:
         """
@@ -350,10 +353,10 @@ class Graph:
             group_center_x = sum(node.x for node in group_nodes) / len(group_nodes)
             group_center_y = sum(node.y for node in group_nodes) / len(group_nodes)
 
-            print(
+            logger.info(
                 f"Rotating group {group.name} (ID: {group.id}) around center: ({group_center_x:.2f}, {group_center_y:.2f})"
             )
-            print(f"Group has {len(group_nodes)} nodes")
+            logger.info(f"Group has {len(group_nodes)} nodes")
 
             # Rotate each node in this group around the group's center
             for node in group_nodes:
@@ -368,7 +371,7 @@ class Graph:
                 node.x = group_center_x - rel_y
                 node.y = group_center_y + rel_x
 
-                print(
+                logger.debug(
                     f"  Node {node.id}: ({orig_x:.2f}, {orig_y:.2f}) -> ({node.x:.2f}, {node.y:.2f})"
                 )
 
@@ -929,8 +932,8 @@ class Graph:
                 new_edges.append((new_source_id, new_target_id))
             else:
                 # Remove edges that refer to non-existent nodes
-                print(
-                    f"Warning: Edge ({source_id}, {target_id}) references non-existent nodes and will be removed."
+                logger.warning(
+                    f"Edge ({source_id}, {target_id}) references non-existent nodes and will be removed."
                 )
 
         self.edges = new_edges
