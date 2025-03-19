@@ -143,14 +143,24 @@ class Graph:
         Returns:
             NodeGroup: The newly created group of nodes
         """
+        from ..config import config
+
+        # Get starting node ID based on configuration and existing nodes
+        next_id = config.node_id_start
+        if self.nodes:
+            # Find the maximum node ID and ensure new nodes start after it
+            max_id = max(node.id for node in self.nodes)
+            next_id = max(next_id, max_id + 1)
+
         new_nodes = []
         for i in range(rows):
             for j in range(cols):
                 x = base_x + j * spacing
                 y = base_y + i * spacing
-                node = RectNode(id=len(self.nodes), x=x, y=y, row=i, col=j)
+                node = RectNode(id=next_id, x=x, y=y, row=i, col=j)
                 self.nodes.append(node)
                 new_nodes.append(node)
+                next_id += 1
 
         # Create a default name if none provided
         if name is None:
@@ -745,15 +755,44 @@ class Graph:
             return True
         return False
 
+    def set_node_id_start(self, start_index: int) -> None:
+        """
+        Set the starting index for node IDs and reassign all node IDs.
+
+        Args:
+            start_index (int): The new starting index for node IDs
+        """
+        from ..config import config
+
+        # Update the configuration
+        config.node_id_start = start_index
+
+        # Reassign all node IDs using the new start index
+        self._reassign_node_ids()
+
+    def get_node_id_start(self) -> int:
+        """
+        Get the current starting index for node IDs.
+
+        Returns:
+            int: The current starting index for node IDs
+        """
+        from ..config import config
+
+        return config.node_id_start
+
     def _reassign_node_ids(self, original_group_nodes=None) -> None:
         """
         Reassign node IDs based on the current order of node groups.
         This preserves the edge connections by updating the edge references.
         Ensures all nodes (including those not in any group) have sequential IDs.
+        Uses the configured node_id_start value as the starting index.
 
         Args:
             original_group_nodes (dict, optional): In the mapping (Group ID -> Node Object List), hold the nodes belonging to each group before deletion
         """
+        from ..config import config
+
         if original_group_nodes is None:
             original_group_nodes = {}
 
@@ -780,26 +819,30 @@ class Graph:
 
         # Create a new ID mapping
         old_to_new_id = {}
-        new_id = 0
+        # Start from the configured starting index
+        new_id = config.node_id_start
 
         # Assign an ID first to a node belonging to a group
-        grouped_node_ids = set()  # Tracking the node ID that you already assigned an ID
+        processed_nodes = set()  # Track processed nodes by memory address
         for group in self.node_groups:
             for node in node_groups_by_id.get(group.id, []):
-                if node.id not in grouped_node_ids and node in self.nodes:
+                node_addr = id(node)  # Use memory address as unique identifier
+                if node_addr not in processed_nodes and node in self.nodes:
                     old_id = node.id
                     node.id = new_id
                     old_to_new_id[old_id] = new_id
                     new_id += 1
-                    grouped_node_ids.add(node.id)
+                    processed_nodes.add(node_addr)
 
         # Assign IDs to nodes that do not belong to the group
         for node in self.nodes:
-            if node.id not in grouped_node_ids:
+            node_addr = id(node)  # Use memory address as unique identifier
+            if node_addr not in processed_nodes:
                 old_id = node.id
                 node.id = new_id
                 old_to_new_id[old_id] = new_id
                 new_id += 1
+                processed_nodes.add(node_addr)
 
         # Update Edge
         new_edges = []

@@ -53,9 +53,10 @@ class Canvas(QWidget):
         self.edit_target_group = None  # Target group in edit mode
         self.edit_submode = self.EDIT_SUBMODE_CONNECT  # Default edit submode
 
-        # Context menu
-        self.context_menu = None
-        self._create_context_menu()
+        # Context menus
+        self.edit_context_menu = None
+        self.normal_context_menu = None
+        self._create_context_menus()
 
         # Enable mouse tracking for hover effects
         self.setMouseTracking(True)
@@ -95,11 +96,12 @@ class Canvas(QWidget):
         # 再描画
         self.update()
 
-    def _create_context_menu(self):
+    def _create_context_menus(self):
         """
-        Create the context menu for the edit mode.
+        Create context menus for both normal and edit modes.
         """
-        self.context_menu = QMenu(self)
+        # Edit mode context menu
+        self.edit_context_menu = QMenu(self)
 
         # Connect all nodes in 4 directions action
         self.connect_4_directions_action = QAction(
@@ -108,15 +110,48 @@ class Canvas(QWidget):
         self.connect_4_directions_action.triggered.connect(
             self._connect_nodes_in_4_directions
         )
-        self.context_menu.addAction(self.connect_4_directions_action)
+        self.edit_context_menu.addAction(self.connect_4_directions_action)
 
-        self.context_menu.addSeparator()
+        self.edit_context_menu.addSeparator()
 
         # Toggle eraser mode action
         self.toggle_eraser_action = QAction("Eraser Mode (Delete Edges)", self)
         self.toggle_eraser_action.setCheckable(True)
         self.toggle_eraser_action.triggered.connect(self._toggle_eraser_mode)
-        self.context_menu.addAction(self.toggle_eraser_action)
+        self.edit_context_menu.addAction(self.toggle_eraser_action)
+
+        # Normal mode context menu
+        self.normal_context_menu = QMenu(self)
+
+        # Set node ID start index action
+        self.set_node_id_start_action = QAction("Set Node ID Starting Index", self)
+        self.set_node_id_start_action.triggered.connect(self._set_node_id_start_index)
+        self.normal_context_menu.addAction(self.set_node_id_start_action)
+
+    def _set_node_id_start_index(self):
+        """
+        Display a dialog to set the node ID starting index.
+        The change will apply to all nodes in the graph.
+        """
+        from ..config import config
+
+        # Get the current node ID starting index
+        current_start = config.node_id_start
+
+        # Show an input dialog to get the new starting index
+        new_start, ok = QInputDialog.getInt(
+            self,
+            "Set Node ID Starting Index",
+            "Enter the starting index for node IDs (0 or higher):",
+            value=current_start,
+            min=0,
+            max=1000000,  # Arbitrary high limit
+        )
+
+        if ok:
+            # Update the node ID start in the graph
+            self.graph.set_node_id_start(new_start)
+            self.update()  # Redraw the canvas to show new IDs
 
     def toggle_edit_mode(self, target_group=None):
         """
@@ -528,9 +563,8 @@ class Canvas(QWidget):
                     self.update()
 
             elif event.button() == Qt.RightButton:
-                # Right-click in normal mode - No edge creation (removed functionality)
-                # Edge editing is now exclusive to edit mode
-                pass
+                # Right-click in normal mode - show context menu with node ID options
+                self.normal_context_menu.popup(self.mapToGlobal(point))
 
         elif self.current_mode == self.EDIT_MODE:
             # Edit mode
@@ -563,7 +597,7 @@ class Canvas(QWidget):
                         self.edit_submode == self.EDIT_SUBMODE_ERASER
                     )
                     # Show context menu
-                    self.context_menu.popup(self.mapToGlobal(point))
+                    self.edit_context_menu.popup(self.mapToGlobal(point))
 
     def mouseMoveEvent(self, event):
         """
