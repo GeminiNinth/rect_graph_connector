@@ -36,6 +36,12 @@ class Canvas(QWidget):
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
 
+    # NodeGroup selection deselection methods flags
+    # These flags control which deselection methods are enabled
+    DESELECT_BY_ESCAPE = "escape"  # Deselect using ESC key
+    DESELECT_BY_RECLICK = "reclick"  # Click the same NodeGroup again to deselect it
+    DESELECT_BY_BACKGROUND = "background"  # Click on the background area to deselect it
+
     def __init__(self, parent=None):
         """
         Initialize the canvas widget.
@@ -89,6 +95,14 @@ class Canvas(QWidget):
         # Enable keyboard focus
         self.setFocusPolicy(Qt.StrongFocus)
 
+        # Initialize flags for deselection methods
+        # Enable all deselect methods
+        self.enabled_deselect_methods = {
+            self.DESELECT_BY_ESCAPE: True,
+            self.DESELECT_BY_RECLICK: True,
+            self.DESELECT_BY_BACKGROUND: True,
+        }
+
     def set_mode(self, mode):
         """
         Set the current interaction mode.
@@ -131,6 +145,21 @@ class Canvas(QWidget):
         else:
             self.edit_target_group = None
             self.set_mode(self.NORMAL_MODE)
+
+    def set_deselect_method(self, method, enabled=True):
+        """
+        Enable/disable the deselection method.
+
+        Args:
+            method (str): methods to be set (DESELECT_BY_ESCAPE, DESELECT_BY_RECLICK, DESELECT_BY_BACKGROUND)
+            enabled (bool): True to enable, False to disable
+        """
+        if method in [
+            self.DESELECT_BY_ESCAPE,
+            self.DESELECT_BY_RECLICK,
+            self.DESELECT_BY_BACKGROUND,
+        ]:
+            self.enabled_deselect_methods[method] = enabled
 
     def set_edit_submode(self, submode):
         """
@@ -211,12 +240,14 @@ class Canvas(QWidget):
             event: Keyboard event
         """
         if event.key() == Qt.Key_Escape:
-            # Clear NodeGroup selection and, if in edit mode, switch to normal mode.
-            self.graph.selected_group = None
-            self.graph.selected_nodes = []
-            if self.current_mode == self.EDIT_MODE:
-                self.toggle_edit_mode()
-            self.update()
+            # Only when deselection using the ESC key is enabled
+            if self.enabled_deselect_methods.get(self.DESELECT_BY_ESCAPE, True):
+                # Clear NodeGroup selection and, if in edit mode, switch to normal mode.
+                self.graph.selected_group = None
+                self.graph.selected_nodes = []
+                if self.current_mode == self.EDIT_MODE:
+                    self.toggle_edit_mode()
+                self.update()
         elif event.key() == Qt.Key_E and self.graph.selected_group:
             self.toggle_edit_mode(self.graph.selected_group)
 
@@ -230,6 +261,14 @@ class Canvas(QWidget):
         widget_point = event.pos()
         graph_point = (QPointF(widget_point) - self.pan_offset) / self.zoom
 
+        # When the mouse center button (wheel button) is pressed, pan operation begins regardless of mode.
+        if event.button() == Qt.MiddleButton:
+            self.panning = True
+            self.pan_start = event.pos()
+            self.pan_offset_start = self.pan_offset
+            self.setCursor(Qt.ClosedHandCursor)
+            return
+
         # Process based on operation mode
         if self.current_mode == self.NORMAL_MODE:
             # Normal mode - Node selection and movement
@@ -239,9 +278,13 @@ class Canvas(QWidget):
                 if node:
                     group = self.graph.get_group_for_node(node)
                     if group and group == self.graph.selected_group:
-                        # Instead of immediate toggle, set pending deselect flag and record press position.
-                        self._pending_deselect = True
-                        self._press_pos = clicked_point
+                        # Flag only when deselection is enabled by clicking again
+                        if self.enabled_deselect_methods.get(
+                            self.DESELECT_BY_RECLICK, True
+                        ):
+                            # Instead of immediate toggle, set pending deselect flag and record press position.
+                            self._pending_deselect = True
+                            self._press_pos = clicked_point
                     else:
                         self.dragging = True
                         self.drag_start = clicked_point
@@ -262,11 +305,19 @@ class Canvas(QWidget):
                         self.graph.selected_nodes = group.get_nodes(self.graph.nodes)
                         self.update()
                     else:
-                        # Start panning if nothing is clicked.
-                        self.panning = True
-                        self.pan_start = event.pos()
-                        self.pan_offset_start = self.pan_offset
-                        self.setCursor(Qt.ClosedHandCursor)
+                        # If no node or group is found, it is considered a background click.
+                        # Only when background click deselection is enabled
+                        if (
+                            self.enabled_deselect_methods.get(
+                                self.DESELECT_BY_BACKGROUND, True
+                            )
+                            and self.graph.selected_group is not None
+                        ):
+                            # Deselect
+                            self.graph.selected_group = None
+                            self.graph.selected_nodes = []
+                            self.update()
+                    # Delete left-click pan operation (pan operation can be performed using only the center button)
 
             elif event.button() == Qt.RightButton:
                 # Right-click in normal mode - show context menu
@@ -315,6 +366,15 @@ class Canvas(QWidget):
         """
         widget_point = event.pos()
         graph_point = (widget_point - self.pan_offset) / self.zoom
+
+        # Pan operation is applied regardless of mode (when pressing the center button)
+        if self.panning:
+            dx = widget_point.x() - self.pan_start.x()
+            dy = widget_point.y() - self.pan_start.y()
+            self.pan_offset = self.pan_offset_start + QPointF(dx, dy)
+            self.update()
+            return  # Skip other processes while panning
+
         if self.current_mode == self.NORMAL_MODE:
             if self._pending_deselect:
                 # If movement exceeds threshold, cancel pending deselect and start dragging.
@@ -329,11 +389,6 @@ class Canvas(QWidget):
                 for node in self.graph.selected_nodes:
                     node.move(dx, dy)
                 self.drag_start = graph_point
-                self.update()
-            elif self.panning:
-                dx = widget_point.x() - self.pan_start.x()
-                dy = widget_point.y() - self.pan_start.y()
-                self.pan_offset = self.pan_offset_start + QPointF(dx, dy)
                 self.update()
         elif self.current_mode == self.EDIT_MODE:
             # Edit Mode - NodeGroups are fixed and cannot be moved
@@ -355,6 +410,20 @@ class Canvas(QWidget):
         widget_point = event.pos()
         graph_point = (widget_point - self.pan_offset) / self.zoom
 
+        # Pan operation end when center button (wheel button) is released
+        if event.button() == Qt.MiddleButton:
+            if self.panning:
+                self.panning = False
+                # Return to the appropriate cursor depending on the mode
+                if self.current_mode == self.EDIT_MODE:
+                    if self.edit_submode == self.EDIT_SUBMODE_ERASER:
+                        self.setCursor(Qt.ForbiddenCursor)
+                    else:
+                        self.setCursor(Qt.CrossCursor)
+                else:
+                    self.setCursor(Qt.ArrowCursor)
+            return
+
         if self.current_mode == self.NORMAL_MODE:
             # Normal mode - Only handle dragging
             if event.button() == Qt.LeftButton:
@@ -367,9 +436,6 @@ class Canvas(QWidget):
                     return
                 self.dragging = False
                 self.drag_start = None
-                if self.panning:
-                    self.panning = False
-                    self.setCursor(Qt.ArrowCursor)
 
             # Edge creation in normal mode is disabled
             elif event.button() == Qt.RightButton:
