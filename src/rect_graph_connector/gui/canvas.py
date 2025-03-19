@@ -524,6 +524,38 @@ class Canvas(QWidget):
                 alignment,
             )  # Draw half of the fixed width (50px)
 
+    def find_group_at_position(self, point):
+        """
+        Find a node group that contains the given point in graph coordinates.
+
+        Args:
+            point (QPointF): The point in graph coordinates.
+
+        Returns:
+            The node group if found, otherwise None.
+        """
+        for group in self.graph.node_groups:
+            group_nodes = group.get_nodes(self.graph.nodes)
+            if not group_nodes:
+                continue
+            # Calculate group bounding rectangle with a margin of 5 pixels (converted to graph units).
+            effective_margin = 5 / self.zoom
+            min_x = (
+                min(node.x - node.size / 2 for node in group_nodes) - effective_margin
+            )
+            min_y = (
+                min(node.y - node.size / 2 for node in group_nodes) - effective_margin
+            )
+            max_x = (
+                max(node.x + node.size / 2 for node in group_nodes) + effective_margin
+            )
+            max_y = (
+                max(node.y + node.size / 2 for node in group_nodes) + effective_margin
+            )
+            if min_x <= point.x() <= max_x and min_y <= point.y() <= max_y:
+                return group
+        return None
+
     def keyPressEvent(self, event):
         """
         Handle keyboard events for mode switching.
@@ -548,13 +580,15 @@ class Canvas(QWidget):
         Args:
             event: Mouse event
         """
-        point = event.pos()
+        widget_point = event.pos()
+        graph_point = (QPointF(widget_point) - self.pan_offset) / self.zoom
 
         # Process based on operation mode
         if self.current_mode == self.NORMAL_MODE:
             # Normal mode - Node selection and movement
             if event.button() == Qt.LeftButton:
-                node = self.graph.find_node_at_position(point)
+                clicked_point = graph_point
+                node = self.graph.find_node_at_position(clicked_point)
                 if node:
                     group = self.graph.get_group_for_node(node)
                     if group and group == self.graph.selected_group:
@@ -564,7 +598,7 @@ class Canvas(QWidget):
                         self.update()
                     else:
                         self.dragging = True
-                        self.drag_start = point
+                        self.drag_start = clicked_point
                         if group:
                             self.graph.selected_group = group
                             self.graph.selected_nodes = group.get_nodes(
@@ -575,11 +609,18 @@ class Canvas(QWidget):
                             self.graph.selected_nodes = [node]
                         self.update()
                 else:
-                    # Start panning if clicking on empty background.
-                    self.panning = True
-                    self.pan_start = event.pos()
-                    self.pan_offset_start = self.pan_offset
-                    self.setCursor(Qt.ClosedHandCursor)
+                    # If no node is found, check if click is within a NodeGroup boundary.
+                    group = self.find_group_at_position(clicked_point)
+                    if group:
+                        self.graph.selected_group = group
+                        self.graph.selected_nodes = group.get_nodes(self.graph.nodes)
+                        self.update()
+                    else:
+                        # Start panning if nothing is clicked.
+                        self.panning = True
+                        self.pan_start = event.pos()
+                        self.pan_offset_start = self.pan_offset
+                        self.setCursor(Qt.ClosedHandCursor)
 
             elif event.button() == Qt.RightButton:
                 # Right-click in normal mode - show context menu with node ID options
@@ -625,22 +666,20 @@ class Canvas(QWidget):
         Args:
             event: Mouse event
         """
-        point = event.pos()
-
+        widget_point = event.pos()
+        graph_point = (widget_point - self.pan_offset) / self.zoom
         if self.current_mode == self.NORMAL_MODE:
             # Normal mode - You can drag nodes or pan the view
             if self.dragging and self.drag_start:
-                dx = point.x() - self.drag_start.x()
-                dy = point.y() - self.drag_start.y()
-
+                dx = graph_point.x() - self.drag_start.x()
+                dy = graph_point.y() - self.drag_start.y()
                 for node in self.graph.selected_nodes:
                     node.move(dx, dy)
-
-                self.drag_start = point
+                self.drag_start = graph_point
                 self.update()
             elif self.panning:
-                dx = point.x() - self.pan_start.x()
-                dy = point.y() - self.pan_start.y()
+                dx = widget_point.x() - self.pan_start.x()
+                dy = widget_point.y() - self.pan_start.y()
                 self.pan_offset = self.pan_offset_start + QPointF(dx, dy)
                 self.update()
         elif self.current_mode == self.EDIT_MODE:
@@ -650,7 +689,7 @@ class Canvas(QWidget):
 
         # Update edge previews in both modes
         if self.current_edge_start:
-            self.temp_edge_end = point
+            self.temp_edge_end = graph_point
             self.update()
 
     def mouseReleaseEvent(self, event):
@@ -660,7 +699,8 @@ class Canvas(QWidget):
         Args:
             event: Mouse event
         """
-        point = event.pos()
+        widget_point = event.pos()
+        graph_point = (widget_point - self.pan_offset) / self.zoom
 
         if self.current_mode == self.NORMAL_MODE:
             # Normal mode - Only handle dragging
@@ -682,7 +722,7 @@ class Canvas(QWidget):
             # Edit mode - Support left-click edge creation
             if event.button() == Qt.LeftButton and self.current_edge_start:
                 # In edit mode, create edge with left-click
-                self._complete_edge_creation(point)
+                self._complete_edge_creation(graph_point)
 
             elif event.button() == Qt.RightButton:
                 # Right-click will be used for context menu in the future
