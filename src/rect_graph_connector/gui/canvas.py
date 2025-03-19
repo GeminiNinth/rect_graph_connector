@@ -10,6 +10,10 @@ from ..models.graph import Graph
 from ..models.rect_node import RectNode
 from ..utils.file_handler import FileHandler
 from .import_dialog import ImportModeDialog
+from .canvas_renderer import CanvasRenderer
+from .context_menus.normal_menu import NormalContextMenu
+from .context_menus.edit_menu import EditContextMenu
+from ..models.connectivity import delete_edge_at_position
 
 
 class Canvas(QWidget):
@@ -41,13 +45,16 @@ class Canvas(QWidget):
         """
         super().__init__(parent)
         self.graph = Graph()
+
+        # Initialize renderer
+        self.renderer = CanvasRenderer(self, self.graph)
+
         # Initialize zoom parameters for zoom functionality
         self.zoom = 1.0
         self.min_zoom = 0.1
         self.max_zoom = 10.0
-        # Initialize pan parameters for panning functionality
-        from PyQt5.QtCore import QPointF
 
+        # Initialize pan parameters for panning functionality
         self.pan_offset = QPointF(0, 0)
         self.panning = False
         self.pan_start = None
@@ -67,9 +74,8 @@ class Canvas(QWidget):
         self.edit_submode = self.EDIT_SUBMODE_CONNECT  # Default edit submode
 
         # Context menus
-        self.edit_context_menu = None
-        self.normal_context_menu = None
-        self._create_context_menus()
+        self.edit_context_menu = EditContextMenu(self)
+        self.normal_context_menu = NormalContextMenu(self)
 
         # Enable mouse tracking for hover effects
         self.setMouseTracking(True)
@@ -109,63 +115,6 @@ class Canvas(QWidget):
         # 再描画
         self.update()
 
-    def _create_context_menus(self):
-        """
-        Create context menus for both normal and edit modes.
-        """
-        # Edit mode context menu
-        self.edit_context_menu = QMenu(self)
-
-        # Connect all nodes in 4 directions action
-        self.connect_4_directions_action = QAction(
-            "Connect all nodes in 4 directions", self
-        )
-        self.connect_4_directions_action.triggered.connect(
-            self._connect_nodes_in_4_directions
-        )
-        self.edit_context_menu.addAction(self.connect_4_directions_action)
-
-        self.edit_context_menu.addSeparator()
-
-        # Toggle eraser mode action
-        self.toggle_eraser_action = QAction("Eraser Mode (Delete Edges)", self)
-        self.toggle_eraser_action.setCheckable(True)
-        self.toggle_eraser_action.triggered.connect(self._toggle_eraser_mode)
-        self.edit_context_menu.addAction(self.toggle_eraser_action)
-
-        # Normal mode context menu
-        self.normal_context_menu = QMenu(self)
-
-        # Set node ID start index action
-        self.set_node_id_start_action = QAction("Set Node ID Starting Index", self)
-        self.set_node_id_start_action.triggered.connect(self._set_node_id_start_index)
-        self.normal_context_menu.addAction(self.set_node_id_start_action)
-
-    def _set_node_id_start_index(self):
-        """
-        Display a dialog to set the node ID starting index.
-        The change will apply to all nodes in the graph.
-        """
-        from ..config import config
-
-        # Get the current node ID starting index
-        current_start = config.node_id_start
-
-        # Show an input dialog to get the new starting index
-        new_start, ok = QInputDialog.getInt(
-            self,
-            "Set Node ID Starting Index",
-            "Enter the starting index for node IDs (0 or higher):",
-            value=current_start,
-            min=0,
-            max=1000000,  # Arbitrary high limit
-        )
-
-        if ok:
-            # Update the node ID start in the graph
-            self.graph.set_node_id_start(new_start)
-            self.update()  # Redraw the canvas to show new IDs
-
     def toggle_edit_mode(self, target_group=None):
         """
         Toggle between normal and edit modes.
@@ -203,58 +152,6 @@ class Canvas(QWidget):
         # Emit mode changed signal to update the UI
         self.mode_changed.emit(self.current_mode)
 
-    def _toggle_eraser_mode(self, checked):
-        """
-        Toggle between eraser mode and normal edit mode.
-
-        Args:
-            checked (bool): Whether the eraser mode is enabled
-        """
-        if checked:
-            self.set_edit_submode(self.EDIT_SUBMODE_ERASER)
-        else:
-            self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
-
-    def _connect_nodes_in_4_directions(self):
-        """
-        Connect all nodes in the current edit target group in 4 directions.
-        Each node gets connected to its adjacent neighbors in 4 directions (up, down, left, right)
-        based on their row and column positions in the grid.
-        """
-        if not self.edit_target_group:
-            return
-
-        # Get all nodes in the target group
-        group_nodes = self.edit_target_group.get_nodes(self.graph.nodes)
-        if not group_nodes:
-            return
-
-        # Create a grid structure: store nodes with row and col as keys
-        grid = {}
-        for node in group_nodes:
-            grid[(node.row, node.col)] = node
-
-        # For each node, connects to adjacent nodes in four directions (up, down, left, right)
-        for node in group_nodes:
-            # Calculate the coordinates of adjacent cells in four directions
-            neighbors = [
-                (node.row - 1, node.col),  # up
-                (node.row + 1, node.col),  # down
-                (node.row, node.col - 1),  # right
-                (node.row, node.col + 1),  # left
-            ]
-
-            # Connecting with adjacent nodes
-            for neighbor_pos in neighbors:
-                if neighbor_pos in grid:
-                    neighbor_node = grid[neighbor_pos]
-                    # Added only if the connection does not already exist
-                    if not self.graph.has_edge(node, neighbor_node):
-                        self.graph.add_edge(node, neighbor_node)
-
-        # Update display
-        self.update()
-
     def paintEvent(self, event):
         """
         Handle the paint event to render the graph.
@@ -265,266 +162,14 @@ class Canvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw canvas border without scaling
-        self._draw_canvas_border(painter)
-
-        # Save the painter state and apply zoom scaling for graph elements
-        painter.save()
-        painter.translate(self.pan_offset)
-        painter.scale(self.zoom, self.zoom)
-
-        # Draw edges
-        self._draw_edges(painter)
-
-        # Draw temporary edge if one is being created
-        self._draw_temp_edge(painter)
-
-        # Draw nodes
-        self._draw_nodes(painter)
-        painter.restore()
-
-        # Mode display (for debugging)
-        # self._draw_mode_indicator(painter)
-
-    def _draw_canvas_border(self, painter: QPainter):
-        """Draw the canvas border with mode-specific color."""
-        # Set border color according to the mode
-        if self.current_mode == self.EDIT_MODE:
-            pen = QPen(QColor(255, 100, 100))  # Edit mode is reddish
-        else:
-            pen = QPen(QColor("black"))
-
-        pen.setWidth(2)
-        painter.setPen(pen)
-        painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
-
-    def _draw_mode_indicator(self, painter: QPainter):
-        """Draw a mode indicator for debugging."""
-        text = f"Mode: {self.current_mode}"
-        if self.current_mode == self.EDIT_MODE and self.edit_target_group:
-            text += f" (Editing: {self.edit_target_group.name})"
-
-        painter.setPen(QColor("black"))
-        painter.drawText(10, 20, text)
-
-    def _draw_edges(self, painter: QPainter):
-        """Draw all edges in the graph."""
-        for source_id, target_id in self.graph.edges:
-            # Skip if no node with the specified ID is found
-            source_node = None
-            target_node = None
-
-            try:
-                source_node = next(n for n in self.graph.nodes if n.id == source_id)
-            except StopIteration:
-                continue
-
-            try:
-                target_node = next(n for n in self.graph.nodes if n.id == target_id)
-            except StopIteration:
-                continue
-
-            if source_node and target_node:
-                painter.drawLine(
-                    int(source_node.x),
-                    int(source_node.y),
-                    int(target_node.x),
-                    int(target_node.y),
-                )
-
-    def _draw_temp_edge(self, painter: QPainter):
-        """Draw temporary edge during edge creation."""
+        # Use the renderer to draw the graph
+        temp_edge_data = None
         if self.current_edge_start and self.temp_edge_end:
-            painter.drawLine(
-                int(self.current_edge_start.x),
-                int(self.current_edge_start.y),
-                int(self.temp_edge_end.x()),
-                int(self.temp_edge_end.y()),
-            )
+            temp_edge_data = (self.current_edge_start, self.temp_edge_end)
 
-    def _draw_nodes(self, painter: QPainter):
-        """Draw all nodes in the graph."""
-        # Identify the selected group
-        selected_group_id = None
-        if self.graph.selected_group:
-            selected_group_id = self.graph.selected_group.id
-
-        # Draw group frames and labels
-        for group in self.graph.node_groups:
-            group_nodes = group.get_nodes(self.graph.nodes)
-            if not group_nodes:
-                continue
-
-            # Calculate group boundaries
-            min_x = min(node.x - node.size / 2 for node in group_nodes) - 5
-            min_y = min(node.y - node.size / 2 for node in group_nodes) - 5
-            max_x = max(node.x + node.size / 2 for node in group_nodes) + 5
-            max_y = max(node.y + node.size / 2 for node in group_nodes) + 5
-            group_width = max_x - min_x
-            group_height = max_y - min_y
-
-            # Selected groups are displayed in special display
-            is_selected = group.id == selected_group_id
-
-            # Draw group background (semi-transparent)
-            bg_color = (
-                QColor(230, 230, 255, 40) if is_selected else QColor(245, 245, 245, 20)
-            )
-            # The position must be specified as an integer
-            min_x_int = int(min_x)
-            min_y_int = int(min_y)
-            group_width_int = int(group_width)
-            group_height_int = int(group_height)
-            painter.fillRect(
-                min_x_int, min_y_int, group_width_int, group_height_int, bg_color
-            )
-
-            # Draw a group frame
-            pen_color = QColor(100, 100, 255) if is_selected else QColor(200, 200, 200)
-            pen = QPen(pen_color)
-            pen.setWidth(2 if is_selected else 1)
-            pen.setStyle(Qt.DashLine if not is_selected else Qt.SolidLine)
-            painter.setPen(pen)
-            painter.drawRect(min_x_int, min_y_int, group_width_int, group_height_int)
-
-            # Calculate the width of the group name (gives some room)
-            font_metrics = painter.fontMetrics()
-            text_width = font_metrics.width(group.name) + 10  # 10px margin
-            half_width = text_width // 2
-
-            # Get label position (pass text width)
-            label_x, label_y, alignment = self._get_label_position(
-                group, group_nodes, text_width, half_width
-            )
-
-            # Get group width
-            group_width_int = int(group_width)
-
-            # Set the display width
-            # Fixed width (100px) when not selected
-            # When selected, the width is based on the number of characters (minimum width is 100px)
-            fixed_width = 100  # Fixed web
-
-            if is_selected:
-                # When selected, the width is based on the number of characters (minimum width is fixed width)
-                display_width = max(text_width, fixed_width)
-            else:
-                # Fixed width when not selected
-                display_width = fixed_width
-
-            # Determine the text to be displayed (whole displays when selected, omits if necessary)
-            display_text = group.name
-            if not is_selected and text_width > fixed_width:
-                display_text = font_metrics.elidedText(
-                    group.name, Qt.ElideRight, fixed_width
-                )
-
-            # Draw label background (semi-transparent)
-            label_bg = (
-                QColor(240, 240, 255, 200)
-                if is_selected
-                else QColor(240, 240, 240, 180)
-            )
-            # label_x and label_y have already been converted to int using the _get_label_position method, but just to be safe
-            label_x_int = int(label_x)
-            label_y_int = int(label_y)
-            painter.fillRect(label_x_int, label_y_int, display_width, 20, label_bg)
-
-            # Draw label frame
-            painter.setPen(pen_color)
-            painter.drawRect(label_x_int, label_y_int, display_width, 20)
-
-            # Draw group name
-            painter.setPen(QColor("black"))
-            painter.drawText(
-                label_x_int,
-                label_y_int,
-                display_width,
-                20,
-                Qt.AlignCenter,
-                display_text,
-            )
-
-        # Draw a node
-        for node in self.graph.nodes:
-            rect = QRectF(
-                node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
-            )
-
-            # Selected nodes are displayed in different colors
-            is_selected = node in self.graph.selected_nodes
-            node_color = QColor(173, 216, 230) if is_selected else QColor("skyblue")
-            painter.fillRect(rect, node_color)
-
-            # Draw a frame
-            if is_selected:
-                pen = QPen(QColor("blue"))
-                pen.setWidth(2)
-            else:
-                pen = QPen(QColor("gray"))
-                pen.setWidth(1)
-            painter.setPen(pen)
-            painter.drawRect(rect)
-
-            # Draw Node ID
-            painter.setPen(QColor("black"))
-            painter.drawText(rect, Qt.AlignCenter, str(node.id))
-
-    def _get_label_position(self, group, nodes=None, text_width=0, half_width=0):
-        """
-        Calculate the position for the group label based on the group's label_position.
-
-        Args:
-            group: The node group
-            nodes: Optional list of nodes in the group. If not provided, will be retrieved from group.
-            text_width: Width of the text in pixels
-            half_width: Half of the text width in pixels
-
-        Returns:
-            Tuple[int, int, int]: x, y coordinates and alignment flag for the label
-        """
-        # Get nodes if not provided
-        if nodes is None:
-            nodes = group.get_nodes(self.graph.nodes)
-
-        if not nodes:
-            return (
-                0,
-                0,
-                Qt.AlignCenter,
-            )  # Default position if no nodes, now center-aligned
-
-        # Find min/max coordinates of the group
-        min_x = min(node.x - node.size / 2 for node in nodes)
-        min_y = min(node.y - node.size / 2 for node in nodes)
-        max_x = max(node.x + node.size / 2 for node in nodes)
-        max_y = max(node.y + node.size / 2 for node in nodes)
-        center_x = (min_x + max_x) / 2
-
-        # Default alignment is center-aligned
-        alignment = Qt.AlignCenter
-
-        # Margin to avoid overlapping with dotted lines
-        margin = 30
-
-        # Calculate position based on label_position
-        if group.label_position == group.POSITION_RIGHT:
-            # Normally displayed on the right of NodeGroups
-            return int(max_x + margin), int((min_y + max_y) / 2 - 10), alignment
-        elif group.label_position == group.POSITION_BOTTOM:
-            # Place directly below the group (fixed position)
-            return (
-                int(center_x - 50),
-                int(max_y + margin),
-                alignment,
-            )  # Draw half of the fixed width (50px)
-        else:  # POSITION_TOP as default
-            # Displays in the same position when selected or not selected
-            return (
-                int(center_x - 50),
-                int(min_y - margin),
-                alignment,
-            )  # Draw half of the fixed width (50px)
+        self.renderer.draw(
+            painter, self.current_mode, temp_edge_data, self.edit_target_group
+        )
 
     def find_group_at_position(self, point):
         """
@@ -624,15 +269,15 @@ class Canvas(QWidget):
                         self.setCursor(Qt.ClosedHandCursor)
 
             elif event.button() == Qt.RightButton:
-                # Right-click in normal mode - show context menu with node ID options
-                self.normal_context_menu.popup(self.mapToGlobal(point))
+                # Right-click in normal mode - show context menu
+                self.normal_context_menu.popup(self.mapToGlobal(widget_point))
 
         elif self.current_mode == self.EDIT_MODE:
             # Edit mode
             if event.button() == Qt.LeftButton:
                 if self.edit_submode == self.EDIT_SUBMODE_CONNECT:
                     # Edge connection mode - start connecting edges
-                    node = self.graph.find_node_at_position(point)
+                    node = self.graph.find_node_at_position(graph_point)
                     if node:
                         # Check if node belongs to target group
                         if (
@@ -642,23 +287,24 @@ class Canvas(QWidget):
                         ):
                             # Use for edge creation in edit mode
                             self.current_edge_start = node
-                            self.temp_edge_end = point
+                            self.temp_edge_end = graph_point
                             # Change cursor during edit mode
                             self.setCursor(Qt.CrossCursor)
 
                 elif self.edit_submode == self.EDIT_SUBMODE_ERASER:
                     # Eraser mode - delete edge at click point
-                    self._delete_edge_at_position(point)
+                    delete_edge_at_position(
+                        self.graph, graph_point.x(), graph_point.y()
+                    )
+                    self.update()
 
             elif event.button() == Qt.RightButton:
                 # Right-click in edit mode - show context menu
                 if self.edit_target_group:
-                    # Update toggle eraser action state
-                    self.toggle_eraser_action.setChecked(
-                        self.edit_submode == self.EDIT_SUBMODE_ERASER
-                    )
+                    # Prepare the menu before showing it
+                    self.edit_context_menu.prepare_for_display()
                     # Show context menu
-                    self.edit_context_menu.popup(self.mapToGlobal(point))
+                    self.edit_context_menu.popup(self.mapToGlobal(widget_point))
 
     def mouseMoveEvent(self, event):
         """
@@ -855,82 +501,6 @@ class Canvas(QWidget):
                     self._handle_file_drop(file_path)
                     event.acceptProposedAction()
                     break
-
-    def _delete_edge_at_position(self, point):
-        """
-        Delete an edge near the given point.
-
-        Args:
-            point (QPoint): The point to check for nearby edges
-        """
-        # Threshold distance for edge detection
-        threshold = 10.0
-
-        # Find the closest edge
-        closest_edge = None
-        min_distance = float("inf")
-
-        for source_id, target_id in self.graph.edges:
-            # Get source and target nodes
-            source_node = None
-            target_node = None
-
-            try:
-                source_node = next(n for n in self.graph.nodes if n.id == source_id)
-                target_node = next(n for n in self.graph.nodes if n.id == target_id)
-            except StopIteration:
-                continue
-
-            if source_node and target_node:
-                # Calculate distance from point to line segment (edge)
-                distance = self._point_to_line_distance(
-                    point.x(),
-                    point.y(),
-                    source_node.x,
-                    source_node.y,
-                    target_node.x,
-                    target_node.y,
-                )
-
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_edge = (source_id, target_id)
-
-        # Delete the edge if it's close enough
-        if closest_edge and min_distance <= threshold:
-            self.graph.edges.remove(closest_edge)
-            self.update()
-
-    def _point_to_line_distance(self, px, py, x1, y1, x2, y2):
-        """
-        Calculate the minimum distance from a point to a line segment.
-
-        Args:
-            px, py: Point coordinates
-            x1, y1: Line segment start coordinates
-            x2, y2: Line segment end coordinates
-
-        Returns:
-            float: The minimum distance from the point to the line segment
-        """
-        # Line length squared
-        line_length_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2
-
-        # If the line is actually a point
-        if line_length_sq == 0:
-            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
-
-        # Calculate projection of point onto line
-        t = max(
-            0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_sq)
-        )
-
-        # Calculate closest point on line segment
-        closest_x = x1 + t * (x2 - x1)
-        closest_y = y1 + t * (y2 - y1)
-
-        # Return distance to closest point
-        return ((px - closest_x) ** 2 + (py - closest_y) ** 2) ** 0.5
 
     def _handle_file_drop(self, file_path):
         """

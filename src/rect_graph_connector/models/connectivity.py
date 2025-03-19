@@ -1,0 +1,171 @@
+"""
+This module handles node connectivity operations for the graph.
+
+It provides functions for establishing connections between nodes
+in various patterns like 4-directional connections.
+"""
+
+from typing import List, Dict, Tuple
+
+from .rect_node import RectNode
+from .graph import Graph
+
+
+def connect_nodes_in_4_directions(graph: Graph, nodes: List[RectNode]) -> None:
+    """
+    Connect all nodes in a list in 4 directions (up, down, left, right).
+
+    Each node gets connected to its adjacent neighbors based on their
+    row and column positions in the grid.
+
+    Args:
+        graph (Graph): The graph where connections will be added
+        nodes (List[RectNode]): The list of nodes to connect
+    """
+    if not nodes:
+        return
+
+    # Create a grid structure: store nodes with row and col as keys
+    grid = {}
+    for node in nodes:
+        grid[(node.row, node.col)] = node
+
+    # For each node, connect to adjacent nodes in four directions (up, down, left, right)
+    for node in nodes:
+        # Calculate the coordinates of adjacent cells in four directions
+        neighbors = [
+            (node.row - 1, node.col),  # up
+            (node.row + 1, node.col),  # down
+            (node.row, node.col - 1),  # left
+            (node.row, node.col + 1),  # right
+        ]
+
+        # Connect with adjacent nodes
+        for neighbor_pos in neighbors:
+            if neighbor_pos in grid:
+                neighbor_node = grid[neighbor_pos]
+                # Add only if the connection does not already exist
+                if not graph.has_edge(node, neighbor_node):
+                    graph.add_edge(node, neighbor_node)
+
+
+def connect_nodes_in_8_directions(graph: Graph, nodes: List[RectNode]) -> None:
+    """
+    Connect all nodes in a list in 8 directions (including diagonals).
+
+    Each node gets connected to its adjacent neighbors based on their
+    row and column positions in the grid, including diagonal connections.
+
+    Args:
+        graph (Graph): The graph where connections will be added
+        nodes (List[RectNode]): The list of nodes to connect
+    """
+    if not nodes:
+        return
+
+    # Create a grid structure: store nodes with row and col as keys
+    grid = {}
+    for node in nodes:
+        grid[(node.row, node.col)] = node
+
+    # For each node, connect to adjacent nodes in eight directions
+    for node in nodes:
+        # Calculate the coordinates of adjacent cells in eight directions
+        neighbors = [
+            (node.row - 1, node.col),  # up
+            (node.row + 1, node.col),  # down
+            (node.row, node.col - 1),  # left
+            (node.row, node.col + 1),  # right
+            (node.row - 1, node.col - 1),  # up-left
+            (node.row - 1, node.col + 1),  # up-right
+            (node.row + 1, node.col - 1),  # down-left
+            (node.row + 1, node.col + 1),  # down-right
+        ]
+
+        # Connect with adjacent nodes
+        for neighbor_pos in neighbors:
+            if neighbor_pos in grid:
+                neighbor_node = grid[neighbor_pos]
+                # Add only if the connection does not already exist
+                if not graph.has_edge(node, neighbor_node):
+                    graph.add_edge(node, neighbor_node)
+
+
+def delete_edge_at_position(
+    graph: Graph, px: float, py: float, threshold: float = 10.0
+) -> bool:
+    """
+    Delete an edge that is close to the specified position.
+
+    Args:
+        graph (Graph): The graph containing the edges
+        px (float): X-coordinate of the point
+        py (float): Y-coordinate of the point
+        threshold (float): Maximum distance to consider an edge as close
+
+    Returns:
+        bool: True if an edge was deleted, False otherwise
+    """
+    # Find the closest edge
+    closest_edge = None
+    min_distance = float("inf")
+
+    for source_id, target_id in graph.edges:
+        # Get source and target nodes
+        source_node = None
+        target_node = None
+
+        try:
+            source_node = next(n for n in graph.nodes if n.id == source_id)
+            target_node = next(n for n in graph.nodes if n.id == target_id)
+        except StopIteration:
+            continue
+
+        if source_node and target_node:
+            # Calculate distance from point to line segment (edge)
+            distance = point_to_line_distance(
+                px, py, source_node.x, source_node.y, target_node.x, target_node.y
+            )
+
+            if distance < min_distance:
+                min_distance = distance
+                closest_edge = (source_id, target_id)
+
+    # Delete the edge if it's close enough
+    if closest_edge and min_distance <= threshold:
+        graph.edges.remove(closest_edge)
+        return True
+
+    return False
+
+
+def point_to_line_distance(
+    px: float, py: float, x1: float, y1: float, x2: float, y2: float
+) -> float:
+    """
+    Calculate the minimum distance from a point to a line segment.
+
+    Args:
+        px, py: Point coordinates
+        x1, y1: Line segment start coordinates
+        x2, y2: Line segment end coordinates
+
+    Returns:
+        float: The minimum distance from the point to the line segment
+    """
+    # Line length squared
+    line_length_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2
+
+    # If the line is actually a point
+    if line_length_sq == 0:
+        return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+
+    # Calculate projection of point onto line
+    t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_sq))
+
+    # Calculate closest point on line segment
+    closest_x = x1 + t * (x2 - x1)
+    closest_y = y1 + t * (y2 - y1)
+
+    # Return distance to closest point
+    return ((px - closest_x) ** 2 + (py - closest_y) ** 2) ** 0.5
