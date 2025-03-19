@@ -40,6 +40,7 @@ keyboard_shortcuts:
   select_all: "Ctrl+A" # Select all node groups
   delete: "Delete" # Delete selected node group
   escape: "Escape" # Deselect
+  rotate: "R" # Rotate selected groups
 
 logging:
   directory: ".log" # Log file storage directory

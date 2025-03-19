@@ -341,6 +341,17 @@ class Canvas(QWidget):
                 for group in self.graph.selected_groups:
                     self.graph.selected_nodes.extend(group.get_nodes(self.graph.nodes))
                 self.update()
+        elif (
+            event.key()
+            == getattr(
+                Qt, f"Key_{config.get_constant('keyboard_shortcuts.rotate', 'R')}"
+            )
+            and self.current_mode == self.NORMAL_MODE
+        ):
+            # Rotate selected groups using keyboard shortcut
+            if self.graph.selected_groups:
+                self.graph.rotate_node_groups(self.graph.selected_groups)
+                self.update()
         elif event.key() == Qt.Key_Delete and self.current_mode == self.NORMAL_MODE:
             # Delete key: Delete selected groups
             if self.graph.selected_groups and len(self.graph.selected_groups) > 0:
