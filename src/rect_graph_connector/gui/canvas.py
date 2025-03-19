@@ -41,6 +41,17 @@ class Canvas(QWidget):
         """
         super().__init__(parent)
         self.graph = Graph()
+        # Initialize zoom parameters for zoom functionality
+        self.zoom = 1.0
+        self.min_zoom = 0.1
+        self.max_zoom = 10.0
+        # Initialize pan parameters for panning functionality
+        from PyQt5.QtCore import QPointF
+
+        self.pan_offset = QPointF(0, 0)
+        self.panning = False
+        self.pan_start = None
+        self.pan_offset_start = QPointF(0, 0)
 
         # Interaction state
         self.dragging = False
@@ -252,8 +263,13 @@ class Canvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw canvas border with mode-specific color
+        # Draw canvas border without scaling
         self._draw_canvas_border(painter)
+
+        # Save the painter state and apply zoom scaling for graph elements
+        painter.save()
+        painter.translate(self.pan_offset)
+        painter.scale(self.zoom, self.zoom)
 
         # Draw edges
         self._draw_edges(painter)
@@ -263,6 +279,7 @@ class Canvas(QWidget):
 
         # Draw nodes
         self._draw_nodes(painter)
+        painter.restore()
 
         # Mode display (for debugging)
         # self._draw_mode_indicator(painter)
@@ -557,10 +574,11 @@ class Canvas(QWidget):
 
                     self.update()
                 else:
-                    # Deselect if clicking on empty space
-                    self.graph.selected_nodes.clear()
-                    self.graph.selected_group = None
-                    self.update()
+                    # Start panning if clicking on empty background
+                    self.panning = True
+                    self.pan_start = event.pos()
+                    self.pan_offset_start = self.pan_offset
+                    self.setCursor(Qt.ClosedHandCursor)
 
             elif event.button() == Qt.RightButton:
                 # Right-click in normal mode - show context menu with node ID options
@@ -609,7 +627,7 @@ class Canvas(QWidget):
         point = event.pos()
 
         if self.current_mode == self.NORMAL_MODE:
-            # Normal mode - You can drag nodes
+            # Normal mode - You can drag nodes or pan the view
             if self.dragging and self.drag_start:
                 dx = point.x() - self.drag_start.x()
                 dy = point.y() - self.drag_start.y()
@@ -618,6 +636,11 @@ class Canvas(QWidget):
                     node.move(dx, dy)
 
                 self.drag_start = point
+                self.update()
+            elif self.panning:
+                dx = point.x() - self.pan_start.x()
+                dy = point.y() - self.pan_start.y()
+                self.pan_offset = self.pan_offset_start + QPointF(dx, dy)
                 self.update()
         elif self.current_mode == self.EDIT_MODE:
             # Edit Mode - NodeGroups are fixed and cannot be moved
@@ -643,6 +666,9 @@ class Canvas(QWidget):
             if event.button() == Qt.LeftButton:
                 self.dragging = False
                 self.drag_start = None
+                if self.panning:
+                    self.panning = False
+                    self.setCursor(Qt.ArrowCursor)
 
             # Edge creation in normal mode is disabled
             elif event.button() == Qt.RightButton:
@@ -661,6 +687,24 @@ class Canvas(QWidget):
                 # Right-click will be used for context menu in the future
                 # Currently no action
                 pass
+
+    def wheelEvent(self, event):
+        """
+        Handle mouse wheel events for zooming in and out.
+        Zoom in when scrolling up and zoom out when scrolling down.
+        The maximum zoom in is set such that three nodes nearly fill the canvas,
+        and the maximum zoom out is determined by the span of all NodeGroups.
+        Text and other canvas elements scale accordingly.
+        """
+        delta = event.angleDelta().y()
+        zoom_factor = 1.0 + delta / 1200.0  # Adjust sensitivity as needed
+        new_zoom = self.zoom * zoom_factor
+        if new_zoom > self.max_zoom:
+            new_zoom = self.max_zoom
+        if new_zoom < self.min_zoom:
+            new_zoom = self.min_zoom
+        self.zoom = new_zoom
+        self.update()
 
     def _complete_edge_creation(self, point):
         """
