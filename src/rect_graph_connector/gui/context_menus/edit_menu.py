@@ -47,16 +47,29 @@ class EditContextMenu(QMenu):
         self.connection_menu.addAction(self.connect_4_directions_action)
         self.connection_menu.addAction(self.connect_8_directions_action)
 
-        # Toggle eraser mode action
-        self.toggle_eraser_action = QAction("Eraser Mode (Delete Edges)", self)
-        self.toggle_eraser_action.setCheckable(True)
-        self.toggle_eraser_action.triggered.connect(self._toggle_eraser_mode)
+        # Toggle knife mode action
+        self.toggle_knife_action = QAction("Knife Mode (Cut Edges)", self)
+        self.toggle_knife_action.setCheckable(True)
+        self.toggle_knife_action.triggered.connect(self._toggle_knife_mode)
 
     def _build_menu(self):
         """Build the menu structure by adding actions."""
         self.addMenu(self.connection_menu)
         self.addSeparator()
-        self.addAction(self.toggle_eraser_action)
+        self.addAction(self.toggle_knife_action)
+
+    def _toggle_knife_mode(self, checked):
+        """
+        Toggle between knife mode and normal edit mode.
+
+        Args:
+            checked (bool): Whether the knife mode is enabled
+        """
+        if self.canvas:
+            if checked:
+                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_KNIFE)
+            else:
+                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
 
     def _connect_nodes_in_8_directions(self):
         """
@@ -100,25 +113,12 @@ class EditContextMenu(QMenu):
         # Update display
         self.canvas.update()
 
-    def _toggle_eraser_mode(self, checked):
-        """
-        Toggle between eraser mode and normal edit mode.
-
-        Args:
-            checked (bool): Whether the eraser mode is enabled
-        """
-        if self.canvas:
-            if checked:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_ERASER)
-            else:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
-
     def prepare_for_display(self):
         """
         Prepare the menu before displaying it, updating state as needed.
         """
         if self.canvas:
-            # Update toggle eraser action state
-            self.toggle_eraser_action.setChecked(
-                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_ERASER
+            # Update toggle knife action state
+            self.toggle_knife_action.setChecked(
+                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_KNIFE
             )

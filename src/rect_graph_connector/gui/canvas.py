@@ -14,7 +14,7 @@ from .import_dialog import ImportModeDialog
 from .canvas_renderer import CanvasRenderer
 from .context_menus.normal_menu import NormalContextMenu
 from .context_menus.edit_menu import EditContextMenu
-from ..models.connectivity import delete_edge_at_position
+from ..models.connectivity import delete_edge_at_position, find_intersecting_edges
 
 
 class Canvas(QWidget):
@@ -32,7 +32,7 @@ class Canvas(QWidget):
 
     # Define edit sub-modes
     EDIT_SUBMODE_CONNECT = "connect"  # Default edit submode for edge connection
-    EDIT_SUBMODE_ERASER = "eraser"  # Eraser submode for edge deletion
+    EDIT_SUBMODE_KNIFE = "knife"  # Knife submode for edge deletion with path
 
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
@@ -77,6 +77,11 @@ class Canvas(QWidget):
         self.temp_edge_end = None
         self._pending_deselect = False
         self._press_pos = None
+
+        # Knife mode state
+        self.knife_path = []  # List of points forming the knife path
+        self.highlighted_edges = []  # List of edges intersecting with knife path
+        self.is_cutting = False  # Flag to indicate active cutting operation
 
         # Mode management
         self.current_mode = self.NORMAL_MODE
@@ -179,14 +184,20 @@ class Canvas(QWidget):
         Set the edit submode and update the cursor.
 
         Args:
-            submode (str): The submode to set (EDIT_SUBMODE_CONNECT or EDIT_SUBMODE_ERASER)
+            submode (str): The submode to set (EDIT_SUBMODE_CONNECT or EDIT_SUBMODE_KNIFE)
         """
         self.edit_submode = submode
 
+        # Reset knife mode state
+        self.knife_path = []
+        self.highlighted_edges = []
+        self.is_cutting = False
+
         # Update cursor based on submode
-        if submode == self.EDIT_SUBMODE_ERASER:
-            # Eraser cursor
-            self.setCursor(Qt.ForbiddenCursor)
+        if submode == self.EDIT_SUBMODE_KNIFE:
+            # Knife cursor (using CrossCursor as a temporary solution)
+            # TODO: Create a custom knife cursor image
+            self.setCursor(Qt.CrossCursor)
         else:
             # Default edit mode cursor
             self.setCursor(Qt.CrossCursor)
@@ -204,17 +215,30 @@ class Canvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Use the renderer to draw the graph
+        # Prepare temporary edge data
         temp_edge_data = None
         if self.current_edge_start and self.temp_edge_end:
             temp_edge_data = (self.current_edge_start, self.temp_edge_end)
 
+        # Prepare knife data if in knife mode
+        knife_data = None
+        if (
+            self.current_mode == self.EDIT_MODE
+            and self.edit_submode == self.EDIT_SUBMODE_KNIFE
+        ):
+            knife_data = {
+                "path": self.knife_path,
+                "highlighted_edges": self.highlighted_edges,
+            }
+
+        # Use the renderer to draw the graph
         self.renderer.draw(
             painter,
             self.current_mode,
             temp_edge_data,
             None,  # edit_target_group parameter is deprecated
             self.edit_target_groups,
+            knife_data,
         )
 
     def find_group_at_position(self, point):
@@ -435,11 +459,11 @@ class Canvas(QWidget):
                             # Change cursor during edit mode
                             self.setCursor(Qt.CrossCursor)
 
-                elif self.edit_submode == self.EDIT_SUBMODE_ERASER:
-                    # Eraser mode - delete edge at click point
-                    delete_edge_at_position(
-                        self.graph, graph_point.x(), graph_point.y()
-                    )
+                elif self.edit_submode == self.EDIT_SUBMODE_KNIFE:
+                    # Knife mode - start cutting operation
+                    self.is_cutting = True
+                    self.knife_path = [(graph_point.x(), graph_point.y())]
+                    self.highlighted_edges = []
                     self.update()
 
             elif event.button() == Qt.RightButton:
@@ -484,9 +508,18 @@ class Canvas(QWidget):
                 self.drag_start = graph_point
                 self.update()
         elif self.current_mode == self.EDIT_MODE:
-            # Edit Mode - NodeGroups are fixed and cannot be moved
-            # ドラッグ操作を無視するだけで良い
-            pass
+            if self.edit_submode == self.EDIT_SUBMODE_KNIFE and self.is_cutting:
+                # Add point to knife path
+                self.knife_path.append((graph_point.x(), graph_point.y()))
+
+                # Find intersecting edges
+                self.highlighted_edges = find_intersecting_edges(
+                    self.graph, self.knife_path
+                )
+                self.update()
+            else:
+                # Other edit modes - ignore drag operations
+                pass
 
         # Update edge previews in both modes
         if self.current_edge_start:
@@ -542,6 +575,23 @@ class Canvas(QWidget):
             if event.button() == Qt.LeftButton and self.current_edge_start:
                 # In edit mode, create edge with left-click
                 self._complete_edge_creation(graph_point)
+
+            elif (
+                event.button() == Qt.LeftButton
+                and self.edit_submode == self.EDIT_SUBMODE_KNIFE
+            ):
+                # Complete cutting operation
+                if self.is_cutting and self.highlighted_edges:
+                    # Remove all highlighted edges
+                    for edge in self.highlighted_edges:
+                        if edge in self.graph.edges:
+                            self.graph.edges.remove(edge)
+
+                # Reset knife mode state
+                self.is_cutting = False
+                self.knife_path = []
+                self.highlighted_edges = []
+                self.update()
 
             elif event.button() == Qt.RightButton:
                 # Right-click will be used for context menu in the future

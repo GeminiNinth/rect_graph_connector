@@ -35,6 +35,7 @@ class CanvasRenderer:
         temp_edge_data=None,
         edit_target_group=None,
         edit_target_groups=None,
+        knife_data=None,
     ):
         """
         Draw the complete graph on the canvas.
@@ -45,6 +46,7 @@ class CanvasRenderer:
             temp_edge_data (tuple, optional): Temporary edge data (start_node, end_point)
             edit_target_group: Deprecated. Use edit_target_groups instead.
             edit_target_groups: List of groups being edited in edit mode
+            knife_data (dict, optional): Data for knife tool rendering
         """
         # Draw canvas border without scaling
         self._draw_canvas_border(painter, mode)
@@ -58,12 +60,19 @@ class CanvasRenderer:
         if hasattr(self.canvas, "zoom"):
             painter.scale(self.canvas.zoom, self.canvas.zoom)
 
-        # Draw edges
-        self._draw_edges(painter)
+        # Draw edges (with highlighting if in knife mode)
+        if knife_data and knife_data.get("highlighted_edges"):
+            self._draw_edges_with_highlight(painter, knife_data["highlighted_edges"])
+        else:
+            self._draw_edges(painter)
 
         # Draw temporary edge if provided
         if temp_edge_data:
             self._draw_temp_edge(painter, temp_edge_data)
+
+        # Draw knife path if in knife mode
+        if knife_data and knife_data.get("path"):
+            self._draw_knife_path(painter, knife_data["path"])
 
         # Draw nodes
         self._draw_nodes(painter)
@@ -71,6 +80,8 @@ class CanvasRenderer:
         # Restore painter state
         painter.restore()
 
+        # Draw mode indicator if needed
+        # self._draw_mode_indicator(painter, mode, edit_target_group)
         # Draw mode indicator if needed
         # self._draw_mode_indicator(painter, mode, edit_target_group)
 
@@ -91,6 +102,59 @@ class CanvasRenderer:
         pen.setWidth(2)
         painter.setPen(pen)
         painter.drawRect(0, 0, self.canvas.width() - 1, self.canvas.height() - 1)
+
+    def _draw_edges_with_highlight(self, painter: QPainter, highlighted_edges):
+        """
+        Draw all edges with highlighted edges in a different color.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+            highlighted_edges (List[Tuple[str, str]]): List of edge tuples to highlight
+        """
+        # First draw all edges normally
+        pen = painter.pen()
+        for source_id, target_id in self.graph.edges:
+            try:
+                source_node = next(n for n in self.graph.nodes if n.id == source_id)
+                target_node = next(n for n in self.graph.nodes if n.id == target_id)
+            except StopIteration:
+                continue
+
+            if (source_id, target_id) in highlighted_edges:
+                # Highlight edge in red
+                painter.setPen(QPen(QColor(255, 0, 0), 2))
+            else:
+                # Normal edge in black
+                painter.setPen(pen)
+
+            painter.drawLine(
+                int(source_node.x),
+                int(source_node.y),
+                int(target_node.x),
+                int(target_node.y),
+            )
+
+    def _draw_knife_path(self, painter: QPainter, path_points):
+        """
+        Draw the knife tool path.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+            path_points (List[Tuple[float, float]]): List of points forming the path
+        """
+        if len(path_points) < 2:
+            return
+
+        # Set up the pen for the knife path
+        pen = QPen(QColor(200, 0, 0))  # Dark red color
+        pen.setWidth(2)
+        painter.setPen(pen)
+
+        # Draw lines connecting all points in the path
+        for i in range(len(path_points) - 1):
+            x1, y1 = path_points[i]
+            x2, y2 = path_points[i + 1]
+            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
     def _draw_mode_indicator(
         self, painter: QPainter, mode: str, edit_target_group=None
