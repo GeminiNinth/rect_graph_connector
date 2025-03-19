@@ -2,7 +2,7 @@
 This module contains the Canvas widget for graph visualization.
 """
 
-from PyQt5.QtWidgets import QWidget, QMenu, QAction, QInputDialog
+from PyQt5.QtWidgets import QWidget, QMenu, QAction, QInputDialog, QMainWindow
 from PyQt5.QtGui import QPainter, QColor, QPen, QCursor
 from PyQt5.QtCore import Qt, QRectF, QPointF, QMimeData, pyqtSignal
 
@@ -283,6 +283,26 @@ class Canvas(QWidget):
                 self.graph.selected_nodes = []
                 for group in self.graph.selected_groups:
                     self.graph.selected_nodes.extend(group.get_nodes(self.graph.nodes))
+                self.update()
+        elif event.key() == Qt.Key_Delete and self.current_mode == self.NORMAL_MODE:
+            # Delete key: Delete selected groups
+            if self.graph.selected_groups and len(self.graph.selected_groups) > 0:
+                # Create a copy of the list since we're modifying it during iteration
+                groups_to_delete = self.graph.selected_groups.copy()
+
+                # Process each group separately to ensure all are deleted
+                for group in groups_to_delete:
+                    self.graph.delete_group(group)
+
+                # Clear selection after all deletions are complete
+                self.graph.selected_group = None
+                self.graph.selected_groups = []
+                self.graph.selected_nodes = []
+
+                # Get the main window instance and update the group list
+                main_window = self.window()
+                if isinstance(main_window, QMainWindow):
+                    main_window._update_group_list()
                 self.update()
 
     def mousePressEvent(self, event):

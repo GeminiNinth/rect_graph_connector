@@ -443,6 +443,20 @@ class MainWindow(QMainWindow):
                 "background-color: rgba(240, 240, 240, 180);"
             )
 
+    def keyPressEvent(self, event):
+        """
+        Handle keyboard events.
+
+        Args:
+            event (QKeyEvent): The key event to handle
+        """
+        # Delete key (Del) pressed
+        if event.key() == Qt.Key_Delete:
+            self._handle_delete()
+        else:
+            # Pass other key events to parent class
+            super().keyPressEvent(event)
+
     def _update_group_list(self):
         """Update the group list to reflect the current state of node groups."""
         self.group_list.clear()
