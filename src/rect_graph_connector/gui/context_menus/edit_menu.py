@@ -66,10 +66,24 @@ class EditContextMenu(QMenu):
             self._toggle_all_for_one_connection_mode
         )
 
+        # Parallel connection action
+        parallel_text = config.get_string(
+            "edit_menu.connection.parallel", "Parallel connection"
+        )
+        self.parallel_action = QAction(parallel_text, self)
+        self.parallel_action.setToolTip(
+            config.get_string(
+                "edit_menu.connection.parallel_tooltip",
+                "Enables selecting multiple nodes and drawing edges in parallel in the same direction and distance.",
+            )
+        )
+        self.parallel_action.triggered.connect(self._toggle_parallel_connection_mode)
+
         # Add connection actions to the submenu
         self.connection_menu.addAction(self.connect_4_directions_action)
         self.connection_menu.addAction(self.connect_8_directions_action)
         self.connection_menu.addAction(self.all_for_one_action)
+        self.connection_menu.addAction(self.parallel_action)
 
         # Toggle knife mode action
         knife_text = config.get_string(
@@ -153,6 +167,20 @@ class EditContextMenu(QMenu):
         # Update display
         self.canvas.update()
 
+    def _toggle_parallel_connection_mode(self):
+        """
+        Toggle Parallel connection mode.
+
+        This mode allows selecting multiple nodes and drawing edges from all selected nodes
+        in the same direction and distance simultaneously.
+        """
+        if self.canvas:
+            # Check if already in Parallel connection mode, if so go back to connect mode
+            if self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_PARALLEL:
+                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
+            else:
+                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_PARALLEL)
+
     def prepare_for_display(self):
         """
         Prepare the menu before displaying it, updating state as needed.
@@ -168,4 +196,11 @@ class EditContextMenu(QMenu):
                 self.all_for_one_action.setCheckable(True)
             self.all_for_one_action.setChecked(
                 self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_ALL_FOR_ONE
+            )
+
+            # Update Parallel connection action state
+            if not hasattr(self.parallel_action, "setCheckable"):
+                self.parallel_action.setCheckable(True)
+            self.parallel_action.setChecked(
+                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_PARALLEL
             )

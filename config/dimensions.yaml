@@ -11,6 +11,8 @@ node:
   border_width:
     normal: 1
     selected: 2
+    all_for_one_selected: 3
+    parallel_selected: 3
 
 group:
   border_width:

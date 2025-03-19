@@ -8,6 +8,7 @@ edit_submodes:
   connect: "connect" # Edge Connection Mode (Default)
   knife: "knife" # Edge Cutting Mode
   all_for_one: "all_for_one" # All-For-One Connection Mode
+  parallel: "parallel" # Parallel Connection Mode
 
 # Flags for deselection method
 deselect_methods:

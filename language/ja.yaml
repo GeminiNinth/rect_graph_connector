@@ -7,6 +7,8 @@ edit_menu:
     eight_directions: "8近傍"
     all_for_one: "All-For-One接続"
     all_for_one_tooltip: "複数ノードの選択が可能になります。選択されたノードから描画すると、すべての選択されたノードから同一のエッジが自動的に伸びます。"
+    parallel: "Parallel接続"
+    parallel_tooltip: "複数のノードを選択（矩形選択可）した後、選択したノードのいずれかを左クリック＆ドラッグすることで、選択された全てのノードから同一方向・同一距離のエッジを同時に描画します。"
 
 import_dialog:
   window_title: "インポートモードの選択"

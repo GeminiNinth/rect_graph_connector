@@ -7,6 +7,8 @@ edit_menu:
     eight_directions: "8-neighborhood"
     all_for_one: "All-For-One connection"
     all_for_one_tooltip: "Enables multiple node selection. When drawing from a selected node, identical edges extend from all selected nodes automatically."
+    parallel: "Parallel connection"
+    parallel_tooltip: "Enables selecting multiple nodes and drawing edges in parallel in the same direction and distance."
 
 import_dialog:
   window_title: "Import Mode Selection"

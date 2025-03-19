@@ -48,6 +48,9 @@ class Canvas(QWidget):
     EDIT_SUBMODE_ALL_FOR_ONE = config.get_constant(
         "edit_submodes.all_for_one", "all_for_one"
     )  # All-For-One connection mode for multiple node selection
+    EDIT_SUBMODE_PARALLEL = config.get_constant(
+        "edit_submodes.parallel", "parallel"
+    )  # Parallel connection mode for drawing edges in same direction
 
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
@@ -109,6 +112,12 @@ class Canvas(QWidget):
         self.all_for_one_selected_nodes = (
             []
         )  # Nodes selected in All-For-One connection mode
+
+        # Parallel connection mode state
+        self.parallel_selected_nodes = []  # Nodes selected in Parallel connection mode
+        self.parallel_edge_endpoints = (
+            []
+        )  # Temporary virtual edges during parallel connection drag
 
         # Rectangle selection state
         self.selection_rect_start = (
@@ -206,6 +215,8 @@ class Canvas(QWidget):
             # Clear all edit mode state when switching back to normal mode
             self.edit_target_groups = []
             self.selected_edges = []  # Clear edge selection
+            self.all_for_one_selected_nodes = []  # Clear All-For-One selection
+            self.parallel_selected_nodes = []  # Clear Parallel selection
             self.set_mode(self.NORMAL_MODE)
 
     def set_deselect_method(self, method, enabled=True):
@@ -228,7 +239,8 @@ class Canvas(QWidget):
         Set the edit submode and update the cursor.
 
         Args:
-            submode (str): The submode to set (EDIT_SUBMODE_CONNECT, EDIT_SUBMODE_KNIFE, or EDIT_SUBMODE_ALL_FOR_ONE)
+            submode (str): The submode to set (EDIT_SUBMODE_CONNECT, EDIT_SUBMODE_KNIFE,
+                          EDIT_SUBMODE_ALL_FOR_ONE, or EDIT_SUBMODE_PARALLEL)
         """
         old_submode = self.edit_submode
         self.edit_submode = submode
@@ -246,6 +258,14 @@ class Canvas(QWidget):
         ):
             self.all_for_one_selected_nodes = []
 
+        # Reset Parallel connection mode state when exiting Parallel connection mode
+        if (
+            old_submode == self.EDIT_SUBMODE_PARALLEL
+            and submode != self.EDIT_SUBMODE_PARALLEL
+        ):
+            self.parallel_selected_nodes = []
+            self.parallel_edge_endpoints = []
+
         # Update cursor based on submode
         if submode == self.EDIT_SUBMODE_KNIFE:
             # Knife cursor (using CrossCursor as a temporary solution)
@@ -253,6 +273,9 @@ class Canvas(QWidget):
             self.setCursor(Qt.CrossCursor)
         elif submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
             # All-For-One connection mode cursor
+            self.setCursor(Qt.ArrowCursor)
+        elif submode == self.EDIT_SUBMODE_PARALLEL:
+            # Parallel connection mode cursor
             self.setCursor(Qt.ArrowCursor)
         else:
             # Default edit mode cursor
@@ -296,6 +319,17 @@ class Canvas(QWidget):
         ):
             all_for_one_data = self.all_for_one_selected_nodes
 
+        # Pass Parallel connection data to renderer
+        parallel_data = None
+        if (
+            self.current_mode == self.EDIT_MODE
+            and self.edit_submode == self.EDIT_SUBMODE_PARALLEL
+        ):
+            parallel_data = {
+                "selected_nodes": self.parallel_selected_nodes,
+                "edge_endpoints": self.parallel_edge_endpoints,
+            }
+
         # Prepare selection rectangle data
         selection_rect_data = None
         if self.is_selecting and self.selection_rect_start and self.selection_rect_end:
@@ -315,6 +349,7 @@ class Canvas(QWidget):
             self.selected_edges,  # Pass selected edges for highlighting
             all_for_one_data,  # Pass All-For-One connection selected nodes for highlighting
             selection_rect_data,  # Pass selection rectangle data
+            parallel_data,  # Pass Parallel connection data
         )
 
     def _calculate_edge_endpoints(self, source_node, target_node):
@@ -472,16 +507,21 @@ class Canvas(QWidget):
             event: Keyboard event
         """
         if event.key() == Qt.Key_Escape:
-            # Handle All-For-One connection mode separately
-            if (
-                self.current_mode == self.EDIT_MODE
-                and self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
-            ):
-                # Cancel All-For-One connection mode and go back to connect mode
-                self.all_for_one_selected_nodes = []
-                self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
-                self.update()
-                return
+            # Handle special edit submodes
+            if self.current_mode == self.EDIT_MODE:
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    # Cancel All-For-One connection mode and go back to connect mode
+                    self.all_for_one_selected_nodes = []
+                    self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                    self.update()
+                    return
+                elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                    # Cancel Parallel connection mode and go back to connect mode
+                    self.parallel_selected_nodes = []
+                    self.parallel_edge_endpoints = []
+                    self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                    self.update()
+                    return
 
             # Only when deselection using the ESC key is enabled
             if self.enabled_deselect_methods.get(self.DESELECT_BY_ESCAPE, True):
@@ -516,8 +556,11 @@ class Canvas(QWidget):
                         )
                     self.update()
             elif self.current_mode == self.EDIT_MODE:
-                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
-                    # In All-For-One connection mode: toggle selection of all eligible nodes
+                if self.edit_submode in [
+                    self.EDIT_SUBMODE_ALL_FOR_ONE,
+                    self.EDIT_SUBMODE_PARALLEL,
+                ]:
+                    # Handle Ctrl+A for both All-For-One and Parallel modes
                     eligible_nodes = []
                     for group in self.edit_target_groups:
                         eligible_nodes.extend(group.get_nodes(self.graph.nodes))
@@ -525,16 +568,27 @@ class Canvas(QWidget):
                     # Check if all eligible nodes are already selected
                     # We need to compare node IDs instead of node objects since RectNode isn't hashable
                     eligible_node_ids = {node.id for node in eligible_nodes}
-                    selected_node_ids = {
-                        node.id for node in self.all_for_one_selected_nodes
-                    }
 
-                    if eligible_node_ids == selected_node_ids:
-                        # If all nodes are already selected, deselect all
-                        self.all_for_one_selected_nodes = []
-                    else:
-                        # Otherwise, select all eligible nodes
-                        self.all_for_one_selected_nodes = eligible_nodes.copy()
+                    if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                        selected_node_ids = {
+                            node.id for node in self.all_for_one_selected_nodes
+                        }
+                        if eligible_node_ids == selected_node_ids:
+                            self.all_for_one_selected_nodes = []  # Deselect all
+                        else:
+                            self.all_for_one_selected_nodes = (
+                                eligible_nodes.copy()
+                            )  # Select all
+                    else:  # EDIT_SUBMODE_PARALLEL
+                        selected_node_ids = {
+                            node.id for node in self.parallel_selected_nodes
+                        }
+                        if eligible_node_ids == selected_node_ids:
+                            self.parallel_selected_nodes = []  # Deselect all
+                        else:
+                            self.parallel_selected_nodes = (
+                                eligible_nodes.copy()
+                            )  # Select all
                     self.update()
                 else:
                     # Default behavior in other edit submodes: Select all edges
@@ -794,6 +848,48 @@ class Canvas(QWidget):
                         self.temp_edge_end = graph_point
                         self.update()
 
+                elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                    # In Parallel connection mode, left click either starts edge creation or rectangle selection
+                    node = self.graph.find_node_at_position(graph_point)
+                    shift_pressed = event.modifiers() & Qt.ShiftModifier
+
+                    if node:
+                        # Check if node belongs to any of the target groups
+                        node_belongs_to_target = False
+                        node_group = self.graph.get_group_for_node(node)
+
+                        if self.edit_target_groups and node_group:
+                            for group in self.edit_target_groups:
+                                if node in group.get_nodes(self.graph.nodes):
+                                    node_belongs_to_target = True
+                                    break
+
+                        if node_belongs_to_target:
+                            if node in self.parallel_selected_nodes:
+                                # Start drawing edges from all selected nodes
+                                self.current_edge_start = node
+                                self.temp_edge_end = graph_point
+                                # Initialize endpoints for all selected nodes
+                                self.parallel_edge_endpoints = [None] * len(
+                                    self.parallel_selected_nodes
+                                )
+                                self.update()
+                            else:
+                                # Select the node if shift is pressed, otherwise clear selection and select only this node
+                                if not shift_pressed:
+                                    self.parallel_selected_nodes = []
+                                self.parallel_selected_nodes.append(node)
+                                self.update()
+                    else:
+                        # If no node was clicked, start rectangle selection
+                        self.is_selecting = True
+                        self.selection_rect_start = graph_point
+                        self.selection_rect_end = graph_point
+                        # Clear selection if shift is not pressed
+                        if not shift_pressed:
+                            self.parallel_selected_nodes = []
+                        self.update()
+
                 elif self.edit_submode == self.EDIT_SUBMODE_KNIFE:
                     # Knife mode - start cutting operation
                     self.is_cutting = True
@@ -802,8 +898,11 @@ class Canvas(QWidget):
                     self.update()
 
             elif event.button() == Qt.RightButton:
-                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
-                    # In All-For-One connection mode, first check if clicked on a node
+                if self.edit_submode in [
+                    self.EDIT_SUBMODE_ALL_FOR_ONE,
+                    self.EDIT_SUBMODE_PARALLEL,
+                ]:
+                    # Handle node selection for both All-For-One and Parallel modes
                     node = self.graph.find_node_at_position(graph_point)
                     if node:
                         # Check if node belongs to any of the target groups
@@ -817,15 +916,21 @@ class Canvas(QWidget):
                                     break
 
                         if node_belongs_to_target:
-                            # Toggle node selection (first click selects, second click deselects)
-                            if node in self.all_for_one_selected_nodes:
-                                self.all_for_one_selected_nodes.remove(node)
-                            else:
-                                self.all_for_one_selected_nodes.append(node)
+                            # Toggle node selection based on mode
+                            if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                                if node in self.all_for_one_selected_nodes:
+                                    self.all_for_one_selected_nodes.remove(node)
+                                else:
+                                    self.all_for_one_selected_nodes.append(node)
+                            else:  # EDIT_SUBMODE_PARALLEL
+                                if node in self.parallel_selected_nodes:
+                                    self.parallel_selected_nodes.remove(node)
+                                else:
+                                    self.parallel_selected_nodes.append(node)
                             self.update()
                             return
                     else:
-                        # If clicked on background in All-For-One connection mode, start rectangle selection
+                        # Start rectangle selection for both modes when clicking background
                         self.is_selecting = True
                         self.selection_rect_start = graph_point
                         self.selection_rect_end = graph_point
@@ -906,6 +1011,30 @@ class Canvas(QWidget):
         # Update edge previews in both modes
         if self.current_edge_start:
             self.temp_edge_end = graph_point
+
+            # For parallel connection mode, update all edge endpoints
+            if (
+                self.edit_submode == self.EDIT_SUBMODE_PARALLEL
+                and self.current_edge_start in self.parallel_selected_nodes
+            ):
+                # Calculate direction and distance for the drag
+                start_pos = QPointF(
+                    self.current_edge_start.x, self.current_edge_start.y
+                )
+                delta_vector = graph_point - start_pos
+
+                # Update endpoints for all selected nodes
+                self.parallel_edge_endpoints = []
+                for node in self.parallel_selected_nodes:
+                    if node:
+                        node_pos = QPointF(node.x, node.y)
+                        # Calculate the end point by adding the same delta vector
+                        end_point = (
+                            node_pos.x() + delta_vector.x(),
+                            node_pos.y() + delta_vector.y(),
+                        )
+                        self.parallel_edge_endpoints.append(end_point)
+
             self.update()
 
     def mouseReleaseEvent(self, event):
@@ -972,6 +1101,9 @@ class Canvas(QWidget):
                 if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
                     # In All-For-One connection mode, create edges from all selected nodes
                     self._complete_all_for_one_edge_creation(graph_point)
+                elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                    # In Parallel connection mode, create parallel edges from all selected nodes
+                    self._complete_parallel_connection(graph_point)
                 else:
                     # In normal edit mode, create single edge
                     self._complete_edge_creation(graph_point)
@@ -1006,11 +1138,11 @@ class Canvas(QWidget):
                     self.selection_rect_end = None
                     self.update()
 
-            # Handle rectangle selection in All-For-One connection mode with right button
-            elif (
-                event.button() == Qt.RightButton
-                and self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
-            ):
+            # Handle rectangle selection in All-For-One and Parallel modes with right button
+            elif event.button() == Qt.RightButton and self.edit_submode in [
+                self.EDIT_SUBMODE_ALL_FOR_ONE,
+                self.EDIT_SUBMODE_PARALLEL,
+            ]:
                 if (
                     self.is_selecting
                     and self.selection_rect_start
@@ -1157,6 +1289,76 @@ class Canvas(QWidget):
         self.temp_edge_end = None
         self.update()
 
+    def _complete_parallel_connection(self, point):
+        """
+        Complete the Parallel connection process by creating edges from all selected nodes
+        in the same direction and distance as the dragged edge. For each selected node,
+        check if there's a target node at the end position of the virtual edge. If a node
+        exists there, create an edge; if not, don't create an edge.
+
+        Args:
+            point (QPointF): The point where the mouse was released
+        """
+        if not self.current_edge_start or not self.parallel_selected_nodes:
+            # No start node or no selected nodes
+            return
+
+        # Calculate the displacement vector from the drag start node
+        start_pos = QPointF(self.current_edge_start.x, self.current_edge_start.y)
+        delta_vector = point - start_pos
+
+        # Create edges for each selected node if a target node exists at the endpoint
+        for source_node in self.parallel_selected_nodes:
+            if not source_node:
+                continue
+
+            # Calculate the expected endpoint position for this source node
+            source_pos = QPointF(source_node.x, source_node.y)
+            expected_endpoint = QPointF(
+                source_pos.x() + delta_vector.x(), source_pos.y() + delta_vector.y()
+            )
+
+            # Find if there's a node at the expected endpoint
+            # Using a small tolerance to make it easier to connect
+            node_size = source_node.size  # Use node size as a reference for tolerance
+            target_node = None
+
+            for node in self.graph.nodes:
+                node_pos = QPointF(node.x, node.y)
+                distance = (
+                    (node_pos.x() - expected_endpoint.x()) ** 2
+                    + (node_pos.y() - expected_endpoint.y()) ** 2
+                ) ** 0.5
+
+                # If there's a node within half a node size, consider it the target
+                if distance <= node_size / 2:
+                    target_node = node
+                    break
+
+            # If a target node was found and it's not the same as the source node
+            if target_node and target_node != source_node:
+                # Check if both nodes belong to target groups
+                source_belongs = False
+                target_belongs = False
+
+                for group in self.edit_target_groups:
+                    if source_node in group.get_nodes(self.graph.nodes):
+                        source_belongs = True
+                    if target_node in group.get_nodes(self.graph.nodes):
+                        target_belongs = True
+                    if source_belongs and target_belongs:
+                        break
+
+                # Add edge if both nodes belong to the edit target groups
+                if source_belongs and target_belongs:
+                    self.graph.add_edge(source_node, target_node)
+
+        # Reset
+        self.current_edge_start = None
+        self.temp_edge_end = None
+        self.parallel_edge_endpoints = []
+        self.update()
+
     def _complete_rectangle_selection(self):
         """
         Complete the rectangle selection and select nodes/groups/edges based on the current mode.
@@ -1229,8 +1431,11 @@ class Canvas(QWidget):
                 self.graph.selected_nodes.extend(group.get_nodes(self.graph.nodes))
 
         elif self.current_mode == self.EDIT_MODE:
-            if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
-                # In All-For-One connection mode, select nodes for All-For-One connections
+            if self.edit_submode in [
+                self.EDIT_SUBMODE_ALL_FOR_ONE,
+                self.EDIT_SUBMODE_PARALLEL,
+            ]:
+                # Handle node selection for both All-For-One and Parallel modes
                 selected_nodes = []
 
                 for group in self.edit_target_groups:
@@ -1251,14 +1456,23 @@ class Canvas(QWidget):
                             if rect.intersects(node_rect):
                                 selected_nodes.append(node)
 
-                # Apply the selection
-                if not shift_pressed:
-                    self.all_for_one_selected_nodes = selected_nodes
-                else:
-                    # Additive selection with shift key
-                    for node in selected_nodes:
-                        if node not in self.all_for_one_selected_nodes:
-                            self.all_for_one_selected_nodes.append(node)
+                # Apply the selection based on mode
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    if not shift_pressed:
+                        self.all_for_one_selected_nodes = selected_nodes
+                    else:
+                        # Additive selection with shift key
+                        for node in selected_nodes:
+                            if node not in self.all_for_one_selected_nodes:
+                                self.all_for_one_selected_nodes.append(node)
+                else:  # EDIT_SUBMODE_PARALLEL
+                    if not shift_pressed:
+                        self.parallel_selected_nodes = selected_nodes
+                    else:
+                        # Additive selection with shift key
+                        for node in selected_nodes:
+                            if node not in self.parallel_selected_nodes:
+                                self.parallel_selected_nodes.append(node)
 
             else:  # Default edit mode - select edges
                 selected_edges = []

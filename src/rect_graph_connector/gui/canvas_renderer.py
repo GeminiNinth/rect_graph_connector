@@ -68,6 +68,7 @@ class CanvasRenderer:
         selected_edges=None,
         all_for_one_selected_nodes=None,
         selection_rect_data=None,
+        parallel_data=None,
     ):
         """
         Draw the complete graph on the canvas.
@@ -81,6 +82,8 @@ class CanvasRenderer:
             knife_data (dict, optional): Data for knife tool rendering
             selected_edges (list, optional): List of edges that are selected
             all_for_one_selected_nodes (list, optional): List of nodes selected in All-For-One connection mode
+            selection_rect_data (dict, optional): Data for the selection rectangle
+            parallel_data (dict, optional): Data for parallel connection mode
         """
         # Draw canvas border without scaling
         self._draw_canvas_border(painter, mode)
@@ -167,6 +170,14 @@ class CanvasRenderer:
         # Draw the path of the Knife tool (front)
         if knife_data and knife_data.get("path"):
             self._draw_knife_path(painter, knife_data["path"])
+
+        # Draw parallel connection edges if active
+        if (
+            parallel_data
+            and "edge_endpoints" in parallel_data
+            and parallel_data["edge_endpoints"]
+        ):
+            self._draw_parallel_edges(painter, parallel_data)
 
         # Draw selection rectangle if active
         if selection_rect_data:
@@ -555,6 +566,10 @@ class CanvasRenderer:
             painter (QPainter): The painter to use for drawing
             all_for_one_selected_nodes (list, optional): List of nodes selected in All-For-One connection mode
         """
+        # Get nodes selected in parallel connection mode from canvas
+        parallel_selected_nodes = []
+        if hasattr(self.canvas, "parallel_selected_nodes"):
+            parallel_selected_nodes = self.canvas.parallel_selected_nodes
         # Get selected group IDs
         selected_group_ids = [group.id for group in self.graph.selected_groups]
 
@@ -610,9 +625,14 @@ class CanvasRenderer:
                 is_all_for_one_selected = (
                     all_for_one_selected_nodes and node in all_for_one_selected_nodes
                 )
+                is_parallel_selected = node in parallel_selected_nodes
 
                 # Fill color based on selection state
-                if is_all_for_one_selected:
+                if is_parallel_selected:
+                    node_fill_color = config.get_color(
+                        "node.fill.parallel_selected", "#90EE90"
+                    )  # Light green for Parallel connection selection
+                elif is_all_for_one_selected:
                     node_fill_color = config.get_color(
                         "node.fill.all_for_one_selected", "#FFA500"
                     )  # Orange for All-For-One connection selection
@@ -629,7 +649,15 @@ class CanvasRenderer:
                 painter.fillRect(rect, node_color)
 
                 # Draw border based on selection state
-                if is_all_for_one_selected:
+                if is_parallel_selected:
+                    border_color = config.get_color(
+                        "node.border.parallel_selected", "#006400"
+                    )  # Dark green for Parallel connection selection
+                    pen = QPen(QColor(border_color))
+                    pen.setWidth(
+                        config.get_dimension("node.border_width.parallel_selected", 3)
+                    )
+                elif is_all_for_one_selected:
                     border_color = config.get_color(
                         "node.border.all_for_one_selected", "#FF6600"
                     )  # Dark orange for All-For-One connection selection
@@ -854,6 +882,60 @@ class CanvasRenderer:
                 int(min_y - margin),
                 alignment,
             )
+
+    def _draw_parallel_edges(self, painter: QPainter, parallel_data):
+        """
+        Draw temporary virtual edges for parallel connection mode.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+            parallel_data (dict): Dictionary containing 'selected_nodes' and 'edge_endpoints'
+        """
+        if (
+            not parallel_data
+            or "edge_endpoints" not in parallel_data
+            or not parallel_data["edge_endpoints"]
+        ):
+            return
+
+        selected_nodes = parallel_data.get("selected_nodes", [])
+        edge_endpoints = parallel_data["edge_endpoints"]
+
+        # Set up pen for virtual edges
+        edge_color = config.get_color("edge.normal", "#000000")
+        pen = QPen(QColor(edge_color))
+        pen.setWidth(config.get_dimension("edge.width.normal", 1))
+        pen.setStyle(Qt.DashLine)  # Use dashed line for virtual edges
+        painter.setPen(pen)
+
+        # Draw each virtual edge
+        for node, endpoint in zip(selected_nodes, edge_endpoints):
+            if node and endpoint:
+                # Calculate start point from node boundary
+                start_center = QPointF(node.x, node.y)
+                end_point = QPointF(endpoint[0], endpoint[1])
+                direction = end_point - start_center
+
+                if direction.manhattanLength() > 0:
+                    # Normalize direction vector
+                    length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
+                    normalized_dir = QPointF(
+                        direction.x() / length, direction.y() / length
+                    )
+
+                    # Calculate start point at node boundary
+                    start_point = QPointF(
+                        start_center.x() + normalized_dir.x() * node.size / 2,
+                        start_center.y() + normalized_dir.y() * node.size / 2,
+                    )
+
+                    # Draw the virtual edge
+                    painter.drawLine(
+                        int(start_point.x()),
+                        int(start_point.y()),
+                        int(end_point.x()),
+                        int(end_point.y()),
+                    )
 
     def _draw_selection_rectangle(self, painter: QPainter, selection_rect_data):
         """
