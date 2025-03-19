@@ -25,6 +25,7 @@ class NormalContextMenu(QMenu):
         self.canvas = parent
         self._create_actions()
         self._build_menu()
+        self.copied_groups_data = None  # Store copied groups data
 
     def _create_actions(self):
         """Create the actions for the context menu."""
@@ -35,9 +36,34 @@ class NormalContextMenu(QMenu):
         self.set_node_id_start_action = QAction(title, self)
         self.set_node_id_start_action.triggered.connect(self._set_node_id_start_index)
 
+        # Copy group action
+        title = config.get_string("normal_menu.copy.title", "Copy Group")
+        self.copy_action = QAction(title, self)
+        self.copy_action.triggered.connect(self._copy_selected_groups)
+        self.copy_action.setEnabled(False)  # Initially disabled
+
+        # Paste group action
+        title = config.get_string("normal_menu.paste.title", "Paste Group")
+        self.paste_action = QAction(title, self)
+        self.paste_action.triggered.connect(self._paste_groups)
+        self.paste_action.setEnabled(False)  # Initially disabled
+
     def _build_menu(self):
         """Build the menu structure by adding actions."""
         self.addAction(self.set_node_id_start_action)
+        self.addSeparator()
+        self.addAction(self.copy_action)
+        self.addAction(self.paste_action)
+
+    def showEvent(self, event):
+        """
+        Update action states based on the current selection when the menu is shown.
+        """
+        super().showEvent(event)
+        # Enable/disable copy action based on selection
+        self.copy_action.setEnabled(len(self.canvas.graph.selected_groups) > 0)
+        # Enable/disable paste action based on whether groups have been copied
+        self.paste_action.setEnabled(self.copied_groups_data is not None)
 
     def _set_node_id_start_index(self):
         """
@@ -68,3 +94,46 @@ class NormalContextMenu(QMenu):
             # Update the node ID start in the graph
             self.canvas.graph.set_node_id_start(new_start)
             self.canvas.update()  # Redraw the canvas to show new IDs
+
+    def _copy_selected_groups(self):
+        """
+        Copy the currently selected node groups.
+        """
+        if not self.canvas.graph.selected_groups:
+            return
+
+        # Use the graph's copy_groups method to create a deep copy of the selected groups
+        self.copied_groups_data = self.canvas.graph.copy_groups(
+            self.canvas.graph.selected_groups
+        )
+
+    def _paste_groups(self):
+        """
+        Paste the previously copied node groups.
+        The new groups will be positioned at the bottom right of the original groups.
+        """
+        if not self.copied_groups_data:
+            return
+
+        # Use the graph's paste_groups method to create new groups
+        # This method handles creating new UUIDs and node IDs
+        new_groups = self.canvas.graph.paste_groups(self.copied_groups_data)
+
+        if new_groups:
+            # Clear current selection and select the newly created groups
+            self.canvas.graph.selected_groups = new_groups
+
+            # Update selected nodes
+            self.canvas.graph.selected_nodes = []
+            for group in new_groups:
+                self.canvas.graph.selected_nodes.extend(
+                    group.get_nodes(self.canvas.graph.nodes)
+                )
+
+            # Update the parent window's group list
+            main_window = self.canvas.window()
+            if hasattr(main_window, "_update_group_list"):
+                main_window._update_group_list()
+
+            # Redraw the canvas
+            self.canvas.update()

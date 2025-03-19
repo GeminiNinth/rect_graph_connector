@@ -1,5 +1,14 @@
 # Japanese language configuration
 
+normal_menu:
+  set_node_id:
+    title: "ノードID開始インデックスの設定"
+    prompt: "ノードIDの開始インデックスを入力してください（0以上）："
+  copy:
+    title: "グループをコピー"
+  paste:
+    title: "グループを貼り付け"
+
 edit_menu:
   connection:
     title: "接続"

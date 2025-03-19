@@ -1018,6 +1018,132 @@ class Graph:
         # Set the "maximum number +1" as the next group number
         self.next_group_number = max_number + 1
 
+    def copy_groups(self, groups):
+        """
+        Create a deep copy of the specified groups to be used for pasting.
+
+        Args:
+            groups (List[NodeGroup]): The groups to copy
+
+        Returns:
+            dict: A dictionary containing the copied group data
+        """
+        from copy import deepcopy
+
+        if not groups:
+            return None
+
+        copied_data = {"groups": [], "nodes": [], "edges": []}
+
+        # Map of original node IDs to copied nodes
+        node_id_mapping = {}
+
+        # Copy nodes and create ID mapping
+        for group in groups:
+            group_nodes = group.get_nodes(self.nodes)
+            group_data = {
+                "name": group.name,
+                "label_position": group.label_position,
+                "node_ids": [],
+            }
+
+            # Copy nodes in this group
+            for node in group_nodes:
+                # Create a copy of the node's attributes
+                node_data = {
+                    "id": node.id,  # Temporary ID, will be reassigned during paste
+                    "x": node.x,
+                    "y": node.y,
+                    "row": node.row,
+                    "col": node.col,
+                    "size": node.size,
+                    # RectNode doesn't have a color attribute
+                }
+
+                copied_data["nodes"].append(node_data)
+                group_data["node_ids"].append(node.id)
+
+            copied_data["groups"].append(group_data)
+
+            # Copy edges between nodes within these groups
+            for i, node1 in enumerate(group_nodes):
+                for j, node2 in enumerate(group_nodes):
+                    if i < j and self.has_edge(node1, node2):
+                        copied_data["edges"].append((node1.id, node2.id))
+
+        return copied_data
+
+    def paste_groups(self, copied_data, offset_x=40, offset_y=40):
+        """
+        Paste the previously copied groups at a new position.
+        The new groups will be positioned at the bottom right of the original groups.
+
+        Args:
+            copied_data (dict): The data returned by copy_groups
+            offset_x (float): Horizontal offset for the pasted groups
+            offset_y (float): Vertical offset for the pasted groups
+
+        Returns:
+            List[NodeGroup]: The newly created groups
+        """
+        if not copied_data:
+            return []
+
+        # Create a mapping from old node IDs to new node IDs
+        old_to_new_id = {}
+
+        # Find the maximum node ID to start assigning new IDs
+        max_id = max(node.id for node in self.nodes) if self.nodes else -1
+        next_id = max_id + 1
+
+        # Create new nodes with offset positions
+        new_nodes = []
+        for node_data in copied_data["nodes"]:
+            old_id = node_data["id"]
+            new_node = RectNode(
+                id=next_id,
+                x=node_data["x"] + offset_x,
+                y=node_data["y"] + offset_y,
+                row=node_data["row"],
+                col=node_data["col"],
+                size=node_data.get("size", None),
+            )
+
+            old_to_new_id[old_id] = next_id
+            next_id += 1
+            new_nodes.append(new_node)
+            self.nodes.append(new_node)
+
+        # Create new groups
+        new_groups = []
+        for group_data in copied_data["groups"]:
+            # Map old node IDs to new node IDs
+            new_node_ids = [
+                old_to_new_id[old_id]
+                for old_id in group_data["node_ids"]
+                if old_id in old_to_new_id
+            ]
+
+            # Generate new UUID for the group
+            new_group = NodeGroup(
+                name=group_data["name"],
+                node_ids=new_node_ids,
+                label_position=group_data["label_position"],
+                z_index=self.next_z_index,
+            )
+
+            self.next_z_index += 1
+            new_groups.append(new_group)
+            self.node_groups.append(new_group)
+            self.group_map[new_group.id] = new_group
+
+        # Create new edges
+        for old_src, old_dst in copied_data["edges"]:
+            if old_src in old_to_new_id and old_dst in old_to_new_id:
+                self.edges.append((old_to_new_id[old_src], old_to_new_id[old_dst]))
+
+        return new_groups
+
     def bring_group_to_front(self, group: NodeGroup) -> None:
         """
         Bring a node group to the front of the rendering order by

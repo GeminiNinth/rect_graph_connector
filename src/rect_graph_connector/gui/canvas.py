@@ -614,6 +614,21 @@ class Canvas(QWidget):
                         except StopIteration:
                             continue
                     self.update()
+        elif event.key() == Qt.Key_C and event.modifiers() & Qt.ControlModifier:
+            # Ctrl+C to copy selected groups in normal mode
+            if self.current_mode == self.NORMAL_MODE and self.graph.selected_groups:
+                # Use the normal context menu's copy method
+                self.normal_context_menu._copy_selected_groups()
+
+        elif event.key() == Qt.Key_V and event.modifiers() & Qt.ControlModifier:
+            # Ctrl+V to paste copied groups in normal mode
+            if self.current_mode == self.NORMAL_MODE and hasattr(
+                self.normal_context_menu, "copied_groups_data"
+            ):
+                if self.normal_context_menu.copied_groups_data:
+                    # Use the normal context menu's paste method
+                    self.normal_context_menu._paste_groups()
+
         elif (
             event.key()
             == getattr(
@@ -1595,6 +1610,33 @@ class Canvas(QWidget):
                 mode = dialog.get_selected_mode()
                 # Import graph data with the selected mode
                 self.graph.import_graph(imported_data, mode)
+
+                # Select all groups if it's a force import (replacing existing data)
+                # or select the most recently added groups otherwise
+                if mode == "force":
+                    # For force mode, all groups are new, so select all of them
+                    self.graph.selected_groups = self.graph.node_groups.copy()
+                else:
+                    # For other modes, select the most recently added groups
+                    # We'll assume these are the ones at the end of the node_groups list
+                    # This depends on the implementation of import functions that add new groups at the end
+                    num_imported_groups = len(imported_data.get("groups", []))
+                    if (
+                        num_imported_groups > 0
+                        and len(self.graph.node_groups) >= num_imported_groups
+                    ):
+                        self.graph.selected_groups = self.graph.node_groups[
+                            -num_imported_groups:
+                        ]
+                    else:
+                        # Fallback - select all groups if we can't determine which ones are new
+                        self.graph.selected_groups = self.graph.node_groups.copy()
+
+                # Update selected nodes based on selected groups
+                self.graph.selected_nodes = []
+                for group in self.graph.selected_groups:
+                    self.graph.selected_nodes.extend(group.get_nodes(self.graph.nodes))
+
                 # Update the parent window's group list
                 if hasattr(self.parent(), "_update_group_list"):
                     self.parent()._update_group_list()

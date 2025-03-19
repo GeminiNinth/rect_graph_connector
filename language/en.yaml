@@ -1,5 +1,14 @@
 # English language configuration
 
+normal_menu:
+  set_node_id:
+    title: "Set Node ID Starting Index"
+    prompt: "Enter the starting index for node IDs (0 or higher):"
+  copy:
+    title: "Copy Group"
+  paste:
+    title: "Paste Group"
+
 edit_menu:
   connection:
     title: "Connection"
