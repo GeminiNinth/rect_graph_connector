@@ -17,6 +17,25 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
     QFrame,
 )
+from PyQt5.QtCore import Qt, QSize, pyqtSignal
+from PyQt5.QtGui import QKeyEvent
+
+
+class NodeGroupInputEdit(QLineEdit):
+    """
+    Custom QLineEdit for node group input that emits a signal when Enter is pressed.
+    """
+
+    enterPressed = pyqtSignal()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """Handle key press events, specifically the Enter/Return key."""
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            self.enterPressed.emit()
+        else:
+            super().keyPressEvent(event)
+
+
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QColor
@@ -72,11 +91,13 @@ class MainWindow(QMainWindow):
         move_button_width = config.get_dimension("input.move_button_width", 40)
 
         # Control panel widgets
-        self.row_input = QLineEdit()
+        self.row_input = NodeGroupInputEdit()
         self.row_input.setFixedWidth(row_col_width)
+        self.row_input.enterPressed.connect(self._handle_input_enter)
 
-        self.col_input = QLineEdit()
+        self.col_input = NodeGroupInputEdit()
         self.col_input.setFixedWidth(row_col_width)
+        self.col_input.enterPressed.connect(self._handle_input_enter)
 
         self.add_button = QPushButton(
             config.get_string("main_window.buttons.add", "Add")
@@ -536,6 +557,14 @@ class MainWindow(QMainWindow):
         else:
             # Pass other key events to parent class
             super().keyPressEvent(event)
+
+    def _handle_input_enter(self):
+        """
+        Handle Enter key press in row/col input fields.
+        If both fields have valid values, add a new node group.
+        """
+        if self.row_input.text() and self.col_input.text():
+            self._handle_add()
 
     def _update_group_list(self):
         """Update the group list to reflect the current state of node groups."""
