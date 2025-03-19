@@ -531,12 +531,15 @@ class Canvas(QWidget):
         Args:
             event: Keyboard event
         """
-        # Use the 'e' key to switch to edit mode (only if NodeGroup is selected)
-        if event.key() == Qt.Key_E and self.graph.selected_group:
+        if event.key() == Qt.Key_Escape:
+            # Clear NodeGroup selection and, if in edit mode, switch to normal mode.
+            self.graph.selected_group = None
+            self.graph.selected_nodes = []
+            if self.current_mode == self.EDIT_MODE:
+                self.toggle_edit_mode()
+            self.update()
+        elif event.key() == Qt.Key_E and self.graph.selected_group:
             self.toggle_edit_mode(self.graph.selected_group)
-        # Esc key to always return to normal mode
-        elif event.key() == Qt.Key_Escape and self.current_mode == self.EDIT_MODE:
-            self.toggle_edit_mode()
 
     def mousePressEvent(self, event):
         """
@@ -553,28 +556,26 @@ class Canvas(QWidget):
             if event.button() == Qt.LeftButton:
                 node = self.graph.find_node_at_position(point)
                 if node:
-                    self.dragging = True
-                    self.drag_start = point
-
-                    # Identify the current group
                     group = self.graph.get_group_for_node(node)
-
-                    # If you select a different group than the previous one, clear the previous selection.
-                    if self.graph.selected_group != group:
-                        self.graph.selected_nodes.clear()
-
-                    if group:
-                        # Select a group and only that node is selected
-                        self.graph.selected_group = group
-                        self.graph.selected_nodes = group.get_nodes(self.graph.nodes)
-                    else:
-                        # If the node is not part of a group, select only that node
+                    if group and group == self.graph.selected_group:
+                        # Toggle deselection if the same group is clicked again.
                         self.graph.selected_group = None
-                        self.graph.selected_nodes = [node]
-
-                    self.update()
+                        self.graph.selected_nodes = []
+                        self.update()
+                    else:
+                        self.dragging = True
+                        self.drag_start = point
+                        if group:
+                            self.graph.selected_group = group
+                            self.graph.selected_nodes = group.get_nodes(
+                                self.graph.nodes
+                            )
+                        else:
+                            self.graph.selected_group = None
+                            self.graph.selected_nodes = [node]
+                        self.update()
                 else:
-                    # Start panning if clicking on empty background
+                    # Start panning if clicking on empty background.
                     self.panning = True
                     self.pan_start = event.pos()
                     self.pan_offset_start = self.pan_offset
