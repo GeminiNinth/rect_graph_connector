@@ -300,8 +300,31 @@ class MainWindow(QMainWindow):
 
     def _handle_delete(self):
         """Handle the Delete Group button click event."""
-        # First check if there is a selected group
-        if self.canvas.graph.selected_group:
+        # Check if there are selected groups from multi-selection
+        if (
+            self.canvas.graph.selected_groups
+            and len(self.canvas.graph.selected_groups) > 0
+        ):
+            # Create a copy of the list since we're modifying it during iteration
+            groups_to_delete = self.canvas.graph.selected_groups.copy()
+            # Log how many groups are being deleted
+            print(f"Deleting {len(groups_to_delete)} groups")
+
+            # Process each group separately to ensure all are deleted
+            for group in groups_to_delete:
+                # Delete the group from the graph
+                self.canvas.graph.delete_group(group)
+                print(f"Deleted group: {group.name} (ID: {group.id})")
+
+            # Clear selection after all deletions are complete
+            self.canvas.graph.selected_group = None
+            self.canvas.graph.selected_groups = []
+            self.canvas.graph.selected_nodes = []
+
+            self._update_group_list()
+            self.canvas.update()
+        # Fallback to single selection if no groups in multi-selection
+        elif self.canvas.graph.selected_group:
             self.canvas.graph.delete_group(self.canvas.graph.selected_group)
             self._update_group_list()
             self.canvas.update()
@@ -317,9 +340,27 @@ class MainWindow(QMainWindow):
 
     def _handle_rotate(self):
         """Handle the Rotate Group button click event."""
-        if self.canvas.graph.selected_nodes:
+        # Check if we have multiple groups selected
+        if (
+            self.canvas.graph.selected_groups
+            and len(self.canvas.graph.selected_groups) > 0
+        ):
+            # Log how many groups are being rotated
+            print(f"Rotating {len(self.canvas.graph.selected_groups)} groups")
+
+            # Rotate each group around its own center point
+            self.canvas.graph.rotate_node_groups(self.canvas.graph.selected_groups)
+
+            for group in self.canvas.graph.selected_groups:
+                print(f"Rotated group: {group.name} (ID: {group.id})")
+
+            self.canvas.update()
+        # Fallback to the original implementation for single selection
+        elif self.canvas.graph.selected_nodes:
+            print(
+                f"Rotating {len(self.canvas.graph.selected_nodes)} nodes in a single group"
+            )
             self.canvas.graph.rotate_group(self.canvas.graph.selected_nodes)
-            # If necessary after rotating nodes, update the group's node_ids if necessary (not needed in the current implementation)
             self.canvas.update()
 
     def _handle_rename_group(self, item):

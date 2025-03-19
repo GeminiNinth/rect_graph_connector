@@ -29,7 +29,12 @@ class CanvasRenderer:
         self.graph = graph
 
     def draw(
-        self, painter: QPainter, mode: str, temp_edge_data=None, edit_target_group=None
+        self,
+        painter: QPainter,
+        mode: str,
+        temp_edge_data=None,
+        edit_target_group=None,
+        edit_target_groups=None,
     ):
         """
         Draw the complete graph on the canvas.
@@ -38,7 +43,8 @@ class CanvasRenderer:
             painter (QPainter): The painter to use for drawing
             mode (str): The current mode ("normal" or "edit")
             temp_edge_data (tuple, optional): Temporary edge data (start_node, end_point)
-            edit_target_group: The group being edited in edit mode
+            edit_target_group: The group being edited in edit mode (for backwards compatibility)
+            edit_target_groups: List of groups being edited in edit mode (for multi-selection)
         """
         # Draw canvas border without scaling
         self._draw_canvas_border(painter, mode)
@@ -158,10 +164,15 @@ class CanvasRenderer:
         Args:
             painter (QPainter): The painter to use for drawing
         """
-        # Identify the selected group
-        selected_group_id = None
+        # Identify the selected groups
+        selected_group_ids = []
+        # Add from single selection (for backwards compatibility)
         if self.graph.selected_group:
-            selected_group_id = self.graph.selected_group.id
+            selected_group_ids.append(self.graph.selected_group.id)
+        # Add from multi-selection
+        for group in self.graph.selected_groups:
+            if group.id not in selected_group_ids:
+                selected_group_ids.append(group.id)
 
         # Draw group frames and labels
         for group in self.graph.node_groups:
@@ -178,7 +189,7 @@ class CanvasRenderer:
             group_height = max_y - min_y
 
             # Selected groups are displayed with special styling
-            is_selected = group.id == selected_group_id
+            is_selected = group.id in selected_group_ids
 
             # Draw group background (semi-transparent)
             bg_color = (

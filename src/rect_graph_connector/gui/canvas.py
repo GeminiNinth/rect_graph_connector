@@ -76,7 +76,10 @@ class Canvas(QWidget):
 
         # Mode management
         self.current_mode = self.NORMAL_MODE
-        self.edit_target_group = None  # Target group in edit mode
+        self.edit_target_group = (
+            None  # Target group in edit mode (for backwards compatibility)
+        )
+        self.edit_target_groups = []  # Target groups in edit mode (for multi-selection)
         self.edit_submode = self.EDIT_SUBMODE_CONNECT  # Default edit submode
 
         # Context menus
@@ -137,13 +140,26 @@ class Canvas(QWidget):
             target_group (NodeGroup, optional): The group to be edited in edit mode
         """
         if self.current_mode == self.NORMAL_MODE:
+            # Set edit_target_group for backwards compatibility
             self.edit_target_group = target_group
+
+            # Handle multi-selection for edit mode
+            if self.graph.selected_groups:
+                # Use all selected groups for editing
+                self.edit_target_groups = self.graph.selected_groups.copy()
+            elif target_group:
+                # Single selection case
+                self.edit_target_groups = [target_group]
+            else:
+                self.edit_target_groups = []
+
             self.edit_submode = (
                 self.EDIT_SUBMODE_CONNECT
             )  # Reset to default connect submode
             self.set_mode(self.EDIT_MODE)
         else:
             self.edit_target_group = None
+            self.edit_target_groups = []
             self.set_mode(self.NORMAL_MODE)
 
     def set_deselect_method(self, method, enabled=True):
@@ -197,7 +213,11 @@ class Canvas(QWidget):
             temp_edge_data = (self.current_edge_start, self.temp_edge_end)
 
         self.renderer.draw(
-            painter, self.current_mode, temp_edge_data, self.edit_target_group
+            painter,
+            self.current_mode,
+            temp_edge_data,
+            self.edit_target_group,
+            self.edit_target_groups,
         )
 
     def find_group_at_position(self, point):
@@ -244,12 +264,40 @@ class Canvas(QWidget):
             if self.enabled_deselect_methods.get(self.DESELECT_BY_ESCAPE, True):
                 # Clear NodeGroup selection and, if in edit mode, switch to normal mode.
                 self.graph.selected_group = None
+                self.graph.selected_groups = []
                 self.graph.selected_nodes = []
                 if self.current_mode == self.EDIT_MODE:
                     self.toggle_edit_mode()
                 self.update()
-        elif event.key() == Qt.Key_E and self.graph.selected_group:
-            self.toggle_edit_mode(self.graph.selected_group)
+        elif event.key() == Qt.Key_E and (
+            self.graph.selected_group or self.graph.selected_groups
+        ):
+            # When entering edit mode, it covers all selected groups.
+            # edit_target_group は後方互換性のために最初のグループを設定
+            target_group = self.graph.selected_group
+            if not target_group and self.graph.selected_groups:
+                target_group = self.graph.selected_groups[0]
+
+            self.toggle_edit_mode(target_group)
+        elif (
+            event.key() == Qt.Key_A
+            and event.modifiers() & Qt.ControlModifier
+            and self.current_mode == self.NORMAL_MODE
+        ):
+            # Ctrl+A: Select all NodeGroups
+            if self.graph.node_groups:
+                self.graph.selected_groups = list(
+                    self.graph.node_groups
+                )  # Make all NodeGroups selected as a list
+                self.graph.selected_group = (
+                    self.graph.node_groups[0] if self.graph.node_groups else None
+                )  # Also set selected_group for backward compatibility
+
+                # Collect all nodes from the selected group
+                self.graph.selected_nodes = []
+                for group in self.graph.selected_groups:
+                    self.graph.selected_nodes.extend(group.get_nodes(self.graph.nodes))
+                self.update()
 
     def mousePressEvent(self, event):
         """
@@ -275,9 +323,15 @@ class Canvas(QWidget):
             if event.button() == Qt.LeftButton:
                 clicked_point = graph_point
                 node = self.graph.find_node_at_position(clicked_point)
+                shift_pressed = event.modifiers() & Qt.ShiftModifier
+
                 if node:
                     group = self.graph.get_group_for_node(node)
-                    if group and group == self.graph.selected_group:
+                    if (
+                        group
+                        and group == self.graph.selected_group
+                        and not shift_pressed
+                    ):
                         # Flag only when deselection is enabled by clicking again
                         if self.enabled_deselect_methods.get(
                             self.DESELECT_BY_RECLICK, True
@@ -289,20 +343,55 @@ class Canvas(QWidget):
                         self.dragging = True
                         self.drag_start = clicked_point
                         if group:
-                            self.graph.selected_group = group
-                            self.graph.selected_nodes = group.get_nodes(
-                                self.graph.nodes
-                            )
+                            # Multi-selection with Shift key
+                            if shift_pressed:
+                                # If already selected, do nothing; if not, add to selection
+                                if group not in self.graph.selected_groups:
+                                    self.graph.selected_groups.append(group)
+                                    # Maintain compatibility with single selection
+                                    if not self.graph.selected_group:
+                                        self.graph.selected_group = group
+                            else:
+                                # Single selection (reset current selection)
+                                self.graph.selected_groups = [group]
+                                self.graph.selected_group = group
+
+                            # Update selected nodes
+                            self.graph.selected_nodes = []
+                            for g in self.graph.selected_groups:
+                                self.graph.selected_nodes.extend(
+                                    g.get_nodes(self.graph.nodes)
+                                )
                         else:
-                            self.graph.selected_group = None
+                            if not shift_pressed:
+                                # Clear selections if shift is not pressed
+                                self.graph.selected_group = None
+                                self.graph.selected_groups = []
                             self.graph.selected_nodes = [node]
                         self.update()
                 else:
                     # If no node is found, check if click is within a NodeGroup boundary.
                     group = self.find_group_at_position(clicked_point)
                     if group:
-                        self.graph.selected_group = group
-                        self.graph.selected_nodes = group.get_nodes(self.graph.nodes)
+                        # Multi-selection with Shift key
+                        if shift_pressed:
+                            # If already selected, do nothing; if not, add to selection
+                            if group not in self.graph.selected_groups:
+                                self.graph.selected_groups.append(group)
+                                # Maintain compatibility with single selection
+                                if not self.graph.selected_group:
+                                    self.graph.selected_group = group
+                        else:
+                            # Single selection (reset current selection)
+                            self.graph.selected_groups = [group]
+                            self.graph.selected_group = group
+
+                        # Update selected nodes
+                        self.graph.selected_nodes = []
+                        for g in self.graph.selected_groups:
+                            self.graph.selected_nodes.extend(
+                                g.get_nodes(self.graph.nodes)
+                            )
                         self.update()
                     else:
                         # If no node or group is found, it is considered a background click.
@@ -311,13 +400,17 @@ class Canvas(QWidget):
                             self.enabled_deselect_methods.get(
                                 self.DESELECT_BY_BACKGROUND, True
                             )
-                            and self.graph.selected_group is not None
+                            and (
+                                self.graph.selected_group is not None
+                                or self.graph.selected_groups
+                            )
+                            and not shift_pressed
                         ):
                             # Deselect
                             self.graph.selected_group = None
+                            self.graph.selected_groups = []
                             self.graph.selected_nodes = []
                             self.update()
-                    # Delete left-click pan operation (pan operation can be performed using only the center button)
 
             elif event.button() == Qt.RightButton:
                 # Right-click in normal mode - show context menu
@@ -330,12 +423,24 @@ class Canvas(QWidget):
                     # Edge connection mode - start connecting edges
                     node = self.graph.find_node_at_position(graph_point)
                     if node:
-                        # Check if node belongs to target group
-                        if (
-                            self.edit_target_group
-                            and node
-                            in self.edit_target_group.get_nodes(self.graph.nodes)
-                        ):
+                        # Check if node belongs to any of the target groups
+                        node_belongs_to_target = False
+                        node_group = self.graph.get_group_for_node(node)
+
+                        # First check edit_target_groups for multi-selection
+                        if self.edit_target_groups and node_group:
+                            for group in self.edit_target_groups:
+                                if node in group.get_nodes(self.graph.nodes):
+                                    node_belongs_to_target = True
+                                    break
+                        # Fall back to single edit_target_group for backwards compatibility
+                        elif self.edit_target_group and node_group:
+                            node_belongs_to_target = (
+                                node
+                                in self.edit_target_group.get_nodes(self.graph.nodes)
+                            )
+
+                        if node_belongs_to_target:
                             # Use for edge creation in edit mode
                             self.current_edge_start = node
                             self.temp_edge_end = graph_point
@@ -430,6 +535,7 @@ class Canvas(QWidget):
                 if self._pending_deselect:
                     # Deselect NodeGroup on a short click.
                     self.graph.selected_group = None
+                    self.graph.selected_groups = []
                     self.graph.selected_nodes = []
                     self._pending_deselect = False
                     self.update()
@@ -482,40 +588,55 @@ class Canvas(QWidget):
         """
         target_node = self.graph.find_node_at_position(point)
         if target_node and target_node != self.current_edge_start:
+            # Get groups for both nodes
+            source_group = self.graph.get_group_for_node(self.current_edge_start)
+            target_group = self.graph.get_group_for_node(target_node)
+
             # Edit mode specific processing
             if self.current_mode == self.EDIT_MODE:
-                # Edit mode allows connections only if the target node does not belong to the edited group
-                # This allows nodes within the group to not connect, but only allow connections to nodes outside the group.
-                source_group = self.graph.get_group_for_node(self.current_edge_start)
-                target_group = self.graph.get_group_for_node(target_node)
+                # Edit mode only allows connections within the same NodeGroup
+                # This restriction prevents connections between different NodeGroups
+                # to avoid processing complications from mismatched matrix dimensions
+                if source_group and target_group and source_group.id == target_group.id:
+                    # Check if both nodes belong to the active edit groups
+                    is_in_edit_groups = False
 
-                # In edit mode, the node group is fixed so the selection group is not changed
+                    # Check within edit_target_groups (for multi-selection)
+                    if self.edit_target_groups:
+                        for group in self.edit_target_groups:
+                            if (
+                                group.id == source_group.id
+                                and self.current_edge_start
+                                in group.get_nodes(self.graph.nodes)
+                                and target_node in group.get_nodes(self.graph.nodes)
+                            ):
+                                is_in_edit_groups = True
+                                break
+                    # If no match in edit_target_groups, check the single edit_target_group
+                    elif (
+                        self.edit_target_group
+                        and self.edit_target_group.id == source_group.id
+                    ):
+                        is_in_edit_groups = True
+
+                    # Only allow connection if both nodes are in the same group AND that group is being edited
+                    if is_in_edit_groups:
+                        self.graph.add_edge(self.current_edge_start, target_node)
             elif self.current_mode == self.NORMAL_MODE:
-                # Before creating an edge, check if both nodes belong to the same group
-                source_group = self.graph.get_group_for_node(self.current_edge_start)
-                target_group = self.graph.get_group_for_node(target_node)
+                # Normal mode - also limit connections to within the same group
+                if source_group and target_group and source_group.id == target_group.id:
+                    # Add edge only if both nodes belong to the same group
+                    self.graph.add_edge(self.current_edge_start, target_node)
 
-                # Select groups with priority
-                if source_group and target_group:
+                    # Update selection with the group
                     self.graph.selected_group = source_group
-                elif source_group:
-                    # If only the starting point belongs to the group
-                    self.graph.selected_group = source_group
-                elif target_group:
-                    # If only the endpoint belongs to the group
-                    self.graph.selected_group = target_group
-
-            # Add Edge
-            self.graph.add_edge(self.current_edge_start, target_node)
-
-            # Update selection status (only in normal mode)
-            if self.current_mode == self.NORMAL_MODE:
-                if self.graph.selected_group:
-                    self.graph.selected_nodes = self.graph.selected_group.get_nodes(
-                        self.graph.nodes
-                    )
+                    self.graph.selected_groups = [source_group]
+                    self.graph.selected_nodes = source_group.get_nodes(self.graph.nodes)
                 else:
-                    # If neither of them belongs to a group, select both nodes
+                    # Different groups or no groups - don't create the edge
+                    # and just select the nodes without creating a connection
+                    self.graph.selected_group = None
+                    self.graph.selected_groups = []
                     self.graph.selected_nodes = [self.current_edge_start, target_node]
 
         # After the edge creation is complete, the cursor is returned in edit mode.

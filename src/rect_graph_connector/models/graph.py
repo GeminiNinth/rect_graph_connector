@@ -117,7 +117,12 @@ class Graph:
         self.node_groups: List[NodeGroup] = []
         self.group_map: Dict[str, NodeGroup] = {}  # Map with group ID as key
         self.selected_nodes: List[RectNode] = []
-        self.selected_group: Optional[NodeGroup] = None
+        self.selected_group: Optional[NodeGroup] = (
+            None  # Maintain for backward compatibility
+        )
+        self.selected_groups: List[NodeGroup] = (
+            []
+        )  # New lists that support multiple selections
         self.next_group_number: int = 1
 
     def add_node_group(
@@ -214,8 +219,15 @@ class Graph:
         Args:
             group (NodeGroup): The group of nodes to delete
         """
+        if group is None:
+            print("Warning: Attempted to delete a None group")
+            return
+
+        print(f"Deleting group: {group.name} (ID: {group.id})")
+
         # Get nodes from the group
         group_nodes = group.get_nodes(self.nodes)
+        print(f"Group contains {len(group_nodes)} nodes")
 
         # Identify node IDs belonging to other groups
         node_ids_in_other_groups = set()
@@ -235,39 +247,72 @@ class Graph:
             node for node in group_nodes if node.id not in node_ids_in_other_groups
         ]
         node_ids_to_delete = {node.id for node in nodes_to_delete}
+        print(
+            f"Will delete {len(nodes_to_delete)} nodes that don't belong to other groups"
+        )
 
         # Remove edges connected to nodes that will be deleted
+        orig_edge_count = len(self.edges)
         self.edges = [
             edge
             for edge in self.edges
             if edge[0] not in node_ids_to_delete and edge[1] not in node_ids_to_delete
         ]
+        print(
+            f"Removed {orig_edge_count - len(self.edges)} edges connected to deleted nodes"
+        )
 
         # Remove only nodes that don't belong to any other group
+        orig_node_count = len(self.nodes)
         self.nodes = [node for node in self.nodes if node not in nodes_to_delete]
+        print(f"Removed {orig_node_count - len(self.nodes)} nodes")
 
-        # Delete only the deleted groups themselves
+        # Delete the group itself
         if group in self.node_groups:
             self.node_groups.remove(group)
             # Also remove from group_map
             if group.id in self.group_map:
                 del self.group_map[group.id]
+            print(f"Removed group from node_groups and group_map")
+
+        # Update selection states - need to handle multiple selections correctly
+
+        # Remove the group from selected_groups if present
+        if group in self.selected_groups:
+            self.selected_groups.remove(group)
+            print(f"Removed group from selected_groups list")
 
         # Clear selection if it was part of the deleted group
         if self.selected_nodes and any(
             node.id in node_ids_to_delete for node in self.selected_nodes
         ):
-            self.selected_nodes.clear()
+            # Remove only the nodes that were in the deleted group
+            self.selected_nodes = [
+                node
+                for node in self.selected_nodes
+                if node.id not in node_ids_to_delete
+            ]
+            print(
+                f"Updated selected_nodes list, {len(self.selected_nodes)} nodes remain selected"
+            )
 
-        # Clear selected group if it was the deleted group
+        # Clear selected_group if it was the deleted group
         if self.selected_group == group:
             self.selected_group = None
+            print(f"Cleared selected_group reference")
+
+            # If we still have selected groups, update the single selection reference
+            if self.selected_groups:
+                self.selected_group = self.selected_groups[0]
+                print(f"Updated selected_group to {self.selected_group.name}")
 
         # Reassign node IDs to ensure consistency after deletion
         self._reassign_node_ids(original_group_node_ids)
 
         # Ensuring continuity of group numbers
         self._recalculate_next_group_number()
+
+        print(f"Group deletion complete. {len(self.node_groups)} groups remain.")
 
     def rotate_group(self, nodes: List[RectNode]) -> None:
         """
@@ -295,6 +340,52 @@ class Graph:
 
         # Update all affected node groups' node_ids
         # No additional operations needed as they are already properly set
+
+    def rotate_node_groups(self, groups: List[NodeGroup]) -> None:
+        """
+        Rotate multiple node groups, each around its own center point.
+
+        This method rotates each group independently around its local center,
+        rather than rotating all nodes around a global center point.
+
+        Args:
+            groups (List[NodeGroup]): The groups to rotate
+        """
+        if not groups:
+            return
+
+        # Process each group independently to ensure local rotation
+        for group in groups:
+            # Get nodes belonging to this group
+            group_nodes = group.get_nodes(self.nodes)
+            if not group_nodes:
+                continue
+
+            # Calculate this group's center
+            group_center_x = sum(node.x for node in group_nodes) / len(group_nodes)
+            group_center_y = sum(node.y for node in group_nodes) / len(group_nodes)
+
+            print(
+                f"Rotating group {group.name} (ID: {group.id}) around center: ({group_center_x:.2f}, {group_center_y:.2f})"
+            )
+            print(f"Group has {len(group_nodes)} nodes")
+
+            # Rotate each node in this group around the group's center
+            for node in group_nodes:
+                # Save original position for debugging
+                orig_x, orig_y = node.x, node.y
+
+                # Convert to relative coordinates
+                rel_x = node.x - group_center_x
+                rel_y = node.y - group_center_y
+
+                # Apply 90-degree rotation
+                node.x = group_center_x - rel_y
+                node.y = group_center_y + rel_x
+
+                print(
+                    f"  Node {node.id}: ({orig_x:.2f}, {orig_y:.2f}) -> ({node.x:.2f}, {node.y:.2f})"
+                )
 
     def import_graph(self, data: Dict, mode: str = "force") -> None:
         """
