@@ -521,12 +521,31 @@ class MainWindow(QMainWindow):
         # Update mode display text
         if mode == self.canvas.EDIT_MODE:
             # Edit mode display
-            edit_target = ""
-            if self.canvas.edit_target_groups:
-                group_names = [group.name for group in self.canvas.edit_target_groups]
-                edit_target = f" - {', '.join(group_names)}"
-            edit_mode_text = config.get_string("main_window.mode.edit", "Mode: Edit")
-            self.mode_label.setText(f"{edit_mode_text}{edit_target}")
+            if self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_ALL_FOR_ONE:
+                # All-For-One connection mode display
+                mode_text = config.get_string(
+                    "main_window.mode.edit_all_for_one", "Mode: Edit - All-For-One"
+                )
+                self.mode_label.setText(mode_text)
+            elif self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_PARALLEL:
+                # Parallel connection mode display
+                mode_text = config.get_string(
+                    "main_window.mode.edit_parallel", "Mode: Edit - Parallel"
+                )
+                self.mode_label.setText(mode_text)
+            else:
+                # Normal edit mode display
+                edit_target = ""
+                if self.canvas.edit_target_groups:
+                    group_names = [
+                        group.name for group in self.canvas.edit_target_groups
+                    ]
+                    edit_target = f" - {', '.join(group_names)}"
+                edit_mode_text = config.get_string(
+                    "main_window.mode.edit", "Mode: Edit"
+                )
+                self.mode_label.setText(f"{edit_mode_text}{edit_target}")
+
             # Visual feedback - set reddish color (no border)
             edit_bg_color = config.get_color(
                 "mode_indicator.edit", "rgba(255, 220, 220, 180)"

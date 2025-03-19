@@ -27,6 +27,8 @@ main_window:
     normal: "Mode: Normal"
     edit: "Mode: Edit"
     edit_with_target: "Mode: Edit - {group_names}" # {group_names} replaces at runtime
+    edit_all_for_one: "Mode: Edit - All-For-One"
+    edit_parallel: "Mode: Edit - Parallel"
 
   dialogs:
     rename:
