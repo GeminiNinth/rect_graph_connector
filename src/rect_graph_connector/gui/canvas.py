@@ -531,15 +531,34 @@ class Canvas(QWidget):
         The maximum zoom in is set such that three nodes nearly fill the canvas,
         and the maximum zoom out is determined by the span of all NodeGroups.
         Text and other canvas elements scale accordingly.
+        The zoom is centered on the mouse cursor position.
         """
+        # マウスカーソルの位置を取得（ウィジェット座標系）
+        mouse_pos = event.pos()
+
+        # マウスカーソルの位置をグラフ座標系に変換（現在のズームとパンを考慮）
+        mouse_graph_pos = (mouse_pos - self.pan_offset) / self.zoom
+
+        # ズーム倍率を計算
         delta = event.angleDelta().y()
         zoom_factor = 1.0 + delta / 1200.0  # Adjust sensitivity as needed
         new_zoom = self.zoom * zoom_factor
+
+        # ズーム制限を適用
         if new_zoom > self.max_zoom:
             new_zoom = self.max_zoom
         if new_zoom < self.min_zoom:
             new_zoom = self.min_zoom
+
+        # 新しいズーム倍率を設定
+        old_zoom = self.zoom
         self.zoom = new_zoom
+
+        # マウスカーソル位置を維持するためにパンオフセットを調整
+        # 新しいパンオフセット = マウス位置 - (グラフ座標 * 新しいズーム)
+        new_pan = mouse_pos - (mouse_graph_pos * new_zoom)
+        self.pan_offset = new_pan
+
         self.update()
 
     def _complete_edge_creation(self, point):
