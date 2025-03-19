@@ -81,6 +81,10 @@ def connect_nodes_in_8_directions(graph: Graph, nodes: List[RectNode]) -> None:
     Each node gets connected to its adjacent neighbors based on their
     row and column positions in the grid, including diagonal connections.
 
+    Notes:
+        - Connections are only created between nodes that belong to the same NodeGroup.
+        - This prevents unintended connections between different NodeGroups.
+
     Args:
         graph (Graph): The graph where connections will be added
         nodes (List[RectNode]): The list of nodes to connect
@@ -90,11 +94,26 @@ def connect_nodes_in_8_directions(graph: Graph, nodes: List[RectNode]) -> None:
 
     # Create a grid structure: store nodes with row and col as keys
     grid = {}
+    # Create a mapping of nodes to their groups
+    node_to_group = {}
+
+    # Populate node_to_group mapping
     for node in nodes:
         grid[(node.row, node.col)] = node
+        # Find the group this node belongs to
+        group = graph.get_group_for_node(node)
+        if group:
+            node_to_group[node.id] = group.id
 
     # For each node, connect to adjacent nodes in eight directions
     for node in nodes:
+        # Get the group of the current node
+        node_group_id = node_to_group.get(node.id)
+
+        # Skip nodes that don't belong to any group
+        if node_group_id is None:
+            continue
+
         # Calculate the coordinates of adjacent cells in eight directions
         neighbors = [
             (node.row - 1, node.col),  # up
@@ -111,8 +130,14 @@ def connect_nodes_in_8_directions(graph: Graph, nodes: List[RectNode]) -> None:
         for neighbor_pos in neighbors:
             if neighbor_pos in grid:
                 neighbor_node = grid[neighbor_pos]
-                # Add only if the connection does not already exist
-                if not graph.has_edge(node, neighbor_node):
+                neighbor_group_id = node_to_group.get(neighbor_node.id)
+
+                # Only connect if both nodes belong to the same group
+                if (
+                    neighbor_group_id is not None
+                    and node_group_id == neighbor_group_id
+                    and not graph.has_edge(node, neighbor_node)
+                ):
                     graph.add_edge(node, neighbor_node)
 
 

@@ -36,6 +36,14 @@ class EditContextMenu(QMenu):
             self._connect_nodes_in_4_directions
         )
 
+        # Connect all nodes in 8 directions action
+        self.connect_8_directions_action = QAction(
+            "Connect all nodes in 8 directions", self
+        )
+        self.connect_8_directions_action.triggered.connect(
+            self._connect_nodes_in_8_directions
+        )
+
         # Toggle eraser mode action
         self.toggle_eraser_action = QAction("Eraser Mode (Delete Edges)", self)
         self.toggle_eraser_action.setCheckable(True)
@@ -44,8 +52,30 @@ class EditContextMenu(QMenu):
     def _build_menu(self):
         """Build the menu structure by adding actions."""
         self.addAction(self.connect_4_directions_action)
+        self.addAction(self.connect_8_directions_action)
         self.addSeparator()
         self.addAction(self.toggle_eraser_action)
+
+    def _connect_nodes_in_8_directions(self):
+        """
+        Connect all nodes in the current edit target groups in 8 directions by
+        delegating to the graph service.
+        """
+        if not self.canvas.edit_target_groups:
+            return
+
+        # Delegate the connection logic to the graph service
+        from ...models.connectivity import connect_nodes_in_8_directions
+
+        # Process each target group
+        for group in self.canvas.edit_target_groups:
+            # Get the nodes in the target group
+            group_nodes = group.get_nodes(self.canvas.graph.nodes)
+            if group_nodes:
+                connect_nodes_in_8_directions(self.canvas.graph, group_nodes)
+
+        # Update display
+        self.canvas.update()
 
     def _connect_nodes_in_4_directions(self):
         """
