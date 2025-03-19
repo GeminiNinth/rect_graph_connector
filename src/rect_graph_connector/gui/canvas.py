@@ -262,9 +262,46 @@ class Canvas(QWidget):
             self.selected_edges,  # Pass selected edges for highlighting
         )
 
+    def _calculate_edge_endpoints(self, source_node, target_node):
+        """
+        Calculate the actual visual endpoints of an edge considering node sizes.
+
+        Args:
+            source_node (RectNode): The source node
+            target_node (RectNode): The target node
+
+        Returns:
+            tuple: (start_point, end_point) as QPointF objects representing the edge endpoints
+        """
+        # Get node centers
+        start_center = QPointF(source_node.x, source_node.y)
+        end_center = QPointF(target_node.x, target_node.y)
+
+        # Calculate direction vector
+        direction = end_center - start_center
+        if direction.manhattanLength() == 0:
+            return start_center, end_center
+
+        # Normalize direction vector
+        length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
+        normalized_dir = QPointF(direction.x() / length, direction.y() / length)
+
+        # Calculate actual endpoints considering node sizes
+        start_point = QPointF(
+            start_center.x() + normalized_dir.x() * source_node.size / 2,
+            start_center.y() + normalized_dir.y() * source_node.size / 2,
+        )
+        end_point = QPointF(
+            end_center.x() - normalized_dir.x() * target_node.size / 2,
+            end_center.y() - normalized_dir.y() * target_node.size / 2,
+        )
+
+        return start_point, end_point
+
     def find_edge_at_position(self, point, tolerance=5):
         """
         Find an edge near the given point in graph coordinates.
+        Only considers the visible part of the edge between node boundaries.
 
         Args:
             point (QPointF): The point in graph coordinates
@@ -282,8 +319,10 @@ class Canvas(QWidget):
                 source_node = next(n for n in self.graph.nodes if n.id == edge[0])
                 target_node = next(n for n in self.graph.nodes if n.id == edge[1])
 
-                start_pos = QPointF(source_node.x, source_node.y)
-                end_pos = QPointF(target_node.x, target_node.y)
+                # Calculate actual edge endpoints considering node sizes
+                start_pos, end_pos = self._calculate_edge_endpoints(
+                    source_node, target_node
+                )
 
                 # Calculate distance from point to line segment
                 line_vec = end_pos - start_pos
@@ -310,6 +349,7 @@ class Canvas(QWidget):
                     + (point.y() - projection.y()) ** 2
                 ) ** 0.5
 
+                # Check if the point is within tolerance and the projection is on the visible part of the edge
                 if distance <= scaled_tolerance:
                     return (source_node, target_node)
 

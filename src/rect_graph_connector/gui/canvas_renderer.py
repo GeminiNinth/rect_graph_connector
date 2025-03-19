@@ -131,11 +131,16 @@ class CanvasRenderer:
                         pen.setWidth(config.get_dimension("edge.width.normal", 1))
                         painter.setPen(pen)
 
+                        # Calculate actual edge endpoints
+                        start_point, end_point = self._calculate_edge_endpoints(
+                            source_node, target_node
+                        )
+
                         painter.drawLine(
-                            int(source_node.x),
-                            int(source_node.y),
-                            int(target_node.x),
-                            int(target_node.y),
+                            int(start_point.x()),
+                            int(start_point.y()),
+                            int(end_point.x()),
+                            int(end_point.y()),
                         )
                     except StopIteration:
                         continue
@@ -210,12 +215,17 @@ class CanvasRenderer:
                 source_node = next(n for n in self.graph.nodes if n.id == edge[0])
                 target_node = next(n for n in self.graph.nodes if n.id == edge[1])
 
+                # Calculate actual edge endpoints
+                start_point, end_point = self._calculate_edge_endpoints(
+                    source_node, target_node
+                )
+
                 # Draw the highlighted edge
                 painter.drawLine(
-                    int(source_node.x),
-                    int(source_node.y),
-                    int(target_node.x),
-                    int(target_node.y),
+                    int(start_point.x()),
+                    int(start_point.y()),
+                    int(end_point.x()),
+                    int(end_point.y()),
                 )
             except StopIteration:
                 continue
@@ -242,12 +252,17 @@ class CanvasRenderer:
                 source_node = edge[0]  # RectNode object
                 target_node = edge[1]  # RectNode object
 
+                # Calculate actual edge endpoints
+                start_point, end_point = self._calculate_edge_endpoints(
+                    source_node, target_node
+                )
+
                 # Draw the selected edge
                 painter.drawLine(
-                    int(source_node.x),
-                    int(source_node.y),
-                    int(target_node.x),
-                    int(target_node.y),
+                    int(start_point.x()),
+                    int(start_point.y()),
+                    int(end_point.x()),
+                    int(end_point.y()),
                 )
             except (IndexError, AttributeError):
                 continue
@@ -300,6 +315,42 @@ class CanvasRenderer:
         painter.setPen(QColor(text_color))
         painter.drawText(10, 20, text)
 
+    def _calculate_edge_endpoints(self, source_node, target_node):
+        """
+        Calculate the actual visual endpoints of an edge considering node sizes.
+
+        Args:
+            source_node: The source node
+            target_node: The target node
+
+        Returns:
+            tuple: (start_point, end_point) as QPointF objects
+        """
+        # Get node centers
+        start_center = QPointF(source_node.x, source_node.y)
+        end_center = QPointF(target_node.x, target_node.y)
+
+        # Calculate direction vector
+        direction = end_center - start_center
+        if direction.manhattanLength() == 0:
+            return start_center, end_center
+
+        # Normalize direction vector
+        length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
+        normalized_dir = QPointF(direction.x() / length, direction.y() / length)
+
+        # Calculate actual endpoints considering node sizes
+        start_point = QPointF(
+            start_center.x() + normalized_dir.x() * source_node.size / 2,
+            start_center.y() + normalized_dir.y() * source_node.size / 2,
+        )
+        end_point = QPointF(
+            end_center.x() - normalized_dir.x() * target_node.size / 2,
+            end_center.y() - normalized_dir.y() * target_node.size / 2,
+        )
+
+        return start_point, end_point
+
     def _draw_standalone_edges(self, painter: QPainter, selected_edges=None):
         """
         Draw edges between nodes that don't belong to any NodeGroup,
@@ -351,11 +402,16 @@ class CanvasRenderer:
                 except StopIteration:
                     continue
 
+                # Calculate actual edge endpoints
+                start_point, end_point = self._calculate_edge_endpoints(
+                    source_node, target_node
+                )
+
                 painter.drawLine(
-                    int(source_node.x),
-                    int(source_node.y),
-                    int(target_node.x),
-                    int(target_node.y),
+                    int(start_point.x()),
+                    int(start_point.y()),
+                    int(end_point.x()),
+                    int(end_point.y()),
                 )
 
     def _draw_edges(self, painter: QPainter):
@@ -410,12 +466,26 @@ class CanvasRenderer:
             pen.setWidth(config.get_dimension("edge.width.normal", 1))
             painter.setPen(pen)
 
-            painter.drawLine(
-                int(start_node.x),
-                int(start_node.y),
-                int(end_point.x()),
-                int(end_point.y()),
-            )
+            # Calculate start point from node boundary
+            start_center = QPointF(start_node.x, start_node.y)
+            direction = QPointF(end_point) - start_center
+            if direction.manhattanLength() > 0:
+                # Normalize direction vector
+                length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
+                normalized_dir = QPointF(direction.x() / length, direction.y() / length)
+
+                # Calculate start point at node boundary
+                start_point = QPointF(
+                    start_center.x() + normalized_dir.x() * start_node.size / 2,
+                    start_center.y() + normalized_dir.y() * start_node.size / 2,
+                )
+
+                painter.drawLine(
+                    int(start_point.x()),
+                    int(start_point.y()),
+                    int(end_point.x()),
+                    int(end_point.y()),
+                )
 
     def _draw_node_group_backgrounds(self, painter: QPainter):
         """
