@@ -33,7 +33,8 @@ def setup_logging(log_dir: str = ".log") -> None:
     latest_link = log_base_path / "latest"
     if latest_link.exists():
         latest_link.unlink()
-    latest_link.symlink_to(log_path, target_is_directory=True)
+    # Use the directory name only for the symlink target
+    latest_link.symlink_to(timestamp, target_is_directory=True)
 
     # Set up logging format
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
