@@ -6,6 +6,7 @@ This module provides centralized logging configuration and initialization.
 
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -19,9 +20,20 @@ def setup_logging(log_dir: str = ".log") -> None:
     Args:
         log_dir (str): Directory where log files will be stored. Defaults to ".log".
     """
-    # Create log directory if it doesn't exist
-    log_path = Path(log_dir)
+    # Create base log directory if it doesn't exist
+    log_base_path = Path(log_dir)
+    log_base_path.mkdir(exist_ok=True)
+
+    # Create datetime-based directory
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_path = log_base_path / timestamp
     log_path.mkdir(exist_ok=True)
+
+    # Create/Update symlink to latest log directory
+    latest_link = log_base_path / "latest"
+    if latest_link.exists():
+        latest_link.unlink()
+    latest_link.symlink_to(log_path, target_is_directory=True)
 
     # Set up logging format
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -30,14 +42,14 @@ def setup_logging(log_dir: str = ".log") -> None:
     # Create handlers
     # File handler for all logs
     file_handler = logging.FileHandler(
-        os.path.join(log_dir, "rect_graph_connector.log"), encoding="utf-8"
+        os.path.join(log_path, "rect_graph_connector.log"), encoding="utf-8"
     )
     file_handler.setFormatter(logging.Formatter(log_format, date_format))
     file_handler.setLevel(getattr(logging, config.log_level))
 
     # File handler for errors only
     error_handler = logging.FileHandler(
-        os.path.join(log_dir, "error.log"), encoding="utf-8"
+        os.path.join(log_path, "error.log"), encoding="utf-8"
     )
     error_handler.setFormatter(logging.Formatter(log_format, date_format))
     error_handler.setLevel(logging.ERROR)
