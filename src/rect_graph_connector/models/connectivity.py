@@ -149,6 +149,7 @@ def delete_edge_at_position(
 ) -> bool:
     """
     Delete an edge that is close to the specified position.
+    Only considers the visible part of edges between node boundaries.
 
     Args:
         graph (Graph): The graph containing the edges
@@ -178,10 +179,13 @@ def delete_edge_at_position(
             continue
 
         if source_node and target_node:
-            # Calculate distance from point to line segment (edge)
-            distance = point_to_line_distance(
-                px, py, source_node.x, source_node.y, target_node.x, target_node.y
+            # Calculate actual edge endpoints considering node sizes
+            (start_x, start_y), (end_x, end_y) = calculate_edge_endpoints(
+                source_node, target_node
             )
+
+            # Calculate distance from point to line segment (edge)
+            distance = point_to_line_distance(px, py, start_x, start_y, end_x, end_y)
 
             if distance < min_distance:
                 min_distance = distance
@@ -262,11 +266,46 @@ def line_segments_intersect(
     return (0 <= ua <= 1) and (0 <= ub <= 1)
 
 
+def calculate_edge_endpoints(
+    source_node: RectNode, target_node: RectNode
+) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+    """
+    Calculate the actual visual endpoints of an edge considering node sizes.
+
+    Args:
+        source_node (RectNode): The source node
+        target_node (RectNode): The target node
+
+    Returns:
+        Tuple[Tuple[float, float], Tuple[float, float]]: ((start_x, start_y), (end_x, end_y))
+    """
+    # Calculate direction vector
+    dx = target_node.x - source_node.x
+    dy = target_node.y - source_node.y
+    length = (dx * dx + dy * dy) ** 0.5
+
+    if length == 0:
+        return ((source_node.x, source_node.y), (target_node.x, target_node.y))
+
+    # Normalize direction vector
+    dx /= length
+    dy /= length
+
+    # Calculate actual endpoints considering node sizes
+    start_x = source_node.x + dx * source_node.size / 2
+    start_y = source_node.y + dy * source_node.size / 2
+    end_x = target_node.x - dx * target_node.size / 2
+    end_y = target_node.y - dy * target_node.size / 2
+
+    return ((start_x, start_y), (end_x, end_y))
+
+
 def find_intersecting_edges(
     graph: Graph, path_points: List[Tuple[float, float]]
 ) -> List[Tuple[str, str]]:
     """
     Find all edges that intersect with a given path.
+    Only considers the visible part of edges between node boundaries.
 
     Args:
         graph (Graph): The graph containing the edges
@@ -290,6 +329,11 @@ def find_intersecting_edges(
         except StopIteration:
             continue
 
+        # Calculate actual edge endpoints considering node sizes
+        (start_x, start_y), (end_x, end_y) = calculate_edge_endpoints(
+            source_node, target_node
+        )
+
         # Check intersection with each path segment
         for i in range(len(path_points) - 1):
             x1, y1 = path_points[i]
@@ -300,10 +344,10 @@ def find_intersecting_edges(
                 y1,
                 x2,
                 y2,
-                source_node.x,
-                source_node.y,
-                target_node.x,
-                target_node.y,
+                start_x,
+                start_y,
+                end_x,
+                end_y,
             ):
                 intersecting_edges.append((source_id, target_id))
                 break  # One intersection is enough to mark this edge
