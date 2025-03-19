@@ -171,6 +171,12 @@ class CanvasRenderer:
         if knife_data and knife_data.get("path"):
             self._draw_knife_path(painter, knife_data["path"])
 
+        # Draw All-For-One connection edges if active
+        if temp_edge_data and all_for_one_selected_nodes:
+            self._draw_all_for_one_edges(
+                painter, temp_edge_data, all_for_one_selected_nodes
+            )
+
         # Draw parallel connection edges if active
         if (
             parallel_data
@@ -882,6 +888,59 @@ class CanvasRenderer:
                 int(min_y - margin),
                 alignment,
             )
+
+    def _draw_all_for_one_edges(
+        self, painter: QPainter, temp_edge_data, all_for_one_selected_nodes
+    ):
+        """
+        Draw temporary virtual edges from all selected nodes in All-For-One connection mode.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+            temp_edge_data (tuple): Tuple containing (start_node, end_point)
+            all_for_one_selected_nodes (list): List of nodes selected in All-For-One mode
+        """
+        if not temp_edge_data or not all_for_one_selected_nodes:
+            return
+
+        start_node, end_point = temp_edge_data
+
+        # Set up pen for virtual edges
+        edge_color = config.get_color("edge.normal", "#000000")
+        pen = QPen(QColor(edge_color))
+        pen.setWidth(config.get_dimension("edge.width.normal", 1))
+        pen.setStyle(Qt.DashLine)  # Use dashed line for virtual edges
+        painter.setPen(pen)
+
+        # Draw virtual edges from all selected nodes except the start node
+        for node in all_for_one_selected_nodes:
+            if (
+                node != start_node
+            ):  # Skip the start node as it's handled by _draw_temp_edge
+                # Calculate start point from node boundary
+                start_center = QPointF(node.x, node.y)
+                direction = QPointF(end_point) - start_center
+
+                if direction.manhattanLength() > 0:
+                    # Normalize direction vector
+                    length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
+                    normalized_dir = QPointF(
+                        direction.x() / length, direction.y() / length
+                    )
+
+                    # Calculate start point at node boundary
+                    start_point = QPointF(
+                        start_center.x() + normalized_dir.x() * node.size / 2,
+                        start_center.y() + normalized_dir.y() * node.size / 2,
+                    )
+
+                    # Draw the virtual edge
+                    painter.drawLine(
+                        int(start_point.x()),
+                        int(start_point.y()),
+                        int(end_point.x()),
+                        int(end_point.y()),
+                    )
 
     def _draw_parallel_edges(self, painter: QPainter, parallel_data):
         """
