@@ -361,23 +361,23 @@ class CanvasRenderer:
             # Get group width
             group_width_int = int(group_width)
 
-            # Set the display width
-            # Fixed width when not selected
-            # When selected, the width is based on the number of characters (minimum width is fixed width)
+            # Set the display width and text
             fixed_width = config.get_dimension("group.label.fixed_width", 100)
 
-            if is_selected:
-                # When selected, the width is based on the number of characters (minimum width is fixed width)
-                display_width = max(text_width, fixed_width)
+            if is_selected or group.label_position in [
+                group.POSITION_TOP,
+                group.POSITION_BOTTOM,
+            ]:
+                # Use actual text width for selected groups or top/bottom labels
+                display_width = text_width
+                display_text = group.name
             else:
-                # Fixed width when not selected
+                # Fixed width and elided text for unselected right-positioned labels
                 display_width = fixed_width
-
-            # Determine the text to be displayed (whole displays when selected, omits if necessary)
-            display_text = group.name
-            if not is_selected and text_width > fixed_width:
-                display_text = font_metrics.elidedText(
-                    group.name, Qt.ElideRight, fixed_width
+                display_text = (
+                    font_metrics.elidedText(group.name, Qt.ElideRight, fixed_width)
+                    if text_width > fixed_width
+                    else group.name
                 )
 
             # Draw label background (semi-transparent)
@@ -479,29 +479,32 @@ class CanvasRenderer:
         max_x = max(node.x + node.size / 2 for node in nodes)
         max_y = max(node.y + node.size / 2 for node in nodes)
         center_x = (min_x + max_x) / 2
+        group_width = max_x - min_x
 
         # Default alignment is center-aligned
         alignment = Qt.AlignCenter
 
         # Margin to avoid overlapping with dotted lines
         margin = config.get_dimension("group.label.position_margin", 30)
-        label_offset = config.get_dimension("group.label.position_offset", 50)
 
         # Calculate position based on label_position
         if group.label_position == group.POSITION_RIGHT:
-            # Normally displayed on the right of NodeGroups
-            return int(max_x + margin), int((min_y + max_y) / 2 - 10), alignment
+            # Calculate dynamic offset based on group width
+            dynamic_offset = max(
+                margin, group_width * 0.1
+            )  # At least margin pixels, or 10% of group width
+            return int(max_x + dynamic_offset), int((min_y + max_y) / 2 - 10), alignment
         elif group.label_position == group.POSITION_BOTTOM:
-            # Place directly below the group (fixed position)
+            # Always center the label for top/bottom positions
             return (
-                int(center_x - label_offset / 2),
+                int(center_x - text_width / 2),  # Center the label
                 int(max_y + margin),
                 alignment,
             )
         else:  # POSITION_TOP as default
-            # Displays in the same position when selected or not selected
+            # Always center the label for top/bottom positions
             return (
-                int(center_x - label_offset / 2),
+                int(center_x - text_width / 2),  # Center the label
                 int(min_y - margin),
                 alignment,
             )

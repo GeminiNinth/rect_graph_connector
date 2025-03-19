@@ -22,7 +22,6 @@ group:
     height: 20
     text_margin: 10
     position_margin: 30
-    position_offset: 50
 
 edge:
   width:
@@ -59,7 +58,7 @@ mode_indicator:
 
 # Knife Tool Settings
 knife:
-  path_width: 2 # Knife Pass Line Width
+  path_width: 1 # Knife Pass Line Width
 
 grid:
   base_x: 100.0

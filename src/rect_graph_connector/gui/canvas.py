@@ -557,12 +557,12 @@ class Canvas(QWidget):
                 self.panning = False
                 # Return to the appropriate cursor depending on the mode
                 if self.current_mode == self.EDIT_MODE:
-                    if self.edit_submode == self.EDIT_SUBMODE_ERASER:
-                        self.setCursor(Qt.ForbiddenCursor)
+                    if self.edit_submode == self.EDIT_SUBMODE_KNIFE:
+                        self.setCursor(Qt.CrossCursor)  # Knife mode cursor
                     else:
-                        self.setCursor(Qt.CrossCursor)
+                        self.setCursor(Qt.CrossCursor)  # Default edit mode cursor
                 else:
-                    self.setCursor(Qt.ArrowCursor)
+                    self.setCursor(Qt.ArrowCursor)  # Normal mode cursor
             return
 
         if self.current_mode == self.NORMAL_MODE:
