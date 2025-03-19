@@ -27,26 +27,37 @@ def setup_logging(log_dir: str = ".log") -> None:
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     date_format = "%Y-%m-%d %H:%M:%S"
 
-    # Configure root logger
-    logging.basicConfig(
-        level=getattr(logging, config.log_level),
-        format=log_format,
-        datefmt=date_format,
-        handlers=[
-            # File handler for all logs
-            logging.FileHandler(
-                os.path.join(log_dir, "rect_graph_connector.log"), encoding="utf-8"
-            ),
-            # File handler for errors only
-            logging.FileHandler(
-                os.path.join(log_dir, "error.log"),
-                encoding="utf-8",
-                level=logging.ERROR,
-            ),
-            # Console handler
-            logging.StreamHandler(),
-        ],
+    # Create handlers
+    # File handler for all logs
+    file_handler = logging.FileHandler(
+        os.path.join(log_dir, "rect_graph_connector.log"), encoding="utf-8"
     )
+    file_handler.setFormatter(logging.Formatter(log_format, date_format))
+    file_handler.setLevel(getattr(logging, config.log_level))
+
+    # File handler for errors only
+    error_handler = logging.FileHandler(
+        os.path.join(log_dir, "error.log"), encoding="utf-8"
+    )
+    error_handler.setFormatter(logging.Formatter(log_format, date_format))
+    error_handler.setLevel(logging.ERROR)
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter(log_format, date_format))
+    console_handler.setLevel(getattr(logging, config.log_level))
+
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, config.log_level))
+
+    # Remove any existing handlers
+    root_logger.handlers = []
+
+    # Add handlers
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(error_handler)
+    root_logger.addHandler(console_handler)
 
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
