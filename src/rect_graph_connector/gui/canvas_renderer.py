@@ -65,6 +65,7 @@ class CanvasRenderer:
         edit_target_group=None,
         edit_target_groups=None,
         knife_data=None,
+        selected_edges=None,
     ):
         """
         Draw the complete graph on the canvas.
@@ -92,31 +93,67 @@ class CanvasRenderer:
         # 新しい描画順序（視覚的な前後関係）：
         # 1. 背景（最背面）- canvas_border (すでに描画済み)
         # 2. グループに属さないエッジを描画（最背面）
-        # 3. NodeGroupごとに以下を描画（z-indexの低い順）
-        #    a. グループの背景
-        #    b. グループ内の通常エッジ (グループごとに分けて描画)
-        #    c. グループのノード、枠線、ラベル
-        # 4. 独立したノード（グループに属さないノード）
-        # 5. ナイフツールのハイライトエッジ (最前面に表示するため、他の要素より後に描画)
+        # 3. NodeGroupの背景を描画
+        # 4. グループ内の通常エッジ (グループごとに分けて描画)
+        # 5. ナイフツールのハイライトエッジ
         # 6. 一時的なエッジ (新規エッジ作成時)
-        # 7. Knifeツールのパス (最前面)
+        # 7. グループのノード、枠線、ラベル（z-indexの順）
+        # 8. 独立したノード（グループに属さないノード）
+        # 9. Knifeツールのパス (最前面)
 
         # グループに属さないエッジを描画（最背面）
-        self._draw_standalone_edges(painter)
+        self._draw_standalone_edges(painter, selected_edges)
 
         # NodeGroupの背景を描画
         self._draw_node_group_backgrounds(painter)
 
-        # グループのノード、枠線、ラベルを描画（z-indexの順）- ハイライトエッジは描画しない
-        self._draw_nodes(painter)
+        # グループ内の通常エッジを描画
+        for group in sorted(self.graph.node_groups, key=lambda g: g.z_index):
+            for source_id, target_id in self.graph.edges:
+                # Skip if edge is selected (will be drawn later with highlight)
+                if selected_edges and (source_id, target_id) in [
+                    (e[0].id, e[1].id) for e in selected_edges
+                ]:
+                    continue
 
-        # ナイフツールで選択されたエッジを描画（最前面の手前）
+                # Only draw edges where both nodes belong to this group
+                if source_id in group.node_ids and target_id in group.node_ids:
+                    try:
+                        source_node = next(
+                            n for n in self.graph.nodes if n.id == source_id
+                        )
+                        target_node = next(
+                            n for n in self.graph.nodes if n.id == target_id
+                        )
+
+                        edge_color = config.get_color("edge.normal", "#000000")
+                        pen = QPen(QColor(edge_color))
+                        pen.setWidth(config.get_dimension("edge.width.normal", 1))
+                        painter.setPen(pen)
+
+                        painter.drawLine(
+                            int(source_node.x),
+                            int(source_node.y),
+                            int(target_node.x),
+                            int(target_node.y),
+                        )
+                    except StopIteration:
+                        continue
+
+        # 選択されたエッジを描画
+        if selected_edges:
+            self._draw_selected_edges(painter, selected_edges)
+
+        # ナイフツールで選択されたエッジを描画
         if knife_data and knife_data.get("highlighted_edges"):
             self._draw_highlighted_edges(painter, knife_data.get("highlighted_edges"))
 
         # 一時的なエッジを描画
         if temp_edge_data:
             self._draw_temp_edge(painter, temp_edge_data)
+
+        # グループのノード、枠線、ラベルを描画（z-indexの順）
+        self._draw_nodes(painter)
 
         # Knifeツールのパスを描画（最前面）
         if knife_data and knife_data.get("path"):
@@ -168,10 +205,10 @@ class CanvasRenderer:
         painter.setPen(QPen(QColor(edge_color), edge_width))
 
         # Draw each highlighted edge
-        for source_id, target_id in highlighted_edges:
+        for edge in highlighted_edges:
             try:
-                source_node = next(n for n in self.graph.nodes if n.id == source_id)
-                target_node = next(n for n in self.graph.nodes if n.id == target_id)
+                source_node = next(n for n in self.graph.nodes if n.id == edge[0])
+                target_node = next(n for n in self.graph.nodes if n.id == edge[1])
 
                 # Draw the highlighted edge
                 painter.drawLine(
@@ -181,6 +218,38 @@ class CanvasRenderer:
                     int(target_node.y),
                 )
             except StopIteration:
+                continue
+
+    def _draw_selected_edges(self, painter: QPainter, selected_edges):
+        """
+        Draw selected edges with a highlighted style.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+            selected_edges (List[Tuple[RectNode, RectNode]]): List of selected edges
+        """
+        if not selected_edges:
+            return
+
+        # Set up pen for selected edges
+        edge_color = config.get_color("edge.highlighted", "#FF0000")
+        edge_width = config.get_dimension("edge.width.highlighted", 2)
+        painter.setPen(QPen(QColor(edge_color), edge_width))
+
+        # Draw each selected edge
+        for edge in selected_edges:
+            try:
+                source_node = edge[0]  # RectNode object
+                target_node = edge[1]  # RectNode object
+
+                # Draw the selected edge
+                painter.drawLine(
+                    int(source_node.x),
+                    int(source_node.y),
+                    int(target_node.x),
+                    int(target_node.y),
+                )
+            except (IndexError, AttributeError):
                 continue
 
     def _draw_knife_path(self, painter: QPainter, path_points):
@@ -231,7 +300,7 @@ class CanvasRenderer:
         painter.setPen(QColor(text_color))
         painter.drawText(10, 20, text)
 
-    def _draw_standalone_edges(self, painter: QPainter):
+    def _draw_standalone_edges(self, painter: QPainter, selected_edges=None):
         """
         Draw edges between nodes that don't belong to any NodeGroup,
         or edges that connect nodes in different NodeGroups.
@@ -252,6 +321,12 @@ class CanvasRenderer:
 
         # Draw edges that connect nodes not in the same group
         for source_id, target_id in self.graph.edges:
+            # Skip if edge is selected (will be drawn later with highlight)
+            if selected_edges and (source_id, target_id) in [
+                (e[0].id, e[1].id) for e in selected_edges
+            ]:
+                continue
+
             # Skip drawing if both nodes are in the same group
             # These will be drawn by _draw_nodes when rendering each group
             source_in_group = source_id in group_node_ids
@@ -446,33 +521,7 @@ class CanvasRenderer:
             group_width_int = int(group_width)
             group_height_int = int(group_height)
 
-            # Draw normal edges within the group
-            edge_color = config.get_color("edge.normal", "#000000")
-            pen = QPen(QColor(edge_color))
-            pen.setWidth(config.get_dimension("edge.width.normal", 1))
-            painter.setPen(pen)
-
-            for source_id, target_id in self.graph.edges:
-                # Only draw edges where both nodes belong to this group
-                if source_id in group.node_ids and target_id in group.node_ids:
-                    try:
-                        source_node = next(
-                            n for n in self.graph.nodes if n.id == source_id
-                        )
-                        target_node = next(
-                            n for n in self.graph.nodes if n.id == target_id
-                        )
-
-                        painter.drawLine(
-                            int(source_node.x),
-                            int(source_node.y),
-                            int(target_node.x),
-                            int(target_node.y),
-                        )
-                    except StopIteration:
-                        continue
-
-            # 1. Draw nodes within the group (they appear on top)
+            # Draw nodes within the group
             for node in group_nodes:
                 rect = QRectF(
                     node.x - node.size / 2, node.y - node.size / 2, node.size, node.size

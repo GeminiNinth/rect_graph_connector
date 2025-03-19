@@ -85,6 +85,11 @@ class Canvas(QWidget):
         self._pending_deselect = False
         self._press_pos = None
 
+        # Edge selection state
+        self.selected_edges = []  # List of selected edges
+        self._pending_edge_deselect = False  # Flag for edge deselection
+        self._edge_press_pos = None  # Position where edge was clicked
+
         # Knife mode state
         self.knife_path = []  # List of points forming the knife path
         self.highlighted_edges = []  # List of edges intersecting with knife path
@@ -174,7 +179,9 @@ class Canvas(QWidget):
             )  # Reset to default connect submode
             self.set_mode(self.EDIT_MODE)
         else:
+            # Clear all edit mode state when switching back to normal mode
             self.edit_target_groups = []
+            self.selected_edges = []  # Clear edge selection
             self.set_mode(self.NORMAL_MODE)
 
     def set_deselect_method(self, method, enabled=True):
@@ -252,7 +259,63 @@ class Canvas(QWidget):
             None,  # edit_target_group parameter is deprecated
             self.edit_target_groups,
             knife_data,
+            self.selected_edges,  # Pass selected edges for highlighting
         )
+
+    def find_edge_at_position(self, point, tolerance=5):
+        """
+        Find an edge near the given point in graph coordinates.
+
+        Args:
+            point (QPointF): The point in graph coordinates
+            tolerance (float): Maximum distance from point to edge to be considered a hit
+
+        Returns:
+            tuple: (start_node, end_node) if an edge is found, None otherwise
+        """
+        # Convert tolerance to graph coordinates
+        scaled_tolerance = tolerance / self.zoom
+
+        for edge in self.graph.edges:
+            try:
+                # Get the actual node objects
+                source_node = next(n for n in self.graph.nodes if n.id == edge[0])
+                target_node = next(n for n in self.graph.nodes if n.id == edge[1])
+
+                start_pos = QPointF(source_node.x, source_node.y)
+                end_pos = QPointF(target_node.x, target_node.y)
+
+                # Calculate distance from point to line segment
+                line_vec = end_pos - start_pos
+                point_vec = QPointF(point) - start_pos
+                line_length = (line_vec.x() ** 2 + line_vec.y() ** 2) ** 0.5
+
+                if line_length == 0:
+                    continue
+
+                # Calculate projection
+                t = max(
+                    0,
+                    min(
+                        1,
+                        (point_vec.x() * line_vec.x() + point_vec.y() * line_vec.y())
+                        / (line_length**2),
+                    ),
+                )
+                projection = start_pos + t * line_vec
+
+                # Calculate distance from point to projection
+                distance = (
+                    (point.x() - projection.x()) ** 2
+                    + (point.y() - projection.y()) ** 2
+                ) ** 0.5
+
+                if distance <= scaled_tolerance:
+                    return (source_node, target_node)
+
+            except StopIteration:
+                continue
+        return None
 
     def find_group_at_position(self, point):
         """
@@ -308,7 +371,7 @@ class Canvas(QWidget):
 
     def keyPressEvent(self, event):
         """
-        Handle keyboard events for mode switching.
+        Handle keyboard events for mode switching and edge operations.
 
         Args:
             event: Keyboard event
@@ -316,30 +379,50 @@ class Canvas(QWidget):
         if event.key() == Qt.Key_Escape:
             # Only when deselection using the ESC key is enabled
             if self.enabled_deselect_methods.get(self.DESELECT_BY_ESCAPE, True):
-                # Clear NodeGroup selection and, if in edit mode, switch to normal mode.
+                # Clear all selections
                 self.graph.selected_groups = []
                 self.graph.selected_nodes = []
+                self.selected_edges = []
                 if self.current_mode == self.EDIT_MODE:
                     self.toggle_edit_mode()
                 self.update()
         elif event.key() == Qt.Key_E and self.graph.selected_groups:
             # When entering edit mode, use all selected groups
             self.toggle_edit_mode()
-        elif (
-            event.key() == Qt.Key_A
-            and event.modifiers() & Qt.ControlModifier
-            and self.current_mode == self.NORMAL_MODE
-        ):
-            # Ctrl+A: Select all NodeGroups
-            if self.graph.node_groups:
-                self.graph.selected_groups = list(
-                    self.graph.node_groups
-                )  # Make all NodeGroups selected as a list
+        elif event.key() == Qt.Key_A and event.modifiers() & Qt.ControlModifier:
+            if self.current_mode == self.NORMAL_MODE:
+                # Ctrl+A in normal mode: Select all NodeGroups
+                if self.graph.node_groups:
+                    self.graph.selected_groups = list(self.graph.node_groups)
+                    self.graph.selected_nodes = []
+                    for group in self.graph.selected_groups:
+                        self.graph.selected_nodes.extend(
+                            group.get_nodes(self.graph.nodes)
+                        )
+                    self.update()
+            elif self.current_mode == self.EDIT_MODE:
+                # Ctrl+A in edit mode: Select all edges in target groups
+                self.selected_edges = []
+                for edge in self.graph.edges:
+                    try:
+                        # Get actual node objects
+                        source_node = next(
+                            n for n in self.graph.nodes if n.id == edge[0]
+                        )
+                        target_node = next(
+                            n for n in self.graph.nodes if n.id == edge[1]
+                        )
 
-                # Collect all nodes from the selected group
-                self.graph.selected_nodes = []
-                for group in self.graph.selected_groups:
-                    self.graph.selected_nodes.extend(group.get_nodes(self.graph.nodes))
+                        source_group = self.graph.get_group_for_node(source_node)
+                        target_group = self.graph.get_group_for_node(target_node)
+
+                        if (
+                            source_group in self.edit_target_groups
+                            and target_group in self.edit_target_groups
+                        ):
+                            self.selected_edges.append((source_node, target_node))
+                    except StopIteration:
+                        continue
                 self.update()
         elif (
             event.key()
@@ -352,26 +435,33 @@ class Canvas(QWidget):
             if self.graph.selected_groups:
                 self.graph.rotate_node_groups(self.graph.selected_groups)
                 self.update()
-        elif event.key() == Qt.Key_Delete and self.current_mode == self.NORMAL_MODE:
-            # Delete key: Delete selected groups
-            if self.graph.selected_groups and len(self.graph.selected_groups) > 0:
-                # Create a copy of the list since we're modifying it during iteration
-                groups_to_delete = self.graph.selected_groups.copy()
-
-                # Process each group separately to ensure all are deleted
-                for group in groups_to_delete:
-                    self.graph.delete_group(group)
-
-                # Clear selection after all deletions are complete
-                self.graph.selected_group = None
-                self.graph.selected_groups = []
-                self.graph.selected_nodes = []
-
-                # Get the main window instance and update the group list
-                main_window = self.window()
-                if isinstance(main_window, QMainWindow):
-                    main_window._update_group_list()
-                self.update()
+        elif event.key() == Qt.Key_Delete:
+            if self.current_mode == self.NORMAL_MODE:
+                # Delete key in normal mode: Delete selected groups
+                if self.graph.selected_groups and len(self.graph.selected_groups) > 0:
+                    groups_to_delete = self.graph.selected_groups.copy()
+                    for group in groups_to_delete:
+                        self.graph.delete_group(group)
+                    self.graph.selected_group = None
+                    self.graph.selected_groups = []
+                    self.graph.selected_nodes = []
+                    main_window = self.window()
+                    if isinstance(main_window, QMainWindow):
+                        main_window._update_group_list()
+                    self.update()
+            elif self.current_mode == self.EDIT_MODE:
+                # Delete key in edit mode: Delete selected edges
+                if self.selected_edges:
+                    for source_node, target_node in self.selected_edges:
+                        edge_to_remove = None
+                        for edge in self.graph.edges:
+                            if edge[0] == source_node.id and edge[1] == target_node.id:
+                                edge_to_remove = edge
+                                break
+                        if edge_to_remove:
+                            self.graph.edges.remove(edge_to_remove)
+                    self.selected_edges = []
+                    self.update()
 
     def mousePressEvent(self, event):
         """
@@ -495,7 +585,31 @@ class Canvas(QWidget):
             # Edit mode
             if event.button() == Qt.LeftButton:
                 if self.edit_submode == self.EDIT_SUBMODE_CONNECT:
-                    # Edge connection mode - start connecting edges
+                    # First check for edge selection
+                    edge = self.find_edge_at_position(graph_point)
+                    shift_pressed = event.modifiers() & Qt.ShiftModifier
+
+                    if edge:
+                        # Check if edge belongs to target groups
+                        source_group = self.graph.get_group_for_node(edge[0])
+                        target_group = self.graph.get_group_for_node(edge[1])
+                        if (
+                            source_group in self.edit_target_groups
+                            and target_group in self.edit_target_groups
+                        ):
+                            if edge in self.selected_edges and not shift_pressed:
+                                # Deselect if already selected and shift is not pressed
+                                self.selected_edges.remove(edge)
+                            else:
+                                if not shift_pressed:
+                                    # Clear previous selection if shift is not pressed
+                                    self.selected_edges = []
+                                if edge not in self.selected_edges:
+                                    self.selected_edges.append(edge)
+                            self.update()
+                            return
+
+                    # If no edge was clicked, proceed with node selection for edge creation
                     node = self.graph.find_node_at_position(graph_point)
                     if node:
                         # Check if node belongs to any of the target groups
@@ -508,9 +622,10 @@ class Canvas(QWidget):
                                 if node in group.get_nodes(self.graph.nodes):
                                     node_belongs_to_target = True
                                     break
-                        # No need to fall back to single edit_target_group anymore
 
                         if node_belongs_to_target:
+                            # Clear edge selection when starting new edge creation
+                            self.selected_edges = []
                             # Use for edge creation in edit mode
                             self.current_edge_start = node
                             self.temp_edge_end = graph_point
