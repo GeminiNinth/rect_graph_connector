@@ -51,8 +51,8 @@ class ImportModeDialog(QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle(config.get_text("import_dialog.window_title"))
-        self.setMinimumWidth(600)
-        self.setMinimumHeight(500)
+        self.setMinimumWidth(config.get_dimension("dialog.import.min_width", 600))
+        self.setMinimumHeight(config.get_dimension("dialog.import.min_height", 500))
 
         self.selected_mode = "overwrite"  # Default mode
 
@@ -100,7 +100,9 @@ class ImportModeDialog(QDialog):
         # Detail explanation content
         self.detail_content = QLabel()
         self.detail_content.setWordWrap(True)
-        self.detail_content.setMinimumHeight(200)
+        self.detail_content.setMinimumHeight(
+            config.get_dimension("dialog.import.detail_height", 200)
+        )
         self.detail_layout.addWidget(self.detail_content)
 
         # Visual example description

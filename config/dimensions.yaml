@@ -1,0 +1,73 @@
+# Dimensions for UI Components (settings such as size, margin, and thickness)
+
+canvas:
+  min_height: 500
+  min_zoom: 0.1
+  max_zoom: 10.0
+  border_width: 2 # Canvas border width
+
+node:
+  default_size: 30.0 # Default size of the node
+  border_width:
+    normal: 1
+    selected: 2
+
+group:
+  border_width:
+    normal: 1
+    selected: 2
+  border_margin: 5
+  label:
+    fixed_width: 100
+    height: 20
+    text_margin: 10
+    position_margin: 30
+    position_offset: 50
+
+edge:
+  width:
+    normal: 1
+    highlighted: 2
+  detection_threshold: 10.0
+
+main_window:
+  initial:
+    x: 100
+    y: 100
+    width: 800
+    height: 600
+  splitter:
+    side_menu: 150
+    canvas: 650
+  layout:
+    margin: 5
+    spacing: 5
+  control_panel:
+    max_height: 50
+  side_panel:
+    min_width: 150
+
+# Input widget settings
+input:
+  row_col_width: 50
+  move_button_width: 40
+
+# Mode Indicator Settings
+mode_indicator:
+  min_height: 30
+  max_height: 30
+
+# Knife Tool Settings
+knife:
+  path_width: 2 # Knife Pass Line Width
+
+grid:
+  base_x: 100.0
+  base_y: 100.0
+  spacing: 40.0
+
+dialog:
+  import:
+    min_width: 600 # Minimum width of import dialog
+    min_height: 500 # Minimum height for import dialog
+    detail_height: 200 # Detailed description Minimum height of area

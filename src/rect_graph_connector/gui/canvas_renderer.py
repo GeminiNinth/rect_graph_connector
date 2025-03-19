@@ -5,8 +5,37 @@ This module contains the renderer for the canvas, handling all drawing operation
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QColor, QPen
 from PyQt5.QtCore import Qt, QRectF, QPointF
+import re
 
 from ..models.graph import Graph
+from ..config import config
+
+
+def parse_rgba(rgba_str):
+    """
+    Parse rgba string and return QColor object.
+    Supports both hex and rgba() format.
+
+    Args:
+        rgba_str (str): Color string in format 'rgba(r,g,b,a)' or hex format
+        where a can be integer (0-255) or float (0-1)
+
+    Returns:
+        QColor: QColor object with the specified color
+    """
+    if rgba_str.startswith("rgba"):
+        # Parse rgba(r,g,b,a) format
+        match = re.match(r"rgba\((\d+),\s*(\d+),\s*(\d+),\s*(\d+|\d*\.\d+)\)", rgba_str)
+        if match:
+            r, g, b, a = match.groups()
+            r, g, b = map(int, [r, g, b])
+            # Convert alpha to 0-255 range if it's a float
+            a = int(float(a) * 255) if "." in a else int(a)
+            color = QColor()
+            color.setRgb(r, g, b, a)
+            return color
+    # Default to direct QColor creation for hex format
+    return QColor(rgba_str)
 
 
 class CanvasRenderer:
@@ -93,13 +122,20 @@ class CanvasRenderer:
             painter (QPainter): The painter to use for drawing
             mode (str): The current mode ("normal" or "edit")
         """
-        # Set border color according to the mode
+        # Set border color according to the mode from config
         if mode == "edit":
-            pen = QPen(QColor(255, 100, 100))  # Edit mode is reddish
+            border_color = config.get_color(
+                "canvas.border.edit", "#FF6464"
+            )  # Edit mode border
         else:
-            pen = QPen(QColor("black"))
+            border_color = config.get_color(
+                "canvas.border.normal", "#000000"
+            )  # Normal mode border
 
-        pen.setWidth(2)
+        pen = QPen(QColor(border_color))
+        pen.setWidth(
+            config.get_dimension("canvas.border_width", 2)
+        )  # 設定ファイルから取得
         painter.setPen(pen)
         painter.drawRect(0, 0, self.canvas.width() - 1, self.canvas.height() - 1)
 
@@ -122,7 +158,9 @@ class CanvasRenderer:
 
             if (source_id, target_id) in highlighted_edges:
                 # Highlight edge in red
-                painter.setPen(QPen(QColor(255, 0, 0), 2))
+                edge_color = config.get_color("edge.highlighted", "#FF0000")
+                edge_width = config.get_dimension("edge.width.highlighted", 2)
+                painter.setPen(QPen(QColor(edge_color), edge_width))
             else:
                 # Normal edge in black
                 painter.setPen(pen)
@@ -146,8 +184,9 @@ class CanvasRenderer:
             return
 
         # Set up the pen for the knife path
-        pen = QPen(QColor(200, 0, 0))  # Dark red color
-        pen.setWidth(2)
+        knife_color = config.get_color("knife.path", "#C80000")
+        pen = QPen(QColor(knife_color))
+        pen.setWidth(config.get_dimension("knife.path_width", 2))
         painter.setPen(pen)
 
         # Draw lines connecting all points in the path
@@ -167,11 +206,18 @@ class CanvasRenderer:
             mode (str): The current mode
             edit_target_group: The group being edited in edit mode
         """
-        text = f"Mode: {mode}"
         if mode == "edit" and edit_target_group:
-            text += f" (Editing: {edit_target_group.name})"
+            text = config.get_string(
+                "main_window.mode.edit_with_target", "Mode: Edit - {group_names}"
+            )
+            text = text.format(group_names=edit_target_group.name)
+        elif mode == "edit":
+            text = config.get_string("main_window.mode.edit", "Mode: Edit")
+        else:
+            text = config.get_string("main_window.mode.normal", "Mode: Normal")
 
-        painter.setPen(QColor("black"))
+        text_color = config.get_color("mode_indicator.text", "#000000")
+        painter.setPen(QColor(text_color))
         painter.drawText(10, 20, text)
 
     def _draw_edges(self, painter: QPainter):
@@ -181,6 +227,11 @@ class CanvasRenderer:
         Args:
             painter (QPainter): The painter to use for drawing
         """
+        edge_color = config.get_color("edge.normal", "#000000")
+        pen = QPen(QColor(edge_color))
+        pen.setWidth(config.get_dimension("edge.width.normal", 1))
+        painter.setPen(pen)
+
         for source_id, target_id in self.graph.edges:
             # Skip if no node with the specified ID is found
             source_node = None
@@ -214,6 +265,11 @@ class CanvasRenderer:
         """
         start_node, end_point = temp_edge_data
         if start_node and end_point:
+            edge_color = config.get_color("edge.normal", "#000000")
+            pen = QPen(QColor(edge_color))
+            pen.setWidth(config.get_dimension("edge.width.normal", 1))
+            painter.setPen(pen)
+
             painter.drawLine(
                 int(start_node.x),
                 int(start_node.y),
@@ -242,10 +298,11 @@ class CanvasRenderer:
                 continue
 
             # Calculate group boundaries
-            min_x = min(node.x - node.size / 2 for node in group_nodes) - 5
-            min_y = min(node.y - node.size / 2 for node in group_nodes) - 5
-            max_x = max(node.x + node.size / 2 for node in group_nodes) + 5
-            max_y = max(node.y + node.size / 2 for node in group_nodes) + 5
+            border_margin = config.get_dimension("group.border_margin", 5)
+            min_x = min(node.x - node.size / 2 for node in group_nodes) - border_margin
+            min_y = min(node.y - node.size / 2 for node in group_nodes) - border_margin
+            max_x = max(node.x + node.size / 2 for node in group_nodes) + border_margin
+            max_y = max(node.y + node.size / 2 for node in group_nodes) + border_margin
             group_width = max_x - min_x
             group_height = max_y - min_y
 
@@ -253,9 +310,15 @@ class CanvasRenderer:
             is_selected = group.id in selected_group_ids
 
             # Draw group background (semi-transparent)
-            bg_color = (
-                QColor(230, 230, 255, 40) if is_selected else QColor(245, 245, 245, 20)
+            bg_color_value = (
+                config.get_color("group.background.selected", "rgba(230, 230, 255, 40)")
+                if is_selected
+                else config.get_color(
+                    "group.background.normal", "rgba(245, 245, 245, 20)"
+                )
             )
+            bg_color = parse_rgba(bg_color_value)
+
             # The position must be specified as an integer
             min_x_int = int(min_x)
             min_y_int = int(min_y)
@@ -266,16 +329,28 @@ class CanvasRenderer:
             )
 
             # Draw a group frame
-            pen_color = QColor(100, 100, 255) if is_selected else QColor(200, 200, 200)
+            border_color_value = (
+                config.get_color("group.border.selected", "#6464FF")
+                if is_selected
+                else config.get_color("group.border.normal", "#C8C8C8")
+            )
+            pen_color = QColor(border_color_value)
+
             pen = QPen(pen_color)
-            pen.setWidth(2 if is_selected else 1)
+            border_width = (
+                config.get_dimension("group.border_width.selected", 2)
+                if is_selected
+                else config.get_dimension("group.border_width.normal", 1)
+            )
+            pen.setWidth(border_width)
             pen.setStyle(Qt.DashLine if not is_selected else Qt.SolidLine)
             painter.setPen(pen)
             painter.drawRect(min_x_int, min_y_int, group_width_int, group_height_int)
 
             # Calculate the width of the group name (gives some room)
             font_metrics = painter.fontMetrics()
-            text_width = font_metrics.width(group.name) + 10  # 10px margin
+            text_margin = config.get_dimension("group.label.text_margin", 10)
+            text_width = font_metrics.width(group.name) + text_margin
             half_width = text_width // 2
 
             # Get label position (pass text width)
@@ -287,9 +362,9 @@ class CanvasRenderer:
             group_width_int = int(group_width)
 
             # Set the display width
-            # Fixed width (100px) when not selected
-            # When selected, the width is based on the number of characters (minimum width is 100px)
-            fixed_width = 100  # Fixed width
+            # Fixed width when not selected
+            # When selected, the width is based on the number of characters (minimum width is fixed width)
+            fixed_width = config.get_dimension("group.label.fixed_width", 100)
 
             if is_selected:
                 # When selected, the width is based on the number of characters (minimum width is fixed width)
@@ -306,27 +381,37 @@ class CanvasRenderer:
                 )
 
             # Draw label background (semi-transparent)
-            label_bg = (
-                QColor(240, 240, 255, 200)
+            label_bg_value = (
+                config.get_color(
+                    "group.label.background.selected", "rgba(240, 240, 255, 200)"
+                )
                 if is_selected
-                else QColor(240, 240, 240, 180)
+                else config.get_color(
+                    "group.label.background.normal", "rgba(240, 240, 240, 180)"
+                )
             )
-            # label_x and label_y have already been converted to int using the _get_label_position method
+            label_bg = parse_rgba(label_bg_value)
+
+            # label_x and label_y have already been converted to int in _get_label_position
             label_x_int = int(label_x)
             label_y_int = int(label_y)
-            painter.fillRect(label_x_int, label_y_int, display_width, 20, label_bg)
+            label_height = config.get_dimension("group.label.height", 20)
+            painter.fillRect(
+                label_x_int, label_y_int, display_width, label_height, label_bg
+            )
 
             # Draw label frame
             painter.setPen(pen_color)
-            painter.drawRect(label_x_int, label_y_int, display_width, 20)
+            painter.drawRect(label_x_int, label_y_int, display_width, label_height)
 
             # Draw group name
-            painter.setPen(QColor("black"))
+            text_color = config.get_color("group.label.text", "#000000")
+            painter.setPen(QColor(text_color))
             painter.drawText(
                 label_x_int,
                 label_y_int,
                 display_width,
-                20,
+                label_height,
                 Qt.AlignCenter,
                 display_text,
             )
@@ -339,21 +424,29 @@ class CanvasRenderer:
 
             # Selected nodes are displayed in different colors
             is_selected = node in self.graph.selected_nodes
-            node_color = QColor(173, 216, 230) if is_selected else QColor("skyblue")
+            node_fill_color = (
+                config.get_color("node.fill.selected", "#ADD8E6")
+                if is_selected
+                else config.get_color("node.fill.normal", "skyblue")
+            )
+            node_color = QColor(node_fill_color)
             painter.fillRect(rect, node_color)
 
             # Draw a frame
             if is_selected:
-                pen = QPen(QColor("blue"))
-                pen.setWidth(2)
+                border_color = config.get_color("node.border.selected", "blue")
+                pen = QPen(QColor(border_color))
+                pen.setWidth(config.get_dimension("node.border_width.selected", 2))
             else:
-                pen = QPen(QColor("gray"))
-                pen.setWidth(1)
+                border_color = config.get_color("node.border.normal", "gray")
+                pen = QPen(QColor(border_color))
+                pen.setWidth(config.get_dimension("node.border_width.normal", 1))
             painter.setPen(pen)
             painter.drawRect(rect)
 
             # Draw Node ID
-            painter.setPen(QColor("black"))
+            text_color = config.get_color("node.text", "#000000")
+            painter.setPen(QColor(text_color))
             painter.drawText(rect, Qt.AlignCenter, str(node.id))
 
     def _get_label_position(self, group, nodes=None, text_width=0, half_width=0):
@@ -391,7 +484,8 @@ class CanvasRenderer:
         alignment = Qt.AlignCenter
 
         # Margin to avoid overlapping with dotted lines
-        margin = 30
+        margin = config.get_dimension("group.label.position_margin", 30)
+        label_offset = config.get_dimension("group.label.position_offset", 50)
 
         # Calculate position based on label_position
         if group.label_position == group.POSITION_RIGHT:
@@ -400,14 +494,14 @@ class CanvasRenderer:
         elif group.label_position == group.POSITION_BOTTOM:
             # Place directly below the group (fixed position)
             return (
-                int(center_x - 50),
+                int(center_x - label_offset / 2),
                 int(max_y + margin),
                 alignment,
-            )  # Draw half of the fixed width (50px)
+            )
         else:  # POSITION_TOP as default
             # Displays in the same position when selected or not selected
             return (
-                int(center_x - 50),
+                int(center_x - label_offset / 2),
                 int(min_y - margin),
                 alignment,
-            )  # Draw half of the fixed width (50px)
+            )

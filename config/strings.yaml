@@ -1,0 +1,55 @@
+# Text strings for UI components (manage text strings such as buttons, labels, titles, etc.)
+# Note: The entire application translation is managed in the language/directory
+
+main_window:
+  title: "Rectangular Graph Creator"
+
+  buttons:
+    add: "Add"
+    import: "Import"
+    export: "Export YAML"
+    reset: "Reset All"
+    delete: "Delete Group"
+    rotate: "Rotate Group"
+    move_up: "↑"
+    move_down: "↓"
+
+  tooltips:
+    move_up: "Move group up"
+    move_down: "Move group down"
+
+  labels:
+    rows: "Rows:"
+    cols: "Cols:"
+    node_groups: "Node Groups"
+
+  mode:
+    normal: "Mode: Normal"
+    edit: "Mode: Edit"
+    edit_with_target: "Mode: Edit - {group_names}" # {group_names} replaces at runtime
+
+  dialogs:
+    rename:
+      title: "Rename Group"
+      prompt: "Enter new group name:"
+    import:
+      title: "Import graph"
+      filter: "YAML Files (*.yaml);;All Files (*)"
+
+edit_menu:
+  connection:
+    title: "Connection"
+    four_directions: "4-neighborhood"
+    eight_directions: "8-neighborhood"
+  knife:
+    title: "Knife Mode (Cut Edges)"
+
+file_handler:
+  export:
+    default_filename: "graph_export.yaml"
+    filter: "YAML Files (*.yaml);;All Files (*)"
+
+normal_menu:
+  set_node_id:
+    title: "Set Node ID Starting Index"
+    prompt: "Enter the starting index for node IDs (0 or higher):"

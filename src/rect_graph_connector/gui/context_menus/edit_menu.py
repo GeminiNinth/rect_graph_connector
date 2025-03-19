@@ -4,6 +4,7 @@ This module contains the context menu for edit mode in the canvas.
 
 from PyQt5.QtWidgets import QMenu, QAction
 from PyQt5.QtCore import Qt
+from ...config import config
 
 
 class EditContextMenu(QMenu):
@@ -29,16 +30,23 @@ class EditContextMenu(QMenu):
     def _create_actions(self):
         """Create the actions for the context menu."""
         # Create Connection submenu
-        self.connection_menu = QMenu("Connection", self)
+        connection_title = config.get_string("edit_menu.connection.title", "Connection")
+        self.connection_menu = QMenu(connection_title, self)
 
         # Connect all nodes in 4 directions action
-        self.connect_4_directions_action = QAction("4-neighborhood", self)
+        four_dir_text = config.get_string(
+            "edit_menu.connection.four_directions", "4-neighborhood"
+        )
+        self.connect_4_directions_action = QAction(four_dir_text, self)
         self.connect_4_directions_action.triggered.connect(
             self._connect_nodes_in_4_directions
         )
 
         # Connect all nodes in 8 directions action
-        self.connect_8_directions_action = QAction("8-neighborhood", self)
+        eight_dir_text = config.get_string(
+            "edit_menu.connection.eight_directions", "8-neighborhood"
+        )
+        self.connect_8_directions_action = QAction(eight_dir_text, self)
         self.connect_8_directions_action.triggered.connect(
             self._connect_nodes_in_8_directions
         )
@@ -48,7 +56,10 @@ class EditContextMenu(QMenu):
         self.connection_menu.addAction(self.connect_8_directions_action)
 
         # Toggle knife mode action
-        self.toggle_knife_action = QAction("Knife Mode (Cut Edges)", self)
+        knife_text = config.get_string(
+            "edit_menu.knife.title", "Knife Mode (Cut Edges)"
+        )
+        self.toggle_knife_action = QAction(knife_text, self)
         self.toggle_knife_action.setCheckable(True)
         self.toggle_knife_action.triggered.connect(self._toggle_knife_mode)
 

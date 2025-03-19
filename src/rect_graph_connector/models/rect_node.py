@@ -4,6 +4,7 @@ This module contains the RectNode class which represents a rectangular node in t
 
 from dataclasses import dataclass
 from PyQt5.QtCore import QPointF
+from ..config import config
 
 
 @dataclass
@@ -25,7 +26,12 @@ class RectNode:
     y: float
     row: int
     col: int
-    size: float = 30.0
+    size: float = None
+
+    def __post_init__(self):
+        """Initialize default values from configuration if not provided."""
+        if self.size is None:
+            self.size = config.get_dimension("node.default_size", 30.0)
 
     def contains(self, point: QPointF) -> bool:
         """

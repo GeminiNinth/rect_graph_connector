@@ -13,13 +13,18 @@ from typing import Optional
 from ..config import config
 
 
-def setup_logging(log_dir: str = ".log") -> None:
+def setup_logging(log_dir: str = None) -> None:
     """
     Set up logging configuration for the application.
 
     Args:
-        log_dir (str): Directory where log files will be stored. Defaults to ".log".
+        log_dir (str, optional): Directory where log files will be stored.
+                                If None, uses the value from config.
     """
+    # Get log directory from config if not provided
+    if log_dir is None:
+        log_dir = config.get_constant("logging.directory", ".log")
+
     # Create base log directory if it doesn't exist
     log_base_path = Path(log_dir)
     log_base_path.mkdir(exist_ok=True)
@@ -36,21 +41,29 @@ def setup_logging(log_dir: str = ".log") -> None:
     # Use the directory name only for the symlink target
     latest_link.symlink_to(timestamp, target_is_directory=True)
 
-    # Set up logging format
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    date_format = "%Y-%m-%d %H:%M:%S"
+    # Set up logging format from config
+    log_format = config.get_constant(
+        "logging.formats.log", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    date_format = config.get_constant("logging.formats.date", "%Y-%m-%d %H:%M:%S")
+
+    # Get log filenames from config
+    main_log_filename = config.get_constant(
+        "logging.filenames.main", "rect_graph_connector.log"
+    )
+    error_log_filename = config.get_constant("logging.filenames.error", "error.log")
 
     # Create handlers
     # File handler for all logs
     file_handler = logging.FileHandler(
-        os.path.join(log_path, "rect_graph_connector.log"), encoding="utf-8"
+        os.path.join(log_path, main_log_filename), encoding="utf-8"
     )
     file_handler.setFormatter(logging.Formatter(log_format, date_format))
     file_handler.setLevel(getattr(logging, config.log_level))
 
     # File handler for errors only
     error_handler = logging.FileHandler(
-        os.path.join(log_path, "error.log"), encoding="utf-8"
+        os.path.join(log_path, error_log_filename), encoding="utf-8"
     )
     error_handler.setFormatter(logging.Formatter(log_format, date_format))
     error_handler.setLevel(logging.ERROR)

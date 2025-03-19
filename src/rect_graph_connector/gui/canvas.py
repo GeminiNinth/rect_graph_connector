@@ -15,6 +15,7 @@ from .canvas_renderer import CanvasRenderer
 from .context_menus.normal_menu import NormalContextMenu
 from .context_menus.edit_menu import EditContextMenu
 from ..models.connectivity import delete_edge_at_position, find_intersecting_edges
+from ..config import config
 
 
 class Canvas(QWidget):
@@ -27,21 +28,27 @@ class Canvas(QWidget):
     """
 
     # Define mode constants
-    NORMAL_MODE = "normal"
-    EDIT_MODE = "edit"
+    NORMAL_MODE = config.get_constant("canvas_modes.normal", "normal")
+    EDIT_MODE = config.get_constant("canvas_modes.edit", "edit")
 
     # Define edit sub-modes
-    EDIT_SUBMODE_CONNECT = "connect"  # Default edit submode for edge connection
-    EDIT_SUBMODE_KNIFE = "knife"  # Knife submode for edge deletion with path
+    EDIT_SUBMODE_CONNECT = config.get_constant(
+        "edit_submodes.connect", "connect"
+    )  # Default edit submode for edge connection
+    EDIT_SUBMODE_KNIFE = config.get_constant(
+        "edit_submodes.knife", "knife"
+    )  # Knife submode for edge deletion with path
 
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
 
     # NodeGroup selection deselection methods flags
     # These flags control which deselection methods are enabled
-    DESELECT_BY_ESCAPE = "escape"  # Deselect using ESC key
-    DESELECT_BY_RECLICK = "reclick"  # Click the same NodeGroup again to deselect it
-    DESELECT_BY_BACKGROUND = "background"  # Click on the background area to deselect it
+    DESELECT_BY_ESCAPE = config.get_constant("deselect_methods.escape", "escape")
+    DESELECT_BY_RECLICK = config.get_constant("deselect_methods.reclick", "reclick")
+    DESELECT_BY_BACKGROUND = config.get_constant(
+        "deselect_methods.background", "background"
+    )
 
     def __init__(self, parent=None):
         """
@@ -60,9 +67,9 @@ class Canvas(QWidget):
         self.renderer = CanvasRenderer(self, self.graph)
 
         # Initialize zoom parameters for zoom functionality
-        self.zoom = 1.0
-        self.min_zoom = 0.1
-        self.max_zoom = 10.0
+        self.zoom = config.get_constant("zoom.default", 1.0)
+        self.min_zoom = config.get_dimension("canvas.min_zoom", 0.1)
+        self.max_zoom = config.get_dimension("canvas.max_zoom", 10.0)
 
         # Initialize pan parameters for panning functionality
         self.pan_offset = QPointF(0, 0)
@@ -99,17 +106,23 @@ class Canvas(QWidget):
         self.setAcceptDrops(True)
 
         # Set minimum size for better usability
-        self.setMinimumHeight(500)
+        self.setMinimumHeight(config.get_dimension("canvas.min_height", 500))
 
         # Enable keyboard focus
         self.setFocusPolicy(Qt.StrongFocus)
 
         # Initialize flags for deselection methods
-        # Enable all deselect methods
+        # Get default values from config or use default (all enabled)
         self.enabled_deselect_methods = {
-            self.DESELECT_BY_ESCAPE: True,
-            self.DESELECT_BY_RECLICK: True,
-            self.DESELECT_BY_BACKGROUND: True,
+            self.DESELECT_BY_ESCAPE: config.get_constant(
+                "deselect_methods.defaults.escape", True
+            ),
+            self.DESELECT_BY_RECLICK: config.get_constant(
+                "deselect_methods.defaults.reclick", True
+            ),
+            self.DESELECT_BY_BACKGROUND: config.get_constant(
+                "deselect_methods.defaults.background", True
+            ),
         }
 
     def set_mode(self, mode):
@@ -255,8 +268,9 @@ class Canvas(QWidget):
             group_nodes = group.get_nodes(self.graph.nodes)
             if not group_nodes:
                 continue
-            # Calculate group bounding rectangle with a margin of 5 pixels (converted to graph units).
-            effective_margin = 5 / self.zoom
+            # グループの枠線マージンを設定ファイルから取得して、グラフ単位に変換
+            border_margin = config.get_dimension("group.border_margin", 5)
+            effective_margin = border_margin / self.zoom
             min_x = (
                 min(node.x - node.size / 2 for node in group_nodes) - effective_margin
             )
@@ -495,7 +509,8 @@ class Canvas(QWidget):
         if self.current_mode == self.NORMAL_MODE:
             if self._pending_deselect:
                 # If movement exceeds threshold, cancel pending deselect and start dragging.
-                if (graph_point - self._press_pos).manhattanLength() > 5:
+                drag_threshold = config.get_constant("interaction.drag_threshold", 5)
+                if (graph_point - self._press_pos).manhattanLength() > drag_threshold:
                     self._pending_deselect = False
                     self.dragging = True
                     self.drag_start = self._press_pos
@@ -607,29 +622,29 @@ class Canvas(QWidget):
         Text and other canvas elements scale accordingly.
         The zoom is centered on the mouse cursor position.
         """
-        # マウスカーソルの位置を取得（ウィジェット座標系）
+        # Get the position of the mouse cursor (widget coordinate system)
         mouse_pos = event.pos()
 
-        # マウスカーソルの位置をグラフ座標系に変換（現在のズームとパンを考慮）
+        # Convert mouse cursor position to graph coordinate system (considering current zoom and pan)
         mouse_graph_pos = (mouse_pos - self.pan_offset) / self.zoom
 
-        # ズーム倍率を計算
+        # Calculate zoom magnification
         delta = event.angleDelta().y()
-        zoom_factor = 1.0 + delta / 1200.0  # Adjust sensitivity as needed
+        zoom_sensitivity = config.get_constant("zoom.factor", 1200.0)
+        zoom_factor = 1.0 + delta / zoom_sensitivity
         new_zoom = self.zoom * zoom_factor
 
-        # ズーム制限を適用
+        # Apply zoom limits
         if new_zoom > self.max_zoom:
             new_zoom = self.max_zoom
         if new_zoom < self.min_zoom:
             new_zoom = self.min_zoom
 
-        # 新しいズーム倍率を設定
+        # Set a new zoom magnification
         old_zoom = self.zoom
         self.zoom = new_zoom
 
-        # マウスカーソル位置を維持するためにパンオフセットを調整
-        # 新しいパンオフセット = マウス位置 - (グラフ座標 * 新しいズーム)
+        # Adjust pan offset to maintain mouse cursor position
         new_pan = mouse_pos - (mouse_graph_pos * new_zoom)
         self.pan_offset = new_pan
 

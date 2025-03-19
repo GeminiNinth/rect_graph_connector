@@ -1,0 +1,57 @@
+# Application common constant value settings (manage modes, flags, and other hardcoded constant values)
+
+canvas_modes:
+  normal: "normal"
+  edit: "edit"
+
+edit_submodes:
+  connect: "connect" # Edge Connection Mode (Default)
+  knife: "knife" # Edge Cutting Mode
+
+# Flags for deselection method
+deselect_methods:
+  escape: "escape" # Deselect using ESC key
+  reclick: "reclick" # Click again to deselect the same node group
+  background: "background" # Click on the background to deselect
+
+  # Default settings (all enabled)
+  defaults:
+    escape: true
+    reclick: true
+    background: true
+
+# Group label position setting
+group_label_positions:
+  top: "top"
+  right: "right"
+  bottom: "bottom"
+  default: "top"
+
+zoom:
+  default: 1.0
+  factor: 1200.0 # For adjusting the zoom sensitivity（delta / factor）
+
+# User Operation Settings
+interaction:
+  drag_threshold: 5 # Threshold for travel distance considered drag
+
+keyboard_shortcuts:
+  edit_mode: "E" # Switching edit mode
+  select_all: "Ctrl+A" # Select all node groups
+  delete: "Delete" # Delete selected node group
+  escape: "Escape" # Deselect
+
+logging:
+  directory: ".log" # Log file storage directory
+  filenames:
+    main: "rect_graph_connector.log" # Main log file name
+    error: "error.log" # Error log file name
+  formats:
+    log: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    date: "%Y-%m-%d %H:%M:%S"
+
+file_output:
+  directory: "./output" # Output file storage directory
+  patterns:
+    yaml_export: "graph_output_{date_str}.yaml" # YAML export file name pattern
+    date_format: "%Y%m%d_%H%M%S" # Date format used for filenames

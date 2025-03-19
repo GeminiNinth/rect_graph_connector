@@ -29,7 +29,10 @@ class NormalContextMenu(QMenu):
     def _create_actions(self):
         """Create the actions for the context menu."""
         # Set node ID start index action
-        self.set_node_id_start_action = QAction("Set Node ID Starting Index", self)
+        title = config.get_string(
+            "normal_menu.set_node_id.title", "Set Node ID Starting Index"
+        )
+        self.set_node_id_start_action = QAction(title, self)
         self.set_node_id_start_action.triggered.connect(self._set_node_id_start_index)
 
     def _build_menu(self):
@@ -45,10 +48,17 @@ class NormalContextMenu(QMenu):
         current_start = config.node_id_start
 
         # Show an input dialog to get the new starting index
+        title = config.get_string(
+            "normal_menu.set_node_id.title", "Set Node ID Starting Index"
+        )
+        prompt = config.get_string(
+            "normal_menu.set_node_id.prompt",
+            "Enter the starting index for node IDs (0 or higher):",
+        )
         new_start, ok = QInputDialog.getInt(
             self,
-            "Set Node ID Starting Index",
-            "Enter the starting index for node IDs (0 or higher):",
+            title,
+            prompt,
             value=current_start,
             min=0,
             max=1000000,  # Arbitrary high limit

@@ -25,6 +25,7 @@ from .canvas import Canvas
 from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
 from .import_dialog import ImportModeDialog
+from ..config import config
 
 logger = get_logger(__name__)
 
@@ -50,48 +51,91 @@ class MainWindow(QMainWindow):
 
     def _setup_window(self):
         """Configure the main window properties."""
-        self.setWindowTitle("Rectangular Graph Creator")
-        self.setGeometry(100, 100, 800, 600)
+        window_title = config.get_string(
+            "main_window.title", "Rectangular Graph Creator"
+        )
+        self.setWindowTitle(window_title)
+
+        initial_x = config.get_dimension("main_window.initial.x", 100)
+        initial_y = config.get_dimension("main_window.initial.y", 100)
+        initial_width = config.get_dimension("main_window.initial.width", 800)
+        initial_height = config.get_dimension("main_window.initial.height", 600)
+        self.setGeometry(initial_x, initial_y, initial_width, initial_height)
 
     def _create_widgets(self):
         # Main widget and canvas
         self.main_widget = QWidget()
         self.canvas = Canvas()
 
+        # Get the width of the input field
+        row_col_width = config.get_dimension("input.row_col_width", 50)
+        move_button_width = config.get_dimension("input.move_button_width", 40)
+
         # Control panel widgets
         self.row_input = QLineEdit()
-        self.row_input.setFixedWidth(50)
+        self.row_input.setFixedWidth(row_col_width)
 
         self.col_input = QLineEdit()
-        self.col_input.setFixedWidth(50)
+        self.col_input.setFixedWidth(row_col_width)
 
-        self.add_button = QPushButton("Add")
-        self.import_button = QPushButton("Import")
-        self.export_button = QPushButton("Export YAML")
-        self.reset_button = QPushButton("Reset All")
-        self.delete_button = QPushButton("Delete Group")
-        self.rotate_button = QPushButton("Rotate Group")
+        self.add_button = QPushButton(
+            config.get_string("main_window.buttons.add", "Add")
+        )
+        self.import_button = QPushButton(
+            config.get_string("main_window.buttons.import", "Import")
+        )
+        self.export_button = QPushButton(
+            config.get_string("main_window.buttons.export", "Export YAML")
+        )
+        self.reset_button = QPushButton(
+            config.get_string("main_window.buttons.reset", "Reset All")
+        )
+        self.delete_button = QPushButton(
+            config.get_string("main_window.buttons.delete", "Delete Group")
+        )
+        self.rotate_button = QPushButton(
+            config.get_string("main_window.buttons.rotate", "Rotate Group")
+        )
 
         # Side menu widgets
         self.group_list = QListWidget()
         self.group_list.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.group_list.setMinimumWidth(150)
 
-        self.move_up_button = QPushButton("↑")
-        self.move_up_button.setToolTip("Move group up")
-        self.move_up_button.setFixedWidth(40)
+        side_panel_min_width = config.get_dimension(
+            "main_window.side_panel.min_width", 150
+        )
+        self.group_list.setMinimumWidth(side_panel_min_width)
 
-        self.move_down_button = QPushButton("↓")
-        self.move_down_button.setToolTip("Move group down")
-        self.move_down_button.setFixedWidth(40)
+        self.move_up_button = QPushButton(
+            config.get_string("main_window.buttons.move_up", "↑")
+        )
+        self.move_up_button.setToolTip(
+            config.get_string("main_window.tooltips.move_up", "Move group up")
+        )
+        self.move_up_button.setFixedWidth(move_button_width)
+
+        self.move_down_button = QPushButton(
+            config.get_string("main_window.buttons.move_down", "↓")
+        )
+        self.move_down_button.setToolTip(
+            config.get_string("main_window.tooltips.move_down", "Move group down")
+        )
+        self.move_down_button.setFixedWidth(move_button_width)
 
         # Mode display window
         self.mode_indicator = QFrame()
         self.mode_indicator.setFrameShape(QFrame.NoFrame)  # Remove frame shape
-        self.mode_indicator.setMinimumHeight(30)
-        self.mode_indicator.setMaximumHeight(30)
+        mode_indicator_min_height = config.get_dimension(
+            "mode_indicator.min_height", 30
+        )
+        mode_indicator_max_height = config.get_dimension(
+            "mode_indicator.max_height", 30
+        )
+        self.mode_indicator.setMinimumHeight(mode_indicator_min_height)
+        self.mode_indicator.setMaximumHeight(mode_indicator_max_height)
 
-        self.mode_label = QLabel("Mode: Normal")
+        normal_mode_text = config.get_string("main_window.mode.normal", "Mode: Normal")
+        self.mode_label = QLabel(normal_mode_text)
         self.mode_label.setAlignment(Qt.AlignCenter)
 
     def _setup_layout(self):
@@ -100,8 +144,12 @@ class MainWindow(QMainWindow):
 
         # Create main layout
         layout = QVBoxLayout(self.main_widget)
-        layout.setSpacing(5)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout_margin = config.get_dimension("main_window.layout.margin", 5)
+        layout_spacing = config.get_dimension("main_window.layout.spacing", 5)
+        layout.setSpacing(layout_spacing)
+        layout.setContentsMargins(
+            layout_margin, layout_margin, layout_margin, layout_margin
+        )
 
         # Create a splitter for the main area
         splitter = QSplitter(Qt.Horizontal)
@@ -113,8 +161,9 @@ class MainWindow(QMainWindow):
         # Add canvas to splitter
         splitter.addWidget(self.canvas)
 
-        # Set the initial sizes of the splitter
-        splitter.setSizes([150, 650])
+        side_menu_width = config.get_dimension("main_window.splitter.side_menu", 150)
+        canvas_width = config.get_dimension("main_window.splitter.canvas", 650)
+        splitter.setSizes([side_menu_width, canvas_width])
 
         # Add splitter to layout
         layout.addWidget(splitter, stretch=85)
@@ -133,10 +182,16 @@ class MainWindow(QMainWindow):
         """Create and return the side menu widget."""
         side_menu = QWidget()
         layout = QVBoxLayout(side_menu)
-        layout.setContentsMargins(5, 5, 5, 5)
 
-        # Add title
-        title = QLabel("Node Groups")
+        layout_margin = config.get_dimension("main_window.layout.margin", 5)
+        layout.setContentsMargins(
+            layout_margin, layout_margin, layout_margin, layout_margin
+        )
+
+        node_groups_text = config.get_string(
+            "main_window.labels.node_groups", "Node Groups"
+        )
+        title = QLabel(node_groups_text)
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
@@ -153,17 +208,21 @@ class MainWindow(QMainWindow):
 
     def _create_control_panel(self) -> QWidget:
         control_panel = QWidget()
-        control_panel.setMaximumHeight(50)
+        max_height = config.get_dimension("main_window.control_panel.max_height", 50)
+        control_panel.setMaximumHeight(max_height)
 
         layout = QHBoxLayout(control_panel)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        rows_label_text = config.get_string("main_window.labels.rows", "Rows:")
+        cols_label_text = config.get_string("main_window.labels.cols", "Cols:")
+
         # Add row input
-        layout.addWidget(QLabel("Rows:"))
+        layout.addWidget(QLabel(rows_label_text))
         layout.addWidget(self.row_input)
 
         # Add column input
-        layout.addWidget(QLabel("Cols:"))
+        layout.addWidget(QLabel(cols_label_text))
         layout.addWidget(self.col_input)
 
         # Add buttons
@@ -246,11 +305,19 @@ class MainWindow(QMainWindow):
     def _handle_import(self):
         """Handle the Import button click event."""
         options = QFileDialog.Options()
+        # Get dialog title and filter from configuration file
+        import_dialog_title = config.get_string(
+            "main_window.dialogs.import.title", "Import graph"
+        )
+        import_dialog_filter = config.get_string(
+            "main_window.dialogs.import.filter", "YAML Files (*.yaml);;All Files (*)"
+        )
+
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "グラフのインポート",
+            import_dialog_title,
             "",
-            "YAML Files (*.yaml);;All Files (*)",
+            import_dialog_filter,
             options=options,
         )
         if file_path:
@@ -371,8 +438,15 @@ class MainWindow(QMainWindow):
         index = self.group_list.row(item)
         if 0 <= index < len(self.canvas.graph.node_groups):
             group = self.canvas.graph.node_groups[index]
+            rename_dialog_title = config.get_string(
+                "main_window.dialogs.rename.title", "Rename Group"
+            )
+            rename_dialog_prompt = config.get_string(
+                "main_window.dialogs.rename.prompt", "Enter new group name:"
+            )
+
             new_name, ok = QInputDialog.getText(
-                self, "Rename Group", "Enter new group name:", text=group.name
+                self, rename_dialog_title, rename_dialog_prompt, text=group.name
             )
             if ok and new_name:
                 self.canvas.graph.rename_group(group, new_name)
@@ -430,18 +504,24 @@ class MainWindow(QMainWindow):
             if self.canvas.edit_target_groups:
                 group_names = [group.name for group in self.canvas.edit_target_groups]
                 edit_target = f" - {', '.join(group_names)}"
-            self.mode_label.setText(f"Mode: Edit{edit_target}")
+            edit_mode_text = config.get_string("main_window.mode.edit", "Mode: Edit")
+            self.mode_label.setText(f"{edit_mode_text}{edit_target}")
             # Visual feedback - set reddish color (no border)
-            self.mode_indicator.setStyleSheet(
-                "background-color: rgba(255, 220, 220, 180);"
+            edit_bg_color = config.get_color(
+                "mode_indicator.edit", "rgba(255, 220, 220, 180)"
             )
+            self.mode_indicator.setStyleSheet(f"background-color: {edit_bg_color};")
         else:
-            # Normal mode display
-            self.mode_label.setText("Mode: Normal")
-            # Visual feedback - return to normal color (no border)
-            self.mode_indicator.setStyleSheet(
-                "background-color: rgba(240, 240, 240, 180);"
+            normal_mode_text = config.get_string(
+                "main_window.mode.normal", "Mode: Normal"
             )
+            # Normal mode display
+            self.mode_label.setText(normal_mode_text)
+            # Visual feedback - return to normal color (no border)
+            normal_bg_color = config.get_color(
+                "mode_indicator.normal", "rgba(240, 240, 240, 180)"
+            )
+            self.mode_indicator.setStyleSheet(f"background-color: {normal_bg_color};")
 
     def keyPressEvent(self, event):
         """

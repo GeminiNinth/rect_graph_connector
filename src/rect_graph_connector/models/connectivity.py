@@ -141,8 +141,11 @@ def connect_nodes_in_8_directions(graph: Graph, nodes: List[RectNode]) -> None:
                     graph.add_edge(node, neighbor_node)
 
 
+from ..config import config
+
+
 def delete_edge_at_position(
-    graph: Graph, px: float, py: float, threshold: float = 10.0
+    graph: Graph, px: float, py: float, threshold: float = None
 ) -> bool:
     """
     Delete an edge that is close to the specified position.
@@ -156,6 +159,9 @@ def delete_edge_at_position(
     Returns:
         bool: True if an edge was deleted, False otherwise
     """
+    # Get default thresholds from configuration file
+    if threshold is None:
+        threshold = config.get_dimension("edge.detection_threshold", 10.0)
     # Find the closest edge
     closest_edge = None
     min_distance = float("inf")
@@ -303,30 +309,3 @@ def find_intersecting_edges(
                 break  # One intersection is enough to mark this edge
 
     return intersecting_edges
-    """
-    Calculate the minimum distance from a point to a line segment.
-
-    Args:
-        px, py: Point coordinates
-        x1, y1: Line segment start coordinates
-        x2, y2: Line segment end coordinates
-
-    Returns:
-        float: The minimum distance from the point to the line segment
-    """
-    # Line length squared
-    line_length_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2
-
-    # If the line is actually a point
-    if line_length_sq == 0:
-        return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
-
-    # Calculate projection of point onto line
-    t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_sq))
-
-    # Calculate closest point on line segment
-    closest_x = x1 + t * (x2 - x1)
-    closest_y = y1 + t * (y2 - y1)
-
-    # Return distance to closest point
-    return ((px - closest_x) ** 2 + (py - closest_y) ** 2) ** 0.5

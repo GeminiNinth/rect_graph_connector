@@ -10,6 +10,7 @@ import yaml
 from yaml import Loader
 
 from .logging_utils import get_logger
+from ..config import config
 
 logger = get_logger(__name__)
 
@@ -51,10 +52,22 @@ class FileHandler:
 
         # Prepare the output file path
         if not filepath:
-            date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_dir = "./output"
+            # 設定ファイルから日付フォーマットとディレクトリを取得
+            date_format = config.get_constant(
+                "file_output.patterns.date_format", "%Y%m%d_%H%M%S"
+            )
+            date_str = datetime.now().strftime(date_format)
+
+            # 出力ディレクトリを設定から取得
+            output_dir = config.get_constant("file_output.directory", "./output")
             os.makedirs(output_dir, exist_ok=True)
-            filepath = os.path.join(output_dir, f"graph_output_{date_str}.yaml")
+
+            # ファイル名パターンを設定から取得
+            filename_pattern = config.get_constant(
+                "file_output.patterns.yaml_export", "graph_output_{date_str}.yaml"
+            )
+            filename = filename_pattern.format(date_str=date_str)
+            filepath = os.path.join(output_dir, filename)
 
         # Combine all graph data
         graph_data = {"nodes": nodes, "edges": edges, "groups": groups}

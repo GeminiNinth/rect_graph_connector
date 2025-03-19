@@ -127,9 +127,9 @@ class Graph:
         self,
         rows: int,
         cols: int,
-        base_x: float = 100.0,
-        base_y: float = 100.0,
-        spacing: float = 40.0,
+        base_x: float = None,
+        base_y: float = None,
+        spacing: float = None,
         name: Optional[str] = None,
     ) -> NodeGroup:
         """
@@ -147,6 +147,14 @@ class Graph:
             NodeGroup: The newly created group of nodes
         """
         from ..config import config
+
+        # Get grid settings from configuration file
+        if base_x is None:
+            base_x = config.get_dimension("grid.base_x", 100.0)
+        if base_y is None:
+            base_y = config.get_dimension("grid.base_y", 100.0)
+        if spacing is None:
+            spacing = config.get_dimension("grid.spacing", 40.0)
 
         # Get starting node ID based on configuration and existing nodes
         next_id = config.node_id_start

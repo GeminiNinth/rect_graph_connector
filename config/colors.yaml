@@ -1,0 +1,83 @@
+# UI Color scheme settings
+
+# Light mode (default)
+light:
+  canvas:
+    border:
+      normal: "#000000"
+      edit: "#FF6464"
+
+  edge:
+    normal: "#000000"
+    highlighted: "#FF0000"
+
+  knife:
+    path: "#C80000" # Knife Pass Color
+
+  group:
+    border:
+      normal: "#C8C8C8" # Non-selected group border
+      selected: "#6464FF" # Selected group border
+    background:
+      normal: "rgba(245, 245, 245, 100)" # Increased opacity for better visibility
+      selected: "rgba(230, 230, 255, 120)" # Increased opacity for better visibility
+    label:
+      text: "#000000"
+      background:
+        normal: "rgba(240, 240, 240, 180)" # Label background when not selected
+        selected: "rgba(240, 240, 255, 200)" # Selected label background
+
+  node:
+    fill:
+      normal: "skyblue"
+      selected: "#ADD8E6"
+    border:
+      normal: "gray"
+      selected: "blue"
+    text: "#000000" # Node ID display text color
+
+  mode_indicator:
+    normal: "rgba(240, 240, 240, 180)"
+    edit: "rgba(255, 220, 220, 180)"
+    text: "#000000" # Indicator text color
+
+# Dark Mode
+dark:
+  canvas:
+    border:
+      normal: "#FFFFFF"
+      edit: "#FF9999"
+
+  edge:
+    normal: "#FFFFFF"
+    highlighted: "#FF6666"
+
+  knife:
+    path: "#FF6666"
+
+  group:
+    border:
+      normal: "#666666"
+      selected: "#9999FF"
+    background:
+      normal: "rgba(60, 60, 60, 100)" # Increased opacity for better visibility
+      selected: "rgba(60, 60, 120, 120)" # Increased opacity for better visibility
+    label:
+      text: "#FFFFFF"
+      background:
+        normal: "rgba(60, 60, 60, 180)"
+        selected: "rgba(60, 60, 120, 200)"
+
+  node:
+    fill:
+      normal: "#3399CC"
+      selected: "#66CCFF"
+    border:
+      normal: "#999999"
+      selected: "#AACCFF"
+    text: "#FFFFFF"
+
+  mode_indicator:
+    normal: "rgba(60, 60, 60, 180)"
+    edit: "rgba(120, 60, 60, 180)"
+    text: "#FFFFFF"
