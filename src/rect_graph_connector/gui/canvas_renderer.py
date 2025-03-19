@@ -89,30 +89,41 @@ class CanvasRenderer:
         if hasattr(self.canvas, "zoom"):
             painter.scale(self.canvas.zoom, self.canvas.zoom)
 
-        # Draw edges (with highlighting if in knife mode)
-        if knife_data and knife_data.get("highlighted_edges"):
-            self._draw_edges_with_highlight(painter, knife_data["highlighted_edges"])
-        else:
-            self._draw_edges(painter)
+        # 新しい描画順序（視覚的な前後関係）：
+        # 1. 背景（最背面）- canvas_border (すでに描画済み)
+        # 2. グループに属さないエッジを描画（最背面）
+        # 3. NodeGroupごとに以下を描画（z-indexの低い順）
+        #    a. グループの背景
+        #    b. グループ内の通常エッジ (グループごとに分けて描画)
+        #    c. グループのノード、枠線、ラベル
+        # 4. 独立したノード（グループに属さないノード）
+        # 5. ナイフツールのハイライトエッジ (最前面に表示するため、他の要素より後に描画)
+        # 6. 一時的なエッジ (新規エッジ作成時)
+        # 7. Knifeツールのパス (最前面)
 
-        # Draw temporary edge if provided
+        # グループに属さないエッジを描画（最背面）
+        self._draw_standalone_edges(painter)
+
+        # NodeGroupの背景を描画
+        self._draw_node_group_backgrounds(painter)
+
+        # グループのノード、枠線、ラベルを描画（z-indexの順）- ハイライトエッジは描画しない
+        self._draw_nodes(painter)
+
+        # ナイフツールで選択されたエッジを描画（最前面の手前）
+        if knife_data and knife_data.get("highlighted_edges"):
+            self._draw_highlighted_edges(painter, knife_data.get("highlighted_edges"))
+
+        # 一時的なエッジを描画
         if temp_edge_data:
             self._draw_temp_edge(painter, temp_edge_data)
 
-        # Draw knife path if in knife mode
+        # Knifeツールのパスを描画（最前面）
         if knife_data and knife_data.get("path"):
             self._draw_knife_path(painter, knife_data["path"])
 
-        # Draw nodes
-        self._draw_nodes(painter)
-
         # Restore painter state
         painter.restore()
-
-        # Draw mode indicator if needed
-        # self._draw_mode_indicator(painter, mode, edit_target_group)
-        # Draw mode indicator if needed
-        # self._draw_mode_indicator(painter, mode, edit_target_group)
 
     def _draw_canvas_border(self, painter: QPainter, mode: str):
         """
@@ -139,38 +150,38 @@ class CanvasRenderer:
         painter.setPen(pen)
         painter.drawRect(0, 0, self.canvas.width() - 1, self.canvas.height() - 1)
 
-    def _draw_edges_with_highlight(self, painter: QPainter, highlighted_edges):
+    def _draw_highlighted_edges(self, painter: QPainter, highlighted_edges):
         """
-        Draw all edges with highlighted edges in a different color.
+        Draw highlighted edges for knife tool in a different color.
+        These edges are drawn on top of all other elements for maximum visibility.
 
         Args:
             painter (QPainter): The painter to use for drawing
-            highlighted_edges (List[Tuple[str, str]]): List of edge tuples to highlight
+            highlighted_edges (List[Tuple[int, int]]): List of edge tuples to highlight
         """
-        # First draw all edges normally
-        pen = painter.pen()
-        for source_id, target_id in self.graph.edges:
+        if not highlighted_edges:
+            return
+
+        # Set up pen for highlighted edges
+        edge_color = config.get_color("edge.highlighted", "#FF0000")
+        edge_width = config.get_dimension("edge.width.highlighted", 2)
+        painter.setPen(QPen(QColor(edge_color), edge_width))
+
+        # Draw each highlighted edge
+        for source_id, target_id in highlighted_edges:
             try:
                 source_node = next(n for n in self.graph.nodes if n.id == source_id)
                 target_node = next(n for n in self.graph.nodes if n.id == target_id)
+
+                # Draw the highlighted edge
+                painter.drawLine(
+                    int(source_node.x),
+                    int(source_node.y),
+                    int(target_node.x),
+                    int(target_node.y),
+                )
             except StopIteration:
                 continue
-
-            if (source_id, target_id) in highlighted_edges:
-                # Highlight edge in red
-                edge_color = config.get_color("edge.highlighted", "#FF0000")
-                edge_width = config.get_dimension("edge.width.highlighted", 2)
-                painter.setPen(QPen(QColor(edge_color), edge_width))
-            else:
-                # Normal edge in black
-                painter.setPen(pen)
-
-            painter.drawLine(
-                int(source_node.x),
-                int(source_node.y),
-                int(target_node.x),
-                int(target_node.y),
-            )
 
     def _draw_knife_path(self, painter: QPainter, path_points):
         """
@@ -220,9 +231,63 @@ class CanvasRenderer:
         painter.setPen(QColor(text_color))
         painter.drawText(10, 20, text)
 
+    def _draw_standalone_edges(self, painter: QPainter):
+        """
+        Draw edges between nodes that don't belong to any NodeGroup,
+        or edges that connect nodes in different NodeGroups.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+        """
+        # Set up pen for normal edges
+        edge_color = config.get_color("edge.normal", "#000000")
+        pen = QPen(QColor(edge_color))
+        pen.setWidth(config.get_dimension("edge.width.normal", 1))
+        painter.setPen(pen)
+
+        # Collect all node IDs that belong to any group
+        group_node_ids = set()
+        for group in self.graph.node_groups:
+            group_node_ids.update(group.node_ids)
+
+        # Draw edges that connect nodes not in the same group
+        for source_id, target_id in self.graph.edges:
+            # Skip drawing if both nodes are in the same group
+            # These will be drawn by _draw_nodes when rendering each group
+            source_in_group = source_id in group_node_ids
+            target_in_group = target_id in group_node_ids
+            source_group = None
+            target_group = None
+
+            # Find which groups the nodes belong to
+            for group in self.graph.node_groups:
+                if source_id in group.node_ids:
+                    source_group = group
+                if target_id in group.node_ids:
+                    target_group = group
+
+            # Only draw if:
+            # 1. Both nodes are in different groups, or
+            # 2. At least one node is not in any group
+            if source_group != target_group:
+                try:
+                    source_node = next(n for n in self.graph.nodes if n.id == source_id)
+                    target_node = next(n for n in self.graph.nodes if n.id == target_id)
+                except StopIteration:
+                    continue
+
+                painter.drawLine(
+                    int(source_node.x),
+                    int(source_node.y),
+                    int(target_node.x),
+                    int(target_node.y),
+                )
+
     def _draw_edges(self, painter: QPainter):
         """
         Draw all edges in the graph.
+        This method is kept for backward compatibility but is no longer used directly.
+        Consider using _draw_standalone_edges instead.
 
         Args:
             painter (QPainter): The painter to use for drawing
@@ -277,27 +342,28 @@ class CanvasRenderer:
                 int(end_point.y()),
             )
 
-    def _draw_nodes(self, painter: QPainter):
+    def _draw_node_group_backgrounds(self, painter: QPainter):
         """
-        Draw all nodes and node groups in the graph.
+        Draw only the backgrounds of NodeGroups, ordered by z-index.
+        Groups with lower z-index are drawn first, so they appear behind groups with higher z-index.
 
         Args:
             painter (QPainter): The painter to use for drawing
         """
-        # Identify the selected groups
-        selected_group_ids = []
-        # Add from multi-selection only
-        for group in self.graph.selected_groups:
-            if group.id not in selected_group_ids:
-                selected_group_ids.append(group.id)
+        # Get selected group IDs
+        selected_group_ids = [group.id for group in self.graph.selected_groups]
 
-        # Draw group frames and labels
-        for group in self.graph.node_groups:
+        # Sort groups by z-index (lowest to highest)
+        # This ensures groups with higher z-index are drawn later and appear on top
+        sorted_groups = sorted(self.graph.node_groups, key=lambda g: g.z_index)
+
+        # Draw only the background for each group
+        for group in sorted_groups:
             group_nodes = group.get_nodes(self.graph.nodes)
             if not group_nodes:
                 continue
 
-            # Calculate group boundaries
+            # Calculate group boundary
             border_margin = config.get_dimension("group.border_margin", 5)
             min_x = min(node.x - node.size / 2 for node in group_nodes) - border_margin
             min_y = min(node.y - node.size / 2 for node in group_nodes) - border_margin
@@ -306,7 +372,7 @@ class CanvasRenderer:
             group_width = max_x - min_x
             group_height = max_y - min_y
 
-            # Selected groups are displayed with special styling
+            # Special style for selected groups
             is_selected = group.id in selected_group_ids
 
             # Draw group background (semi-transparent)
@@ -319,7 +385,7 @@ class CanvasRenderer:
             )
             bg_color = parse_rgba(bg_color_value)
 
-            # The position must be specified as an integer
+            # Convert to integer positions as required
             min_x_int = int(min_x)
             min_y_int = int(min_y)
             group_width_int = int(group_width)
@@ -328,7 +394,118 @@ class CanvasRenderer:
                 min_x_int, min_y_int, group_width_int, group_height_int, bg_color
             )
 
-            # Draw a group frame
+    def _draw_nodes(self, painter: QPainter):
+        """
+        Draw nodes, group borders, and labels (but not backgrounds).
+        Uses z-index ordering to maintain proper visual layering.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+        """
+        # Get selected group IDs
+        selected_group_ids = [group.id for group in self.graph.selected_groups]
+
+        # Sort groups by z-index (lowest to highest)
+        # This ensures groups with higher z-index appear on top
+        sorted_groups = sorted(self.graph.node_groups, key=lambda g: g.z_index)
+
+        # Prepare standalone nodes (nodes not belonging to any group)
+        standalone_nodes = [
+            node
+            for node in self.graph.nodes
+            if not any(node.id in group.node_ids for group in self.graph.node_groups)
+        ]
+
+        # 重要: z-indexの昇順（低い順）にソートして、高いz-indexのグループが最後に描画されるようにする
+        # これにより視覚的に正しく前面に表示される
+        sorted_groups_for_drawing = sorted(
+            self.graph.node_groups, key=lambda g: g.z_index
+        )
+
+        # Draw each group's nodes, borders, and labels
+        for group in sorted_groups_for_drawing:
+            group_nodes = group.get_nodes(self.graph.nodes)
+            if not group_nodes:
+                continue
+
+            # Calculate group boundary
+            border_margin = config.get_dimension("group.border_margin", 5)
+            min_x = min(node.x - node.size / 2 for node in group_nodes) - border_margin
+            min_y = min(node.y - node.size / 2 for node in group_nodes) - border_margin
+            max_x = max(node.x + node.size / 2 for node in group_nodes) + border_margin
+            max_y = max(node.y + node.size / 2 for node in group_nodes) + border_margin
+            group_width = max_x - min_x
+            group_height = max_y - min_y
+
+            # Special style for selected groups
+            is_selected = group.id in selected_group_ids
+
+            # Convert to integer positions as required
+            min_x_int = int(min_x)
+            min_y_int = int(min_y)
+            group_width_int = int(group_width)
+            group_height_int = int(group_height)
+
+            # Draw normal edges within the group
+            edge_color = config.get_color("edge.normal", "#000000")
+            pen = QPen(QColor(edge_color))
+            pen.setWidth(config.get_dimension("edge.width.normal", 1))
+            painter.setPen(pen)
+
+            for source_id, target_id in self.graph.edges:
+                # Only draw edges where both nodes belong to this group
+                if source_id in group.node_ids and target_id in group.node_ids:
+                    try:
+                        source_node = next(
+                            n for n in self.graph.nodes if n.id == source_id
+                        )
+                        target_node = next(
+                            n for n in self.graph.nodes if n.id == target_id
+                        )
+
+                        painter.drawLine(
+                            int(source_node.x),
+                            int(source_node.y),
+                            int(target_node.x),
+                            int(target_node.y),
+                        )
+                    except StopIteration:
+                        continue
+
+            # 1. Draw nodes within the group (they appear on top)
+            for node in group_nodes:
+                rect = QRectF(
+                    node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
+                )
+
+                # 選択されたノードは異なる色で表示
+                is_node_selected = node in self.graph.selected_nodes
+                node_fill_color = (
+                    config.get_color("node.fill.selected", "#ADD8E6")
+                    if is_node_selected
+                    else config.get_color("node.fill.normal", "skyblue")
+                )
+                node_color = QColor(node_fill_color)
+                painter.fillRect(rect, node_color)
+
+                # 枠線を描画
+                if is_node_selected:
+                    border_color = config.get_color("node.border.selected", "blue")
+                    pen = QPen(QColor(border_color))
+                    pen.setWidth(config.get_dimension("node.border_width.selected", 2))
+                else:
+                    border_color = config.get_color("node.border.normal", "gray")
+                    pen = QPen(QColor(border_color))
+                    pen.setWidth(config.get_dimension("node.border_width.normal", 1))
+                painter.setPen(pen)
+                painter.drawRect(rect)
+
+                # ノードIDを描画
+                text_color = config.get_color("node.text", "#000000")
+                painter.setPen(QColor(text_color))
+                painter.drawText(rect, Qt.AlignCenter, str(node.id))
+
+            # 2. グループの枠線を描画
             border_color_value = (
                 config.get_color("group.border.selected", "#6464FF")
                 if is_selected
@@ -347,32 +524,30 @@ class CanvasRenderer:
             painter.setPen(pen)
             painter.drawRect(min_x_int, min_y_int, group_width_int, group_height_int)
 
-            # Calculate the width of the group name (gives some room)
+            # 3. グループ名のラベルを描画
+            # ラベルの幅を計算（余白を含む）
             font_metrics = painter.fontMetrics()
             text_margin = config.get_dimension("group.label.text_margin", 10)
             text_width = font_metrics.width(group.name) + text_margin
             half_width = text_width // 2
 
-            # Get label position (pass text width)
+            # ラベル位置を取得（テキスト幅を渡す）
             label_x, label_y, alignment = self._get_label_position(
                 group, group_nodes, text_width, half_width
             )
 
-            # Get group width
-            group_width_int = int(group_width)
-
-            # Set the display width and text
+            # 表示幅とテキストを設定
             fixed_width = config.get_dimension("group.label.fixed_width", 100)
 
             if is_selected or group.label_position in [
                 group.POSITION_TOP,
                 group.POSITION_BOTTOM,
             ]:
-                # Use actual text width for selected groups or top/bottom labels
+                # 選択されたグループまたは上下のラベルには実際のテキスト幅を使用
                 display_width = text_width
                 display_text = group.name
             else:
-                # Fixed width and elided text for unselected right-positioned labels
+                # 固定幅と短縮テキストを未選択の右配置ラベルに使用
                 display_width = fixed_width
                 display_text = (
                     font_metrics.elidedText(group.name, Qt.ElideRight, fixed_width)
@@ -380,7 +555,7 @@ class CanvasRenderer:
                     else group.name
                 )
 
-            # Draw label background (semi-transparent)
+            # ラベルの背景を描画（半透明）
             label_bg_value = (
                 config.get_color(
                     "group.label.background.selected", "rgba(240, 240, 255, 200)"
@@ -392,7 +567,7 @@ class CanvasRenderer:
             )
             label_bg = parse_rgba(label_bg_value)
 
-            # label_x and label_y have already been converted to int in _get_label_position
+            # label_xとlabel_yはすでに_get_label_positionで整数に変換されている
             label_x_int = int(label_x)
             label_y_int = int(label_y)
             label_height = config.get_dimension("group.label.height", 20)
@@ -400,11 +575,11 @@ class CanvasRenderer:
                 label_x_int, label_y_int, display_width, label_height, label_bg
             )
 
-            # Draw label frame
+            # ラベルの枠線を描画
             painter.setPen(pen_color)
             painter.drawRect(label_x_int, label_y_int, display_width, label_height)
 
-            # Draw group name
+            # グループ名を描画
             text_color = config.get_color("group.label.text", "#000000")
             painter.setPen(QColor(text_color))
             painter.drawText(
@@ -416,13 +591,13 @@ class CanvasRenderer:
                 display_text,
             )
 
-        # Draw all nodes
-        for node in self.graph.nodes:
+        # グループに属さないノードを描画（最前面）
+        for node in standalone_nodes:
             rect = QRectF(
                 node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
             )
 
-            # Selected nodes are displayed in different colors
+            # 選択されたノードは異なる色で表示
             is_selected = node in self.graph.selected_nodes
             node_fill_color = (
                 config.get_color("node.fill.selected", "#ADD8E6")
@@ -432,7 +607,7 @@ class CanvasRenderer:
             node_color = QColor(node_fill_color)
             painter.fillRect(rect, node_color)
 
-            # Draw a frame
+            # 枠線を描画
             if is_selected:
                 border_color = config.get_color("node.border.selected", "blue")
                 pen = QPen(QColor(border_color))
@@ -444,7 +619,7 @@ class CanvasRenderer:
             painter.setPen(pen)
             painter.drawRect(rect)
 
-            # Draw Node ID
+            # ノードIDを描画
             text_color = config.get_color("node.text", "#000000")
             painter.setPen(QColor(text_color))
             painter.drawText(rect, Qt.AlignCenter, str(node.id))

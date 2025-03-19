@@ -26,6 +26,7 @@ class NodeGroup:
         node_ids (List[int]): List of node IDs in the group
         nodes (List[RectNode]): List of nodes in the group (computed property)
         label_position (str): Position of the group name label ('top-left', 'top-center', etc.)
+        z_index (int): Z-index for rendering order (higher values are rendered on top)
     """
 
     # Label position constants
@@ -40,6 +41,7 @@ class NodeGroup:
         node_ids: Optional[List[int]] = None,
         label_position: str = POSITION_TOP,
         group_id: Optional[str] = None,
+        z_index: int = 0,
     ):
         """
         Initialize a node group.
@@ -50,12 +52,14 @@ class NodeGroup:
             node_ids (List[int], optional): List of node IDs in the group
             label_position (str): Position of the group name label
             group_id (str, optional): Unique identifier for the group
+            z_index (int): Z-index for rendering order (higher values are rendered on top)
         """
         import uuid
 
         self.id = group_id if group_id else str(uuid.uuid4())
         self.name = name
         self.label_position = label_position
+        self.z_index = z_index  # For rendering order control
 
         # Initialize node_ids from either nodes or node_ids
         if nodes:
@@ -111,6 +115,7 @@ class Graph:
         node_groups (List[NodeGroup]): List of node groups
         selected_nodes (List[RectNode]): Currently selected nodes
         selected_groups (List[NodeGroup]): Currently selected groups
+        next_z_index (int): Next z-index value to assign for rendering order
     """
 
     def __init__(self):
@@ -122,6 +127,7 @@ class Graph:
         self.selected_nodes: List[RectNode] = []
         self.selected_groups: List[NodeGroup] = []
         self.next_group_number: int = 1
+        self.next_z_index: int = 0  # Counter for assigning z-index values
 
     def add_node_group(
         self,
@@ -134,6 +140,7 @@ class Graph:
     ) -> NodeGroup:
         """
         Add a new group of nodes arranged in a grid pattern.
+        Assigns the highest z-index to the new group so it appears on top.
 
         Args:
             rows (int): Number of rows in the grid
@@ -184,7 +191,11 @@ class Graph:
             name, existing_names, allow_duplicates=config.allow_duplicate_names
         )
 
-        new_group = NodeGroup(name=name, nodes=new_nodes)
+        # Assign the next z-index value to the new group
+        # This ensures new groups are drawn on top
+        new_group = NodeGroup(name=name, nodes=new_nodes, z_index=self.next_z_index)
+        self.next_z_index += 1
+
         self.node_groups.append(new_group)
         # Add to group_map
         self.group_map[new_group.id] = new_group
@@ -1007,9 +1018,51 @@ class Graph:
         # Set the "maximum number +1" as the next group number
         self.next_group_number = max_number + 1
 
+    def bring_group_to_front(self, group: NodeGroup) -> None:
+        """
+        Bring a node group to the front of the rendering order by
+        assigning it the highest z-index.
+
+        Args:
+            group (NodeGroup): The group to bring to front
+        """
+        if group is None or group not in self.node_groups:
+            return
+
+        # 現在の最大z-indexを取得し、それより大きい値を設定する
+        # これにより確実に最前面に表示される
+        if self.node_groups:
+            max_z_index = max(g.z_index for g in self.node_groups)
+            # 既に最前面なら更新しない
+            if group.z_index >= max_z_index:
+                return
+            # 最前面よりも+1高いz-indexを設定
+            group.z_index = max_z_index + 1
+        else:
+            # グループが他にない場合は初期値を設定
+            group.z_index = 1
+
+        # 次のz-indexカウンタを最新の最大値+1に更新
+        self.next_z_index = max(self.next_z_index, group.z_index + 1)
+
+        logger.info(
+            f"Brought group '{group.name}' to front with z-index {group.z_index}"
+        )
+
+    def get_groups_by_z_index(self) -> List[NodeGroup]:
+        """
+        Get node groups sorted by z-index (lowest to highest).
+        Groups with higher z-index will be drawn on top.
+
+        Returns:
+            List[NodeGroup]: Groups sorted by z-index
+        """
+        return sorted(self.node_groups, key=lambda g: g.z_index)
+
     def find_node_at_position(self, point: QPointF) -> Optional[RectNode]:
         """
         Find a node at the given position.
+        When multiple nodes overlap, returns the one in the frontmost group (highest z-index).
 
         Args:
             point (QPointF): The position to check
@@ -1017,9 +1070,22 @@ class Graph:
         Returns:
             Optional[RectNode]: The node at the position, or None if no node is found
         """
+        # まず、グループをz-indexで降順ソート（高い値＝前面のものから順に）
+        sorted_groups = sorted(self.node_groups, key=lambda g: g.z_index, reverse=True)
+
+        # 前面のグループから順にノードを探す
+        for group in sorted_groups:
+            group_nodes = group.get_nodes(self.nodes)
+            for node in group_nodes:
+                if node.contains(point):
+                    return node
+
+        # グループに属さないノードを探す（最後に探索）
         for node in self.nodes:
-            if node.contains(point):
-                return node
+            if not any(node.id in group.node_ids for group in self.node_groups):
+                if node.contains(point):
+                    return node
+
         return None
 
     def get_group_for_node(self, node: RectNode) -> Optional[NodeGroup]:

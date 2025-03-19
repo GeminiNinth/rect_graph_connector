@@ -257,6 +257,7 @@ class Canvas(QWidget):
     def find_group_at_position(self, point):
         """
         Find a node group that contains the given point in graph coordinates.
+        Returns the frontmost group (highest z-index) if multiple groups overlap at the point.
 
         Args:
             point (QPointF): The point in graph coordinates.
@@ -264,11 +265,21 @@ class Canvas(QWidget):
         Returns:
             The node group if found, otherwise None.
         """
-        for group in self.graph.node_groups:
+        # Get groups sorted by z-index (highest to lowest)
+        # This ensures we select the visually frontmost group when groups overlap
+        sorted_groups = sorted(
+            self.graph.node_groups, key=lambda g: g.z_index, reverse=True
+        )
+
+        # First detect all overlapping groups
+        overlapping_groups = []
+
+        for group in sorted_groups:
             group_nodes = group.get_nodes(self.graph.nodes)
             if not group_nodes:
                 continue
-            # グループの枠線マージンを設定ファイルから取得して、グラフ単位に変換
+
+            # Calculate group boundary with margin
             border_margin = config.get_dimension("group.border_margin", 5)
             effective_margin = border_margin / self.zoom
             min_x = (
@@ -283,8 +294,16 @@ class Canvas(QWidget):
             max_y = (
                 max(node.y + node.size / 2 for node in group_nodes) + effective_margin
             )
+
+            # Record the group containing points
             if min_x <= point.x() <= max_x and min_y <= point.y() <= max_y:
-                return group
+                overlapping_groups.append(group)
+
+        # If the group overlaps with points
+        if overlapping_groups:
+            # Since it has already been sorted by z-index in descending order, the first group is at the forefront
+            return overlapping_groups[0]
+
         return None
 
     def keyPressEvent(self, event):
@@ -386,15 +405,25 @@ class Canvas(QWidget):
                     else:
                         self.dragging = True
                         self.drag_start = clicked_point
+
+                        # If start dragging by clicking on a node, it is possible that the z-index update at the time of selection is not called, so renew just in case
+                        if self._pending_deselect and self.graph.selected_groups:
+                            # pending_deselectの場合のみ更新（通常の選択時は既に更新済み）
+                            for group in self.graph.selected_groups:
+                                self.graph.bring_group_to_front(group)
                         if group:
                             # Multi-selection with Shift key
                             if shift_pressed:
                                 # If already selected, do nothing; if not, add to selection
                                 if group not in self.graph.selected_groups:
                                     self.graph.selected_groups.append(group)
+                                    # Move the added group to the front immediately (update z-index)
+                                    self.graph.bring_group_to_front(group)
                             else:
                                 # Single selection (reset current selection)
                                 self.graph.selected_groups = [group]
+                                # Move selected groups to the front instantly (update z-index)
+                                self.graph.bring_group_to_front(group)
 
                             # Update selected nodes
                             self.graph.selected_nodes = []
@@ -417,9 +446,13 @@ class Canvas(QWidget):
                             # If already selected, do nothing; if not, add to selection
                             if group not in self.graph.selected_groups:
                                 self.graph.selected_groups.append(group)
+                                # Move to the front the moment you select a group (update z-index)
+                                self.graph.bring_group_to_front(group)
                         else:
                             # Single selection (reset current selection)
                             self.graph.selected_groups = [group]
+                            # Move to the front the moment you select a group (update z-index)
+                            self.graph.bring_group_to_front(group)
 
                         # Update selected nodes
                         self.graph.selected_nodes = []
@@ -514,10 +547,20 @@ class Canvas(QWidget):
                     self._pending_deselect = False
                     self.dragging = True
                     self.drag_start = self._press_pos
+
+                    # Move the selected group to the front when you start dragging
+                    if self.graph.selected_groups:
+                        for group in self.graph.selected_groups:
+                            self.graph.bring_group_to_front(group)
+
             # Normal mode - You can drag nodes or pan the view
             if self.dragging and self.drag_start:
                 dx = graph_point.x() - self.drag_start.x()
                 dy = graph_point.y() - self.drag_start.y()
+
+                # Remove continuous updates of z-index during dragging
+                # z-index is updated only when dragging starts (mousePress) and ends (mouseRelease)
+
                 for node in self.graph.selected_nodes:
                     node.move(dx, dy)
                 self.drag_start = graph_point
@@ -575,6 +618,8 @@ class Canvas(QWidget):
                     self._pending_deselect = False
                     self.update()
                     return
+
+                # Drag operation complete -No z-index update when drag is finished
                 self.dragging = False
                 self.drag_start = None
 
