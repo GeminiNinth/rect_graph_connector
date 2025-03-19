@@ -1,0 +1,43 @@
+# English language configuration
+
+import_dialog:
+  window_title: "Import Mode Selection"
+  description: "Please select how to process the imported file. The differences between modes are as follows:"
+  group_title: "Import Mode"
+  detail_title: "Detailed Explanation"
+  buttons:
+    ok: "OK"
+    cancel: "Cancel"
+
+  modes:
+    overwrite:
+      name: "Overwrite"
+      tooltip: "Adds new data while keeping existing data.\nKeeps both nodes even if they have the same ID.\nUse when you want to preserve both old and new data."
+      title: "Overwrite Mode"
+      description: "In this mode, conflicting parts (nodes with same ID/groups with same name) are overwritten with new data. Non-conflicting parts are preserved. This allows you to update specific groups or nodes while keeping other parts intact."
+      example: "Example: If the existing graph has 'Group A' and 'Group B', and the imported file has 'Group B' and 'Group C', the result will have three groups: 'Group A', 'Group B (updated)', and 'Group C'. New edge connections will be added to the existing connections in 'Group B'."
+      guidance: "This mode is suitable when:\n・You want to update specific groups or nodes\n・You want to make partial changes\n・You want to add new components to an existing project"
+
+    insert_before:
+      name: "Insert Before"
+      tooltip: "Inserts new groups before existing groups.\nNode IDs are reassigned with new group nodes coming first.\nUse when you want to place new groups before in processing order."
+      title: "Insert Before Mode"
+      description: "In this mode, new groups are inserted before existing groups. All node IDs are reassigned with nodes from new groups coming first. This allows you to place new groups before in processing order."
+      example: "Example: If the existing graph has 'Group A' and 'Group B', and the imported file has 'Group C' and 'Group D', the result will be in order: 'Group C', 'Group D', 'Group A', 'Group B'. Node IDs are reassigned from 0 in this order."
+      guidance: "This mode is suitable when:\n・You want to add groups to the early stages of processing pipeline\n・You want to treat new groups as high priority\n・Node ID order is important and you want new nodes to come first"
+
+    insert_after:
+      name: "Insert After"
+      tooltip: "Inserts new groups after existing groups.\nNode IDs are reassigned with existing group nodes coming first.\nUse when you want to place new groups after in processing order."
+      title: "Insert After Mode"
+      description: "In this mode, new groups are inserted after existing groups. All node IDs are reassigned with nodes from existing groups coming first. This allows you to place new groups after in processing order."
+      example: "Example: If the existing graph has 'Group A' and 'Group B', and the imported file has 'Group C' and 'Group D', the result will be in order: 'Group A', 'Group B', 'Group C', 'Group D'. Node IDs are reassigned from 0 in this order."
+      guidance: "This mode is suitable when:\n・You want to add groups to the later stages of processing pipeline\n・You want to treat existing groups as high priority\n・Node ID order is important and you want existing nodes to come first"
+
+    force:
+      name: "Complete Replace"
+      tooltip: "Completely resets the existing graph and loads only new data.\nAll current work will be lost.\nUse when starting a new project or when you want to completely replace."
+      title: "Complete Replace Mode"
+      description: "In this mode, the existing graph is completely reset and only new data is loaded. All current work will be lost. This is used when starting a new project or when you want to completely replace the existing data."
+      example: "Example: If the existing graph has 'Group A' and 'Group B', and the imported file has 'Group C' and 'Group D', the result will only have 'Group C' and 'Group D'. 'Group A' and 'Group B' will be completely deleted."
+      guidance: "This mode is suitable when:\n・Starting a new project\n・Want to discard current work and replace with new data\n・Want to start from a clean state\n※Note: This mode deletes all current work. Export if needed before proceeding."

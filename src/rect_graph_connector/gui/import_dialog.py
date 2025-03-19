@@ -2,7 +2,8 @@
 This module contains the import mode dialog for selecting and explaining import modes.
 """
 
-from typing import Dict, Optional, Any, Union
+from typing import Dict, Optional, Any, Union, cast
+from ..config import config
 from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -49,7 +50,7 @@ class ImportModeDialog(QDialog):
             parent: Parent widget
         """
         super().__init__(parent)
-        self.setWindowTitle("インポートモードの選択")
+        self.setWindowTitle(config.get_text("import_dialog.window_title"))
         self.setMinimumWidth(600)
         self.setMinimumHeight(500)
 
@@ -62,55 +63,26 @@ class ImportModeDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Description label
-        description = QLabel(
-            "インポートするファイルの処理方法を選択してください。各モードの違いは以下の通りです："
-        )
+        description = QLabel(config.get_text("import_dialog.description"))
         description.setWordWrap(True)
         layout.addWidget(description)
 
         # Mode selection group box
-        mode_group = QGroupBox("インポートモード")
+        mode_group = QGroupBox(config.get_text("import_dialog.group_title"))
         mode_layout = QVBoxLayout(mode_group)
 
         # Radio button group
         self.button_group = QButtonGroup(self)
 
         # Radio buttons and descriptions for each mode
-        self._add_mode_option(
-            mode_layout,
-            "overwrite",
-            "上書き",
-            "既存のデータを保持したまま、新しいデータを追加します。\n"
-            "同じIDのノードが存在する場合でも、両方を保持します。\n"
-            "新旧のデータを最大限残したい場合に使用します。",
-        )
-
-        self._add_mode_option(
-            mode_layout,
-            "insert_before",
-            "前に挿入",
-            "新しいグループを既存のグループの前に挿入します。\n"
-            "ノードIDは再割り当てされ、新しいグループのノードが先に来るようになります。\n"
-            "処理の順序で新しいグループを先に配置したい場合に使用します。",
-        )
-
-        self._add_mode_option(
-            mode_layout,
-            "insert_after",
-            "後に挿入",
-            "新しいグループを既存のグループの後に挿入します。\n"
-            "ノードIDは再割り当てされ、既存のグループのノードが先に来るようになります。\n"
-            "処理の順序で新しいグループを後に配置したい場合に使用します。",
-        )
-
-        self._add_mode_option(
-            mode_layout,
-            "force",
-            "完全置換",
-            "既存のグラフを完全にリセットし、新しいデータだけを読み込みます。\n"
-            "現在の作業内容はすべて失われます。\n"
-            "新しいプロジェクトを開始する場合や、完全に置き換えたい場合に使用します。",
-        )
+        modes = ["overwrite", "insert_before", "insert_after", "force"]
+        for mode in modes:
+            self._add_mode_option(
+                mode_layout,
+                mode,
+                config.get_text(f"import_dialog.modes.{mode}.name"),
+                config.get_text(f"import_dialog.modes.{mode}.tooltip"),
+            )
 
         layout.addWidget(mode_group)
 
@@ -121,7 +93,7 @@ class ImportModeDialog(QDialog):
         self.detail_layout = QVBoxLayout(self.detail_widget)
 
         # Detail explanation title
-        detail_title = QLabel("詳細説明")
+        detail_title = QLabel(config.get_text("import_dialog.detail_title"))
         detail_title.setFont(QFont("", 12, QFont.Bold))
         self.detail_layout.addWidget(detail_title)
 
@@ -147,9 +119,9 @@ class ImportModeDialog(QDialog):
 
         # Buttons
         button_layout = QHBoxLayout()
-        ok_button = QPushButton("OK")
+        ok_button = QPushButton(config.get_text("import_dialog.buttons.ok"))
         ok_button.clicked.connect(self.accept)
-        cancel_button = QPushButton("キャンセル")
+        cancel_button = QPushButton(config.get_text("import_dialog.buttons.cancel"))
         cancel_button.clicked.connect(self.reject)
 
         button_layout.addStretch()
@@ -158,7 +130,7 @@ class ImportModeDialog(QDialog):
         layout.addLayout(button_layout)
 
         # Display default mode details
-        self._update_detail_area("soft")
+        self._update_detail_area(self.selected_mode)
 
     def _add_mode_option(
         self, layout: QVBoxLayout, mode_id: str, mode_name: str, tooltip: str
@@ -223,72 +195,19 @@ class ImportModeDialog(QDialog):
         Args:
             mode_id: Mode identifier
         """
-        # Detailed explanations for each mode
-        details: ModeDetails = {
-            "insert_before": {
-                "title": "前に挿入モード",
-                "description": "このモードでは、新しいグループを既存のグループの前に挿入します。"
-                "すべてのノードIDは再割り当てされ、新しいグループのノードが先に来るようになります。"
-                "これにより、処理の順序で新しいグループを先に配置することができます。",
-                "example": "例：既存のグラフに「グループA」と「グループB」があり、インポートするファイルに"
-                "「グループC」と「グループD」がある場合、結果として「グループC」「グループD」「グループA」「グループB」"
-                "という順序になります。ノードIDは0から順に振り直されます。",
-                "guidance": "このモードは以下の場合に適しています：\n"
-                "・処理パイプラインの前段階にグループを追加したい場合\n"
-                "・新しいグループを優先順位が高いものとして扱いたい場合\n"
-                "・ノードIDの順序が重要で、新しいノードを先に配置したい場合",
-            },
-            "insert_after": {
-                "title": "後に挿入モード",
-                "description": "このモードでは、新しいグループを既存のグループの後に挿入します。"
-                "すべてのノードIDは再割り当てされ、既存のグループのノードが先に来るようになります。"
-                "これにより、処理の順序で新しいグループを後に配置することができます。",
-                "example": "例：既存のグラフに「グループA」と「グループB」があり、インポートするファイルに"
-                "「グループC」と「グループD」がある場合、結果として「グループA」「グループB」「グループC」「グループD」"
-                "という順序になります。ノードIDは0から順に振り直されます。",
-                "guidance": "このモードは以下の場合に適しています：\n"
-                "・処理パイプラインの後段階にグループを追加したい場合\n"
-                "・既存のグループを優先順位が高いものとして扱いたい場合\n"
-                "・ノードIDの順序が重要で、既存のノードを先に配置したい場合",
-            },
-            "overwrite": {
-                "title": "上書きモード",
-                "description": "このモードでは、既存のデータと競合する部分（同じIDのノード/同じ名前のグループ）は"
-                "新しいデータで上書きされます。競合しない部分は両方保持されます。"
-                "これにより、特定のグループやノードを更新しながら、他の部分は保持することができます。",
-                "example": "例：既存のグラフに「グループA」と「グループB」があり、インポートするファイルに"
-                "「グループB」と「グループC」がある場合、結果として「グループA」「グループB（更新済）」「グループC」"
-                "という3つのグループが存在することになります。「グループB」は既存のエッジ接続に新たなエッジ接続が追加されます。",
-                "guidance": "このモードは以下の場合に適しています：\n"
-                "・特定のグループやノードを更新したい場合\n"
-                "・部分的な変更を加えたい場合\n"
-                "・既存のプロジェクトに新しいコンポーネントを追加したい場合",
-            },
-            "force": {
-                "title": "完全置換モード",
-                "description": "このモードでは、既存のグラフを完全にリセットし、新しいデータだけを読み込みます。"
-                "現在の作業内容はすべて失われます。"
-                "これは新しいプロジェクトを開始する場合や、完全に置き換えたい場合に使用します。",
-                "example": "例：既存のグラフに「グループA」と「グループB」があり、インポートするファイルに"
-                "「グループC」と「グループD」がある場合、結果として「グループC」「グループD」"
-                "のみが存在することになります。「グループA」と「グループB」は完全に削除されます。",
-                "guidance": "このモードは以下の場合に適しています：\n"
-                "・新しいプロジェクトを開始する場合\n"
-                "・現在の作業内容を破棄して新しいデータに置き換えたい場合\n"
-                "・クリーンな状態から始めたい場合\n"
-                "※注意：このモードは現在の作業内容をすべて削除します。必要に応じて事前にエクスポートしてください。",
-            },
-        }
-
-        # Update details
-        mode_details = details.get(mode_id, {})
-        # Check if attributes exist before updating
+        # Update details using translations
         if hasattr(self, "detail_content"):
-            self.detail_content.setText(mode_details.get("description", ""))
+            self.detail_content.setText(
+                config.get_text(f"import_dialog.modes.{mode_id}.description")
+            )
         if hasattr(self, "visual_example"):
-            self.visual_example.setText(mode_details.get("example", ""))
+            self.visual_example.setText(
+                config.get_text(f"import_dialog.modes.{mode_id}.example")
+            )
         if hasattr(self, "usage_guidance"):
-            self.usage_guidance.setText(mode_details.get("guidance", ""))
+            self.usage_guidance.setText(
+                config.get_text(f"import_dialog.modes.{mode_id}.guidance")
+            )
 
     def get_selected_mode(self) -> str:
         """
