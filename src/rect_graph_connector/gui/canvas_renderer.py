@@ -93,24 +93,24 @@ class CanvasRenderer:
         if hasattr(self.canvas, "zoom"):
             painter.scale(self.canvas.zoom, self.canvas.zoom)
 
-        # 新しい描画順序（視覚的な前後関係）：
-        # 1. 背景（最背面）- canvas_border (すでに描画済み)
-        # 2. グループに属さないエッジを描画（最背面）
-        # 3. NodeGroupの背景を描画
-        # 4. グループ内の通常エッジ (グループごとに分けて描画)
-        # 5. ナイフツールのハイライトエッジ
-        # 6. 一時的なエッジ (新規エッジ作成時)
-        # 7. グループのノード、枠線、ラベル（z-indexの順）
-        # 8. 独立したノード（グループに属さないノード）
-        # 9. Knifeツールのパス (最前面)
+        # Rendering order (visual context)：
+        # 1. Background (most back)- canvas_border (Already drawn)
+        # 2. Drawing edges that do not belong to a group (backmost)
+        # 3. Drawing NodeGroup background
+        # 4. Normal edges in groups (draw by group)
+        # 5. Knife Tool Highlight Edge
+        # 6. Temporary Edge (when creating a new Edge)
+        # 7. Group nodes, borders, labels (in order of z-index)
+        # 8. Independent nodes (nodes not belonging to a group)
+        # 9. Knife Tool Path (Front)
 
-        # グループに属さないエッジを描画（最背面）
+        # Drawing edges that do not belong to a group (backmost)
         self._draw_standalone_edges(painter, selected_edges)
 
-        # NodeGroupの背景を描画
+        # Drawing NodeGroup background
         self._draw_node_group_backgrounds(painter)
 
-        # グループ内の通常エッジを描画
+        # Draw normal edges in a group
         for group in sorted(self.graph.node_groups, key=lambda g: g.z_index):
             for source_id, target_id in self.graph.edges:
                 # Skip if edge is selected (will be drawn later with highlight)
@@ -148,22 +148,22 @@ class CanvasRenderer:
                     except StopIteration:
                         continue
 
-        # 選択されたエッジを描画
+        # Draw selected edges
         if selected_edges:
             self._draw_selected_edges(painter, selected_edges)
 
-        # ナイフツールで選択されたエッジを描画
+        # Draw selected edges with the knife tool
         if knife_data and knife_data.get("highlighted_edges"):
             self._draw_highlighted_edges(painter, knife_data.get("highlighted_edges"))
 
-        # 一時的なエッジを描画
+        # Draw a temporary edge
         if temp_edge_data:
             self._draw_temp_edge(painter, temp_edge_data)
 
-        # グループのノード、枠線、ラベルを描画（z-indexの順）
+        # Draw group nodes, borders, and labels (in order of z-index)
         self._draw_nodes(painter, shadow_selected_nodes)
 
-        # Knifeツールのパスを描画（最前面）
+        # Draw the path of the Knife tool (front)
         if knife_data and knife_data.get("path"):
             self._draw_knife_path(painter, knife_data["path"])
 
@@ -189,9 +189,7 @@ class CanvasRenderer:
             )  # Normal mode border
 
         pen = QPen(QColor(border_color))
-        pen.setWidth(
-            config.get_dimension("canvas.border_width", 2)
-        )  # 設定ファイルから取得
+        pen.setWidth(config.get_dimension("canvas.border_width", 2))
         painter.setPen(pen)
         painter.drawRect(0, 0, self.canvas.width() - 1, self.canvas.height() - 1)
 
@@ -566,8 +564,8 @@ class CanvasRenderer:
             if not any(node.id in group.node_ids for group in self.graph.node_groups)
         ]
 
-        # 重要: z-indexの昇順（低い順）にソートして、高いz-indexのグループが最後に描画されるようにする
-        # これにより視覚的に正しく前面に表示される
+        # Important: Sort in ascending (lowest) z-index so that groups with higher z-indexes are drawn at the end
+        # This will visually display correctly on the front
         sorted_groups_for_drawing = sorted(
             self.graph.node_groups, key=lambda g: g.z_index
         )
@@ -645,12 +643,12 @@ class CanvasRenderer:
                 painter.setPen(pen)
                 painter.drawRect(rect)
 
-                # ノードIDを描画
+                # Draw Node ID
                 text_color = config.get_color("node.text", "#000000")
                 painter.setPen(QColor(text_color))
                 painter.drawText(rect, Qt.AlignCenter, str(node.id))
 
-            # 2. グループの枠線を描画
+            # 2. Draw a group border
             border_color_value = (
                 config.get_color("group.border.selected", "#6464FF")
                 if is_selected
@@ -669,30 +667,30 @@ class CanvasRenderer:
             painter.setPen(pen)
             painter.drawRect(min_x_int, min_y_int, group_width_int, group_height_int)
 
-            # 3. グループ名のラベルを描画
-            # ラベルの幅を計算（余白を含む）
+            # 3. Draw a label for the group name
+            # Calculate label width (including margins)
             font_metrics = painter.fontMetrics()
             text_margin = config.get_dimension("group.label.text_margin", 10)
             text_width = font_metrics.width(group.name) + text_margin
             half_width = text_width // 2
 
-            # ラベル位置を取得（テキスト幅を渡す）
+            # Get label position (pass text width)
             label_x, label_y, alignment = self._get_label_position(
                 group, group_nodes, text_width, half_width
             )
 
-            # 表示幅とテキストを設定
+            # Set display width and text
             fixed_width = config.get_dimension("group.label.fixed_width", 100)
 
             if is_selected or group.label_position in [
                 group.POSITION_TOP,
                 group.POSITION_BOTTOM,
             ]:
-                # 選択されたグループまたは上下のラベルには実際のテキスト幅を使用
+                # Use the actual text width for the selected group or top and bottom labels
                 display_width = text_width
                 display_text = group.name
             else:
-                # 固定幅と短縮テキストを未選択の右配置ラベルに使用
+                # Fixed width and shortened text for unselected right-positioned labels
                 display_width = fixed_width
                 display_text = (
                     font_metrics.elidedText(group.name, Qt.ElideRight, fixed_width)
@@ -700,7 +698,7 @@ class CanvasRenderer:
                     else group.name
                 )
 
-            # ラベルの背景を描画（半透明）
+            # Draw label background (semi-transparent)
             label_bg_value = (
                 config.get_color(
                     "group.label.background.selected", "rgba(240, 240, 255, 200)"
@@ -712,7 +710,7 @@ class CanvasRenderer:
             )
             label_bg = parse_rgba(label_bg_value)
 
-            # label_xとlabel_yはすでに_get_label_positionで整数に変換されている
+            # label_x and label_y are already converted to integers with _get_label_position
             label_x_int = int(label_x)
             label_y_int = int(label_y)
             label_height = config.get_dimension("group.label.height", 20)
@@ -720,11 +718,11 @@ class CanvasRenderer:
                 label_x_int, label_y_int, display_width, label_height, label_bg
             )
 
-            # ラベルの枠線を描画
+            # Draw label border
             painter.setPen(pen_color)
             painter.drawRect(label_x_int, label_y_int, display_width, label_height)
 
-            # グループ名を描画
+            # Draw group name
             text_color = config.get_color("group.label.text", "#000000")
             painter.setPen(QColor(text_color))
             painter.drawText(
