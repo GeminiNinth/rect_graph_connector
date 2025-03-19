@@ -207,18 +207,36 @@ class Graph:
         # Get nodes from the group
         group_nodes = group.get_nodes(self.nodes)
 
-        # Remove edges connected to any node in the group
-        node_ids = {node.id for node in group_nodes}
+        # Identify node IDs belonging to other groups
+        node_ids_in_other_groups = set()
+        # Create a map of future node_ids saved (Group ID -> Node ID List)
+        original_group_node_ids = {}
+
+        for other_group in self.node_groups:
+            if other_group != group:
+                node_ids_in_other_groups.update(other_group.node_ids)
+                # Save original node_ids list for future
+                original_group_node_ids[other_group.id] = other_group.get_nodes(
+                    self.nodes
+                )
+
+        # Only nodes belonging to a group that do not belong to another group are deleted.
+        nodes_to_delete = [
+            node for node in group_nodes if node.id not in node_ids_in_other_groups
+        ]
+        node_ids_to_delete = {node.id for node in nodes_to_delete}
+
+        # Remove edges connected to nodes that will be deleted
         self.edges = [
             edge
             for edge in self.edges
-            if edge[0] not in node_ids and edge[1] not in node_ids
+            if edge[0] not in node_ids_to_delete and edge[1] not in node_ids_to_delete
         ]
 
-        # Remove nodes
-        self.nodes = [node for node in self.nodes if node.id not in node_ids]
+        # Remove only nodes that don't belong to any other group
+        self.nodes = [node for node in self.nodes if node not in nodes_to_delete]
 
-        # Remove group
+        # Delete only the deleted groups themselves
         if group in self.node_groups:
             self.node_groups.remove(group)
             # Also remove from group_map
@@ -227,7 +245,7 @@ class Graph:
 
         # Clear selection if it was part of the deleted group
         if self.selected_nodes and any(
-            node.id in node_ids for node in self.selected_nodes
+            node.id in node_ids_to_delete for node in self.selected_nodes
         ):
             self.selected_nodes.clear()
 
@@ -236,7 +254,10 @@ class Graph:
             self.selected_group = None
 
         # Reassign node IDs to ensure consistency after deletion
-        self._reassign_node_ids()
+        self._reassign_node_ids(original_group_node_ids)
+
+        # Ensuring continuity of group numbers
+        self._recalculate_next_group_number()
 
     def rotate_group(self, nodes: List[RectNode]) -> None:
         """
@@ -724,45 +745,63 @@ class Graph:
             return True
         return False
 
-    def _reassign_node_ids(self) -> None:
+    def _reassign_node_ids(self, original_group_nodes=None) -> None:
         """
         Reassign node IDs based on the current order of node groups.
         This preserves the edge connections by updating the edge references.
         Ensures all nodes (including those not in any group) have sequential IDs.
+
+        Args:
+            original_group_nodes (dict, optional): In the mapping (Group ID -> Node Object List), hold the nodes belonging to each group before deletion
         """
-        # Save original ID and object ID for each node
-        original_node_ids = {id(node): node.id for node in self.nodes}
-        node_id_to_object = {node.id: node for node in self.nodes}
+        if original_group_nodes is None:
+            original_group_nodes = {}
 
-        # Save node ID list for each group
-        group_node_ids = {group.id: group.node_ids.copy() for group in self.node_groups}
+        # Create a mapping (memory address -> node object) for currently existing nodes
+        node_by_memory_addr = {id(node): node for node in self.nodes}
 
-        # Create a mapping from old IDs to new IDs
+        # Save the nodes for each group before assigning a new ID
+        node_groups_by_id = {}
+        for group in self.node_groups:
+            # If there is information in original_group_nodes, use it as priority
+            if group.id in original_group_nodes:
+                # A list of actual node objects belonging to this group
+                nodes_in_group = [
+                    node
+                    for node in original_group_nodes[group.id]
+                    if id(node)
+                    in node_by_memory_addr  # Only nodes that have not been deleted
+                ]
+                node_groups_by_id[group.id] = nodes_in_group
+            else:
+                # If there is no information in original_group_nodes, then retrieved from current node_ids
+                group_nodes = group.get_nodes(self.nodes)
+                node_groups_by_id[group.id] = group_nodes
+
+        # Create a new ID mapping
         old_to_new_id = {}
         new_id = 0
 
-        # First, assign new IDs to nodes in groups based on group order
-        grouped_node_ids = set()  # Track node IDs that are in groups
+        # Assign an ID first to a node belonging to a group
+        grouped_node_ids = set()  # Tracking the node ID that you already assigned an ID
         for group in self.node_groups:
-            for node_id in group.node_ids:
-                if (
-                    node_id not in grouped_node_ids
-                ):  # Avoid assigning IDs to the same node twice
-                    node = node_id_to_object.get(node_id)
-                    if node:
-                        old_to_new_id[node_id] = new_id
-                        node.id = new_id
-                        new_id += 1
-                        grouped_node_ids.add(node_id)
+            for node in node_groups_by_id.get(group.id, []):
+                if node.id not in grouped_node_ids and node in self.nodes:
+                    old_id = node.id
+                    node.id = new_id
+                    old_to_new_id[old_id] = new_id
+                    new_id += 1
+                    grouped_node_ids.add(node.id)
 
-        # Then, assign new IDs to any nodes not in groups
+        # Assign IDs to nodes that do not belong to the group
         for node in self.nodes:
-            if node.id not in grouped_node_ids and node.id not in old_to_new_id:
-                old_to_new_id[node.id] = new_id
+            if node.id not in grouped_node_ids:
+                old_id = node.id
                 node.id = new_id
+                old_to_new_id[old_id] = new_id
                 new_id += 1
 
-        # Update edges with new IDs
+        # Update Edge
         new_edges = []
         for source_id, target_id in self.edges:
             new_source_id = old_to_new_id.get(source_id)
@@ -770,26 +809,29 @@ class Graph:
             if new_source_id is not None and new_target_id is not None:
                 new_edges.append((new_source_id, new_target_id))
             else:
-                # Remove edge if referenced nodes are not found
+                # Remove edges that refer to non-existent nodes
                 print(
                     f"Warning: Edge ({source_id}, {target_id}) references non-existent nodes and will be removed."
                 )
 
         self.edges = new_edges
 
-        # Update the node_ids list for a group
+        # Update node_ids list for each group
         for group in self.node_groups:
-            # Get original node_ids list
-            original_node_ids_list = group_node_ids.get(group.id, [])
-            new_node_ids = []
+            # Get nodes belonging to this group
+            nodes_in_group = node_groups_by_id.get(group.id, [])
+            # Update node_ids with the new ID of the node object
+            group.node_ids = [node.id for node in nodes_in_group if node in self.nodes]
 
-            for old_id in original_node_ids_list:
-                new_id = old_to_new_id.get(old_id)
-                if new_id is not None:
-                    new_node_ids.append(new_id)
+        # Check if all groups and edges refer to actual nodes
+        valid_node_ids = {node.id for node in self.nodes}
 
-            # Update the node_ids list for a group
-            group.node_ids = new_node_ids
+        # Just to be sure, you should only refer to valid node IDs for the edge.
+        self.edges = [
+            (src, dst)
+            for src, dst in self.edges
+            if src in valid_node_ids and dst in valid_node_ids
+        ]
 
     def rename_group(self, group: NodeGroup, new_name: str) -> None:
         """
@@ -813,6 +855,27 @@ class Graph:
                 allow_duplicates=config.allow_duplicate_names,
             )
             group.name = final_name
+
+    def _recalculate_next_group_number(self) -> None:
+        """
+        After the group is deleted, recalculate next_group_number to assign a sequential number to the new group.
+        """
+        import re
+
+        max_number = 0
+        pattern = re.compile(r"Node (\d+)")
+
+        for group in self.node_groups:
+            match = pattern.match(group.name)
+            if match:
+                try:
+                    number = int(match.group(1))
+                    max_number = max(max_number, number)
+                except ValueError:
+                    pass
+
+        # Set the "maximum number +1" as the next group number
+        self.next_group_number = max_number + 1
 
     def find_node_at_position(self, point: QPointF) -> Optional[RectNode]:
         """
