@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QInputDialog,
     QAbstractItemView,
     QFrame,
+    QCheckBox,
 )
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QKeyEvent
@@ -159,6 +160,17 @@ class MainWindow(QMainWindow):
         self.mode_label = QLabel(normal_mode_text)
         self.mode_label.setAlignment(Qt.AlignCenter)
 
+        # Grid snap checkbox
+        self.snap_checkbox = QCheckBox(
+            config.get_string("main_window.grid.snap", "Snap to Grid")
+        )
+        self.snap_checkbox.setEnabled(
+            False
+        )  # Disabled by default since grid is initially hidden
+        self.snap_checkbox.setStyleSheet(
+            "opacity: 0.5"
+        )  # Make it semi-transparent when disabled
+
     def _setup_layout(self):
         # Set main widget as central widget
         self.setCentralWidget(self.main_widget)
@@ -254,6 +266,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.delete_button)
         layout.addWidget(self.rotate_button)
 
+        # Add snap checkbox at the bottom
+        layout.addWidget(self.snap_checkbox)
+
         # Add stretch to push everything to the left
         layout.addStretch()
 
@@ -276,6 +291,10 @@ class MainWindow(QMainWindow):
 
         # Connecting mode change signal
         self.canvas.mode_changed.connect(self._update_mode_indicator)
+
+        # Connect grid signals
+        self.canvas.grid_state_changed.connect(self._handle_grid_state_changed)
+        self.snap_checkbox.stateChanged.connect(self._handle_snap_toggled)
 
     def _handle_add(self):
         """Handle the Add button click event."""
@@ -584,6 +603,71 @@ class MainWindow(QMainWindow):
         """
         if self.row_input.text() and self.col_input.text():
             self._handle_add()
+
+    def _handle_snap_toggled(self, state):
+        """
+        Handle toggling of snap to grid checkbox.
+
+        Args:
+            state (int): Qt.Checked (2) if checked, Qt.Unchecked (0) if unchecked
+        """
+        from PyQt5.QtCore import Qt
+
+        is_checked = state == Qt.Checked
+        logger.info(f"Snap to grid toggled: {is_checked}")
+
+        # Update canvas snap setting
+        self.canvas.snap_to_grid = is_checked
+
+        # Snap all nodes to grid if enabled
+        if is_checked:
+            self.canvas._snap_all_nodes_to_grid()
+
+        # Emit the grid state changed signal to keep other components in sync
+        self.canvas.grid_state_changed.emit(self.canvas.grid_visible, is_checked)
+
+        # Refresh the canvas
+        self.canvas.update()
+
+    def _handle_grid_state_changed(self, grid_visible, snap_enabled):
+        """
+        Handle grid state changes from the canvas.
+
+        Args:
+            grid_visible (bool): Whether the grid is visible
+            snap_enabled (bool): Whether snap to grid is enabled
+        """
+        # Update the checkbox state
+        self.snap_checkbox.setEnabled(grid_visible)
+
+        # Check the checkbox to match the snap state
+        if grid_visible:
+            self.snap_checkbox.setChecked(snap_enabled)
+        else:
+            # If grid is hidden, uncheck the checkbox
+            self.snap_checkbox.setChecked(False)
+
+        # Update the appearance of the checkbox
+        opacity = 1.0 if grid_visible else 0.5
+        self.snap_checkbox.setStyleSheet(f"opacity: {opacity}")
+
+    def _update_grid_snap_state(self, visible):
+        """
+        Update the grid snap checkbox state based on grid visibility.
+
+        Args:
+            visible (bool): Whether the grid is visible
+        """
+        self.snap_checkbox.setEnabled(visible)
+
+        if not visible:
+            # If grid is hidden, also uncheck the checkbox
+            # but don't set canvas.snap_to_grid to False to remember state
+            self.snap_checkbox.setChecked(False)
+
+        # Update the appearance of the checkbox
+        opacity = 1.0 if visible else 0.5
+        self.snap_checkbox.setStyleSheet(f"opacity: {opacity}")
 
     def _update_group_list(self):
         """Update the group list to reflect the current state of node groups."""

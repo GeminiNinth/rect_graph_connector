@@ -23,6 +23,9 @@ main_window:
     cols: "Cols:"
     node_groups: "Node Groups"
 
+  grid:
+    snap: "Snap to Grid"
+
   mode:
     normal: "Mode: Normal"
     edit: "Mode: Edit"

@@ -63,6 +63,9 @@ class Canvas(QWidget):
         "deselect_methods.background", "background"
     )
 
+    # Signal to notify grid visibility and snap state changes
+    grid_state_changed = pyqtSignal(bool, bool)  # grid_visible, snap_enabled
+
     def __init__(self, parent=None):
         """
         Initialize the canvas widget.
@@ -97,6 +100,19 @@ class Canvas(QWidget):
         self.temp_edge_end = None
         self._pending_deselect = False
         self._press_pos = None
+
+        # Grid display and snap state
+        self.grid_visible = False
+        self.snap_to_grid = False
+
+        # Get parent main window
+        self.main_window = None
+        parent_widget = self.parent()
+        while parent_widget:
+            if hasattr(parent_widget, "_update_grid_snap_state"):
+                self.main_window = parent_widget
+                break
+            parent_widget = parent_widget.parent()
 
         # Edge selection state
         self.selected_edges = []  # List of selected edges
@@ -506,6 +522,34 @@ class Canvas(QWidget):
         Args:
             event: Keyboard event
         """
+        if event.key() == Qt.Key_G:
+            # Toggle grid visibility with G key
+            self.grid_visible = not self.grid_visible
+
+            # Store old snap state to restore if needed
+            old_snap_state = self.snap_to_grid
+
+            # If we're turning grid off, disable snapping but remember state
+            if not self.grid_visible:
+                self.snap_to_grid = False
+            else:
+                # When turning grid back on, restore previous snap state if it was on
+                self.snap_to_grid = old_snap_state
+
+            # If we're turning grid on and snap is enabled,
+            # snap all nodes to grid now
+            if self.grid_visible and self.snap_to_grid:
+                self._snap_all_nodes_to_grid()
+
+            # Update the main window's snap checkbox state if available
+            if self.main_window:
+                self.main_window._update_grid_snap_state(self.grid_visible)
+
+            # Emit the grid state changed signal with current states
+            self.grid_state_changed.emit(self.grid_visible, old_snap_state)
+            self.update()
+            return
+
         if event.key() == Qt.Key_Escape:
             # Handle special edit submodes
             if self.current_mode == self.EDIT_MODE:
@@ -1005,9 +1049,52 @@ class Canvas(QWidget):
                 # Remove continuous updates of z-index during dragging
                 # z-index is updated only when dragging starts (mousePress) and ends (mouseRelease)
 
-                for node in self.graph.selected_nodes:
-                    node.move(dx, dy)
-                self.drag_start = graph_point
+                # Calculate the relative position of the current mouse point to drag start
+                if self.grid_visible and self.snap_to_grid:
+                    # Get the offset between original drag start and current mouse position
+                    total_dx = graph_point.x() - self.drag_start.x()
+                    total_dy = graph_point.y() - self.drag_start.y()
+
+                    # Find center point of selected nodes
+                    if self.graph.selected_nodes:
+                        center_x = sum(
+                            node.x for node in self.graph.selected_nodes
+                        ) / len(self.graph.selected_nodes)
+                        center_y = sum(
+                            node.y for node in self.graph.selected_nodes
+                        ) / len(self.graph.selected_nodes)
+
+                        # Calculate target center position
+                        target_center_x = center_x + total_dx
+                        target_center_y = center_y + total_dy
+
+                        # Find nearest grid point to target center
+                        snapped_center_x, snapped_center_y = self._snap_to_grid_point(
+                            target_center_x, target_center_y
+                        )
+
+                        # Calculate adjusted displacement to maintain relative positions
+                        adjusted_dx = snapped_center_x - center_x
+                        adjusted_dy = snapped_center_y - center_y
+
+                        # Move all nodes by the adjusted displacement
+                        for node in self.graph.selected_nodes:
+                            node.x += adjusted_dx
+                            node.y += adjusted_dy
+
+                    # Update drag start for next movement calculation
+                    self.drag_start = QPointF(
+                        self.drag_start.x() + adjusted_dx,
+                        self.drag_start.y() + adjusted_dy,
+                    )
+                else:
+                    # Normal movement without snapping
+                    for node in self.graph.selected_nodes:
+                        node.move(dx, dy)
+
+                    # Update drag start for next movement
+                    self.drag_start = graph_point
+
                 self.update()
         elif self.current_mode == self.EDIT_MODE:
             if self.edit_submode == self.EDIT_SUBMODE_KNIFE and self.is_cutting:
@@ -1592,6 +1679,45 @@ class Canvas(QWidget):
                     self._handle_file_drop(file_path)
                     event.acceptProposedAction()
                     break
+
+    def _snap_to_grid_point(self, x, y):
+        """
+        Snap a point to the nearest grid point.
+
+        Args:
+            x (float): X coordinate
+            y (float): Y coordinate
+
+        Returns:
+            tuple: (snapped_x, snapped_y) coordinates
+        """
+        standard_spacing = config.get_dimension("grid.spacing", 40.0)
+        grid_spacing = (
+            standard_spacing / 2
+        )  # Half the standard spacing to match the finer grid
+
+        snapped_x = round(x / grid_spacing) * grid_spacing
+        snapped_y = round(y / grid_spacing) * grid_spacing
+        return snapped_x, snapped_y
+
+    def _snap_all_nodes_to_grid(self):
+        """
+        Snap all nodes to the nearest grid points.
+        Called when grid is toggled on with snap enabled or when snap is toggled on.
+        """
+        if not self.grid_visible or not self.snap_to_grid:
+            return
+
+        # First, snap all selected nodes
+        for node in self.graph.selected_nodes:
+            node.x, node.y = self._snap_to_grid_point(node.x, node.y)
+
+        # Then snap all other nodes
+        for node in self.graph.nodes:
+            if node not in self.graph.selected_nodes:
+                node.x, node.y = self._snap_to_grid_point(node.x, node.y)
+
+        self.update()
 
     def _handle_file_drop(self, file_path):
         """
