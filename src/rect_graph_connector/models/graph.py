@@ -201,6 +201,7 @@ class Graph:
         self.node_groups.append(new_group)
         # Add to group_map
         self.group_map[new_group.id] = new_group
+        logger.info(f"Added new group: {new_group.name} (ID: {new_group.id})")
         return new_group
 
     def has_edge(self, source_node: RectNode, target_node: RectNode) -> bool:

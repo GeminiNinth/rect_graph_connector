@@ -93,17 +93,17 @@ class FileHandler:
 
         # Prepare the output file path
         if not filepath:
-            # 設定ファイルから日付フォーマットとディレクトリを取得
+            # Get date format and directory from configuration file
             date_format = config.get_constant(
                 "file_output.patterns.date_format", "%Y%m%d_%H%M%S"
             )
             date_str = datetime.now().strftime(date_format)
 
-            # 出力ディレクトリを設定から取得
+            # Get output directory from settings
             output_dir = config.get_constant("file_output.directory", "./output")
             os.makedirs(output_dir, exist_ok=True)
 
-            # ファイル名パターンを設定から取得
+            # Get file name pattern from settings
             filename_pattern = config.get_constant(
                 "file_output.patterns.yaml_export", "graph_output_{date_str}.yaml"
             )
