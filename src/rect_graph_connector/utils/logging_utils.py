@@ -34,12 +34,42 @@ def setup_logging(log_dir: str = None) -> None:
     log_path = log_base_path / timestamp
     log_path.mkdir(exist_ok=True)
 
-    # Create/Update symlink to latest log directory
-    latest_link = log_base_path / "latest"
-    if latest_link.exists():
-        latest_link.unlink()
-    # Use the directory name only for the symlink target
-    latest_link.symlink_to(timestamp, target_is_directory=True)
+    # Create/Update symlink to latest log directory using os module directly
+    import os
+    import shutil
+
+    latest_link_path = str(log_base_path / "latest")
+    target_path = timestamp  # Just the timestamp string, not a Path object
+
+    # Force remove the existing symlink or directory
+    try:
+        if os.path.islink(latest_link_path):
+            os.unlink(latest_link_path)
+        elif os.path.isdir(latest_link_path):
+            shutil.rmtree(latest_link_path)
+        elif os.path.exists(latest_link_path):
+            os.remove(latest_link_path)
+    except Exception as e:
+        print(f"Warning: Failed to remove existing 'latest' link: {e}")
+
+    # Create the symlink using os.symlink directly
+    try:
+        os.symlink(target_path, latest_link_path, target_is_directory=True)
+    except FileExistsError:
+        # If it still fails, try one more aggressive approach
+        print(f"Warning: Failed to create symlink on first attempt, trying again...")
+        # Force remove again with different method
+        try:
+            if os.path.exists(latest_link_path):
+                os.unlink(latest_link_path)
+        except Exception as e:
+            print(f"Warning: Failed to remove link on second attempt: {e}")
+
+        # Try again with a small delay
+        import time
+
+        time.sleep(0.1)
+        os.symlink(target_path, latest_link_path, target_is_directory=True)
 
     # Set up logging format from config
     log_format = config.get_constant(
