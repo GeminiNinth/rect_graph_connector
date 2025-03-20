@@ -313,14 +313,14 @@ class Graph:
             # Also remove from group_map
             if group.id in self.group_map:
                 del self.group_map[group.id]
-            logger.info("Removed group from node_groups and group_map")
+            logger.debug("Removed group from node_groups and group_map")
 
         # Update selection states - need to handle multiple selections correctly
 
         # Remove the group from selected_groups if present
         if group in self.selected_groups:
             self.selected_groups.remove(group)
-            logger.info("Removed group from selected_groups list")
+            logger.debug("Removed group from selected_groups list")
 
         # Clear selection if it was part of the deleted group
         if self.selected_nodes and any(
@@ -332,7 +332,7 @@ class Graph:
                 for node in self.selected_nodes
                 if node.id not in node_ids_to_delete
             ]
-            logger.info(
+            logger.debug(
                 f"Updated selected_nodes list, {len(self.selected_nodes)} nodes remain selected"
             )
 
