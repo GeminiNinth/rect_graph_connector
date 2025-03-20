@@ -153,7 +153,7 @@ def graph_with_nodes():
 
 
 # Create a concrete implementation of BaseRenderer for testing
-class TestRenderer(BaseRenderer):
+class ConcreteRenderer(BaseRenderer):
     """Concrete implementation of BaseRenderer for testing."""
 
     def draw(self, painter, **kwargs):
@@ -165,7 +165,7 @@ class TestRenderer(BaseRenderer):
 def test_base_renderer_initialization(mock_widget, graph_with_nodes):
     """Test that the BaseRenderer initializes correctly."""
     # Use the concrete implementation instead of the abstract class
-    renderer = TestRenderer(mock_widget, graph_with_nodes)
+    renderer = ConcreteRenderer(mock_widget, graph_with_nodes)
     assert renderer.canvas == mock_widget
     assert renderer.graph == graph_with_nodes
 
