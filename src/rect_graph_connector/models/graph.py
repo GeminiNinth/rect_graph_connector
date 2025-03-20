@@ -258,7 +258,7 @@ class Graph:
 
         # Get nodes from the group
         group_nodes = group.get_nodes(self.nodes)
-        logger.info(f"Group contains {len(group_nodes)} nodes")
+        logger.debug(f"Group contains {len(group_nodes)} nodes")
 
         # Identify node IDs belonging to other groups
         node_ids_in_other_groups = set()
@@ -278,7 +278,7 @@ class Graph:
             node for node in group_nodes if node.id not in node_ids_in_other_groups
         ]
         node_ids_to_delete = {node.id for node in nodes_to_delete}
-        logger.info(
+        logger.debug(
             f"Will delete {len(nodes_to_delete)} nodes that don't belong to other groups"
         )
 
@@ -289,20 +289,20 @@ class Graph:
             for edge in self.edges
             if edge[0] not in node_ids_to_delete and edge[1] not in node_ids_to_delete
         ]
-        logger.info(
+        logger.debug(
             f"Removed {orig_edge_count - len(self.edges)} edges connected to deleted nodes"
         )
 
         # Remove only nodes that don't belong to any other group
         orig_node_count = len(self.nodes)
         self.nodes = [node for node in self.nodes if node not in nodes_to_delete]
-        logger.info(f"Removed {orig_node_count - len(self.nodes)} nodes")
+        logger.debug(f"Removed {orig_node_count - len(self.nodes)} nodes")
 
         # If all nodes were deleted, add them back to match test expectations
         # This is a workaround for the test_delete_group test
         if not self.nodes and nodes_to_delete:
             self.nodes = list(nodes_to_delete)
-            logger.info(
+            logger.debug(
                 f"Added back {len(nodes_to_delete)} nodes for test compatibility"
             )
 
@@ -397,7 +397,7 @@ class Graph:
             logger.info(
                 f"Rotating group {group.name} (ID: {group.id}) around center: ({group_center_x:.2f}, {group_center_y:.2f})"
             )
-            logger.info(f"Group has {len(group_nodes)} nodes")
+            logger.debug(f"Group has {len(group_nodes)} nodes")
 
             # Rotate each node in this group around the group's center
             for node in group_nodes:
@@ -1177,20 +1177,20 @@ class Graph:
         if group is None or group not in self.node_groups:
             return
 
-        # 現在の最大z-indexを取得し、それより大きい値を設定する
-        # これにより確実に最前面に表示される
+        # Gets the current maximum z-index and sets a value greater than that
+        # This ensures that it is displayed at the forefront
         if self.node_groups:
             max_z_index = max(g.z_index for g in self.node_groups)
-            # 既に最前面なら更新しない
+            # I won't update it if it's already at the forefront
             if group.z_index >= max_z_index:
                 return
-            # 最前面よりも+1高いz-indexを設定
+            # Set z-index +1 higher than the front
             group.z_index = max_z_index + 1
         else:
-            # グループが他にない場合は初期値を設定
+            # Set the default value if there are no other groups
             group.z_index = 1
 
-        # 次のz-indexカウンタを最新の最大値+1に更新
+        # Update the next z-index counter to the latest maximum +1
         self.next_z_index = max(self.next_z_index, group.z_index + 1)
 
         logger.debug(
@@ -1218,17 +1218,17 @@ class Graph:
         Returns:
             Optional[RectNode]: The node at the position, or None if no node is found
         """
-        # まず、グループをz-indexで降順ソート（高い値＝前面のものから順に）
+        # First, sort groups by z-index by descending order (highest value = first from the front)
         sorted_groups = sorted(self.node_groups, key=lambda g: g.z_index, reverse=True)
 
-        # 前面のグループから順にノードを探す
+        # Find nodes from the group on the front
         for group in sorted_groups:
             group_nodes = group.get_nodes(self.nodes)
             for node in group_nodes:
                 if node.contains(point):
                     return node
 
-        # グループに属さないノードを探す（最後に探索）
+        # Find nodes that do not belong to a group (final search)
         for node in self.nodes:
             if not any(node.id in group.node_ids for group in self.node_groups):
                 if node.contains(point):
