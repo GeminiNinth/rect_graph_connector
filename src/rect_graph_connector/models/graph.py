@@ -1193,7 +1193,7 @@ class Graph:
         # 次のz-indexカウンタを最新の最大値+1に更新
         self.next_z_index = max(self.next_z_index, group.z_index + 1)
 
-        logger.info(
+        logger.debug(
             f"Brought group '{group.name}' to front with z-index {group.z_index}"
         )
 
@@ -1267,7 +1267,6 @@ class Graph:
         Returns:
             str: The ID of the newly created group
         """
-        print(f"DEBUG: create_node_group called with {len(nodes)} nodes")
 
         # Create a default name if none provided
         if name is None:

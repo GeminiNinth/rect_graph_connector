@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from PyQt5.QtCore import QPointF
 
 from ..config import config
+from ..utils.logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -38,7 +41,7 @@ class RectNode:
 
             self.id = str(uuid.uuid4())
 
-        print(
+        logger.debug(
             f"DEBUG: RectNode.__post_init__ called with id={self.id}, x={self.x}, y={self.y}, row={self.row}, col={self.col}, size={self.size}"
         )
         if self.size is None:
@@ -97,8 +100,7 @@ class RectNode:
         Returns:
             RectNode: A new RectNode instance
         """
-        # Print debug info about the input data
-        print(f"DEBUG: RectNode.from_dict called with data={data}")
+        logger.debug(f"DEBUG: RectNode.from_dict called with data={data}")
 
         # Handle missing keys with default values
         node_id = data.get("id", str(id(data)))  # Use object id if no id provided

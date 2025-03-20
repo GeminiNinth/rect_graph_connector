@@ -182,8 +182,7 @@ class FileHandler:
             edges = edges_or_filepath
             # filepath remains as provided
 
-        # Print debug info
-        print(
+        logger.debug(
             f"DEBUG: export_graph_to_csv called with {len(nodes)} nodes, {len(edges)} edges"
         )
 
@@ -237,8 +236,7 @@ class FileHandler:
         Raises:
             IOError: If the file cannot be read or has invalid format
         """
-        # Print debug info
-        print(f"DEBUG: import_graph_from_csv called with filepath={filepath}")
+        logger.debug(f"DEBUG: import_graph_from_csv called with filepath={filepath}")
 
         nodes = []
         edges = []

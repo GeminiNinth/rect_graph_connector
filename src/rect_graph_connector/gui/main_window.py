@@ -424,7 +424,7 @@ class MainWindow(QMainWindow):
             for group in groups_to_delete:
                 # Delete the group from the graph
                 self.canvas.graph.delete_group(group)
-                logger.info(f"Deleted group: {group.name} (ID: {group.id})")
+                logger.info(f"  Deleted group: {group.name} (ID: {group.id})")
 
             # Clear selection after all deletions are complete
             self.canvas.graph.selected_group = None
@@ -462,7 +462,7 @@ class MainWindow(QMainWindow):
             self.canvas.graph.rotate_node_groups(self.canvas.graph.selected_groups)
 
             for group in self.canvas.graph.selected_groups:
-                logger.info(f"Rotated group: {group.name} (ID: {group.id})")
+                logger.info(f"  Rotated group: {group.name} (ID: {group.id})")
 
             self.canvas.update()
         # Fallback to the original implementation for single selection

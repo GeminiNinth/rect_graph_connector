@@ -131,39 +131,29 @@ def test_key_press_escape(canvas):
 
 def test_mouse_press_on_node(canvas, qtbot):
     """Test selecting a node with mouse press."""
-    print("DEBUG: test_mouse_press_on_node started")
 
     # Add a test node
     node = RectNode(x=100, y=100, size=40, id="test_node")
     canvas.graph.nodes.append(node)
-    print(f"DEBUG: Added node: {node}, x={node.x}, y={node.y}, size={node.size}")
 
     # Create a group for the node
     group_id = canvas.graph.create_node_group([node])
     group = next(g for g in canvas.graph.node_groups if g.id == group_id)
-    print(f"DEBUG: Created group with id: {group_id}")
 
     # Calculate widget coordinates for the node
     widget_x = int(node.x * canvas.zoom + canvas.pan_offset.x())
     widget_y = int(node.y * canvas.zoom + canvas.pan_offset.y())
-    print(f"DEBUG: Calculated widget coordinates: ({widget_x}, {widget_y})")
-    print(f"DEBUG: Canvas zoom: {canvas.zoom}, pan_offset: {canvas.pan_offset}")
 
     # Create a QPoint for the click position
     from PyQt5.QtCore import QPoint
 
     click_pos = QPoint(widget_x, widget_y)
-    print(f"DEBUG: Created QPoint for click: {click_pos}")
 
     # Click on the node
-    print(f"DEBUG: Attempting to click at position: {click_pos}")
     try:
         qtbot.mouseClick(canvas, Qt.LeftButton, pos=click_pos)
-        print("DEBUG: mouseClick succeeded")
     except Exception as e:
-        print(f"DEBUG: mouseClick failed with error: {e}")
         # Try alternative approach
-        print("DEBUG: Trying direct event simulation")
         from PyQt5.QtGui import QMouseEvent
 
         mouse_event = QMouseEvent(
@@ -176,8 +166,5 @@ def test_mouse_press_on_node(canvas, qtbot):
         canvas.mousePressEvent(mouse_event)
 
     # Check that the node's group is selected
-    print(f"DEBUG: Selected groups: {[g.id for g in canvas.graph.selected_groups]}")
-    print(f"DEBUG: Selected nodes: {[n.id for n in canvas.graph.selected_nodes]}")
     assert group in canvas.graph.selected_groups
     assert node in canvas.graph.selected_nodes
-    print("DEBUG: test_mouse_press_on_node completed")
