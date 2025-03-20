@@ -2,11 +2,11 @@
 Node and group renderer for drawing nodes and their containing groups.
 """
 
-from PyQt5.QtGui import QPainter, QColor, QPen
-from PyQt5.QtCore import Qt, QRectF, QPointF
+from PyQt5.QtCore import QPointF, QRectF, Qt
+from PyQt5.QtGui import QColor, QPainter, QPen
 
-from .base_renderer import BaseRenderer, parse_rgba
 from ...config import config
+from .base_renderer import BaseRenderer, parse_rgba
 
 
 class NodeRenderer(BaseRenderer):
@@ -21,6 +21,7 @@ class NodeRenderer(BaseRenderer):
         all_for_one_selected_nodes=None,
         draw_only_backgrounds=False,
         draw_only_nodes=False,
+        test_mode=False,
         **kwargs,
     ):
         """
@@ -31,12 +32,24 @@ class NodeRenderer(BaseRenderer):
             all_for_one_selected_nodes (list, optional): List of nodes selected in All-For-One mode
             draw_only_backgrounds (bool): If True, only draw group backgrounds
             draw_only_nodes (bool): If True, only draw nodes and borders (no backgrounds)
+            test_mode (bool): If True, only draw nodes without groups (for testing)
             **kwargs: Additional drawing parameters
         """
         # Get nodes selected in parallel connection mode from canvas
         parallel_selected_nodes = []
         if hasattr(self.canvas, "parallel_selected_nodes"):
             parallel_selected_nodes = self.canvas.parallel_selected_nodes
+
+        # Special case for test mode - just draw all nodes directly
+        if test_mode:
+            for node in self.graph.nodes:
+                self._draw_node(
+                    painter,
+                    node,
+                    all_for_one_selected_nodes,
+                    parallel_selected_nodes,
+                )
+            return
 
         # Get selected group IDs
         selected_group_ids = [group.id for group in self.graph.selected_groups]
@@ -262,6 +275,8 @@ class NodeRenderer(BaseRenderer):
             )  # Normal blue
 
         node_color = QColor(node_fill_color)
+
+        # Fill the node rectangle
         painter.fillRect(rect, node_color)
 
         # Draw border based on selection state

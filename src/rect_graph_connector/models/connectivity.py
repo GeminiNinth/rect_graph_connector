@@ -5,10 +5,10 @@ It provides functions for establishing connections between nodes
 in various patterns like 4-directional connections.
 """
 
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
 
-from .rect_node import RectNode
 from .graph import Graph
+from .rect_node import RectNode
 
 
 def connect_nodes_in_4_directions(graph: Graph, nodes: List[RectNode]) -> None:
@@ -145,7 +145,7 @@ from ..config import config
 
 
 def delete_edge_at_position(
-    graph: Graph, px: float, py: float, threshold: float = None
+    graph: Graph, point, threshold: float = None, tolerance: float = None
 ) -> bool:
     """
     Delete an edge that is close to the specified position.
@@ -153,13 +153,23 @@ def delete_edge_at_position(
 
     Args:
         graph (Graph): The graph containing the edges
-        px (float): X-coordinate of the point
-        py (float): Y-coordinate of the point
+        point: Either a QPointF object or a tuple of (x, y) coordinates
         threshold (float): Maximum distance to consider an edge as close
+        tolerance (float): Alias for threshold, for backward compatibility
 
     Returns:
         bool: True if an edge was deleted, False otherwise
     """
+    # Handle QPointF or tuple input
+    if hasattr(point, "x") and hasattr(point, "y"):
+        px = point.x()
+        py = point.y()
+    else:
+        px, py = point
+
+    # For backward compatibility with tests that use tolerance parameter
+    if tolerance is not None:
+        threshold = tolerance
     # Get default thresholds from configuration file
     if threshold is None:
         threshold = config.get_dimension("edge.detection_threshold", 10.0)

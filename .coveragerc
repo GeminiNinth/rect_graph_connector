@@ -1,0 +1,12 @@
+[run]
+data_file = tmp/coverage/.coverage
+source = rect_graph_connector
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError

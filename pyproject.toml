@@ -19,6 +19,14 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-qt>=4.2.0",
+    "pytest-mock>=3.10.0",
+    "pytest-cov>=4.1.0",
+]
+
 [project.urls]
 Repository = "https://github.com/GeminiNinth/rect_graph_connector.git"
 
@@ -33,6 +41,6 @@ allow-direct-references = true
 packages = ["src/rect_graph_connector"]
 
 [tool.pytest.ini_options]
-testpaths = ["src/tests"]
+testpaths = ["src/test"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short"

@@ -2,11 +2,11 @@
 Selection renderer for drawing selection rectangles and other selection-related visuals.
 """
 
-from PyQt5.QtGui import QPainter, QColor, QPen
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QRectF, Qt
+from PyQt5.QtGui import QColor, QPainter, QPen
 
-from .base_renderer import BaseRenderer, parse_rgba
 from ...config import config
+from .base_renderer import BaseRenderer, parse_rgba
 
 
 class SelectionRenderer(BaseRenderer):
@@ -24,6 +24,8 @@ class SelectionRenderer(BaseRenderer):
             selection_rect_data (dict, optional): Dictionary containing 'start' and 'end' points
             **kwargs: Additional drawing parameters
         """
+        # Only draw the selection rectangle during drag selection
+        # Node and group selection styling is handled by node_renderer.py
         if selection_rect_data:
             self._draw_selection_rectangle(painter, selection_rect_data)
 

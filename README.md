@@ -66,6 +66,64 @@ uv run main.py
    - Click "Export CSV" to save the current graph structure to a CSV file.
    - The exported file will be named "graph_output.csv" and saved in the project directory.
 
+## Testing
+
+The project includes a unified test script that provides flexible options for running tests.
+
+### Running Tests
+
+Use the `run_tests.sh` script to run tests with various options:
+
+```bash
+# Run all tests with default settings (UV and coverage)
+./run_tests.sh
+
+# Run tests without using UV
+./run_tests.sh --no-uv
+
+# Run a specific test file
+./run_tests.sh src/test/models/test_rect_node.py
+
+# Run tests in verbose mode
+./run_tests.sh --verbose
+
+# Generate HTML and XML coverage reports
+./run_tests.sh --full
+
+# Run all tests including fixed renderer tests
+./run_tests.sh --all
+```
+
+For a complete list of options:
+```bash
+./run_tests.sh --help
+```
+
+### Coverage Targets
+
+The project has the following coverage targets:
+- Controllers: 90% or higher
+- Canvas: 80% or higher
+- Overall: 75% or higher
+
+To view detailed coverage information:
+```bash
+# Generate HTML coverage report
+./run_tests.sh --html
+```
+
+The script will output clickable links to the coverage reports that you can open directly from your terminal:
+```
+HTML coverage report available at: file:///path/to/rect_graph_connector/tmp/coverage/html/index.html
+```
+
+Simply click on the link in your terminal to open the report in your browser. This feature works in most modern terminal emulators including GNOME Terminal, Konsole, iTerm2, and VSCode's integrated terminal.
+
+All coverage files are stored in the `tmp/coverage` directory:
+- `.coverage`: Raw coverage data
+- `coverage.xml`: XML coverage report
+- `html/`: HTML coverage report directory
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

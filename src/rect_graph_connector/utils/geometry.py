@@ -2,9 +2,9 @@
 This module provides geometric calculation utilities for the graph visualization.
 """
 
+import math
 from dataclasses import dataclass
 from typing import Tuple
-import math
 
 
 @dataclass
@@ -70,9 +70,12 @@ class GeometryCalculator:
         Returns:
             float: The distance between the points
         """
+        print(f"Calculating distance between {point1} and {point2}")
         dx = point2.x - point1.x
         dy = point2.y - point1.y
-        return math.sqrt(dx * dx + dy * dy)
+        result = math.sqrt(dx * dx + dy * dy)
+        print(f"Distance result: {result}")
+        return result
 
     @staticmethod
     def calculate_center(points: list[Point]) -> Point:
