@@ -4,14 +4,14 @@ Composite renderer that coordinates all individual renderers.
 
 from PyQt5.QtGui import QPainter
 
+from ...models.graph import Graph
 from .base_renderer import BaseRenderer
 from .border_renderer import BorderRenderer
-from .grid_renderer import GridRenderer
 from .edge_renderer import EdgeRenderer
+from .grid_renderer import GridRenderer
+from .knife_renderer import KnifeRenderer
 from .node_renderer import NodeRenderer
 from .selection_renderer import SelectionRenderer
-from .knife_renderer import KnifeRenderer
-from ...models.graph import Graph
 
 
 class CompositeRenderer(BaseRenderer):
@@ -67,9 +67,6 @@ class CompositeRenderer(BaseRenderer):
             parallel_data (dict, optional): Data for parallel connection mode
             **kwargs: Additional drawing parameters
         """
-        # Draw canvas border without scaling
-        self.border_renderer.draw(painter, mode=mode)
-
         # Draw grid if enabled
         self.grid_renderer.draw(painter)
 
@@ -80,12 +77,12 @@ class CompositeRenderer(BaseRenderer):
         self.apply_transform(painter)
 
         # Rendering order (visual context):
-        # 1. Background (most back) - canvas_border (Already drawn)
-        # 2. Grid (if enabled) - Already drawn
-        # 3. Edges (backmost of scaled elements)
-        # 4. Node groups and nodes
-        # 5. Selection rectangle
-        # 6. Knife tool path (front)
+        # 1. Grid (if enabled)
+        # 2. Edges (backmost of scaled elements)
+        # 3. Node groups and nodes
+        # 4. Selection rectangle
+        # 5. Knife tool path
+        # 6. Canvas border (most front) - drawn after everything else
 
         # Draw node group backgrounds first
         self.node_renderer.draw(
@@ -125,3 +122,6 @@ class CompositeRenderer(BaseRenderer):
 
         # Restore painter state
         painter.restore()
+
+        # Draw canvas border without scaling (drawn last to appear on top of everything)
+        self.border_renderer.draw(painter, mode=mode)
