@@ -50,13 +50,13 @@ class NormalContextMenu(QMenu):
         self.paste_action.setEnabled(False)  # Initially disabled
 
         # Delete group action
-        title = config.get_string("main_window.buttons.delete", "Delete Group")
+        title = config.get_string("normal_menu.delete.title", "Delete Group")
         self.delete_action = QAction(title, self)
         self.delete_action.triggered.connect(self._delete_selected_groups)
         self.delete_action.setEnabled(False)  # Initially disabled
 
         # Rotate group action
-        title = config.get_string("main_window.buttons.rotate", "Rotate Group")
+        title = config.get_string("normal_menu.rotate.title", "Rotate Group")
         self.rotate_action = QAction(title, self)
         self.rotate_action.triggered.connect(self._rotate_selected_groups)
         self.rotate_action.setEnabled(False)  # Initially disabled
