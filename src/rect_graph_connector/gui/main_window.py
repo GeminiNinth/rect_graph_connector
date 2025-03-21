@@ -108,12 +108,7 @@ class MainWindow(QMainWindow):
         self.reset_button = QPushButton(
             config.get_string("main_window.buttons.reset", "Reset All")
         )
-        self.delete_button = QPushButton(
-            config.get_string("main_window.buttons.delete", "Delete Group")
-        )
-        self.rotate_button = QPushButton(
-            config.get_string("main_window.buttons.rotate", "Rotate Group")
-        )
+        # Delete and Rotate buttons removed - functionality moved to context menu
 
         # Side menu widgets
         self.group_list = QListWidget()
@@ -259,8 +254,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.import_button)
         layout.addWidget(self.export_button)
         layout.addWidget(self.reset_button)
-        layout.addWidget(self.delete_button)
-        layout.addWidget(self.rotate_button)
+        # Delete and Rotate buttons removed - functionality moved to context menu
 
         # Add snap checkbox at the bottom
         layout.addWidget(self.snap_checkbox)
@@ -276,8 +270,7 @@ class MainWindow(QMainWindow):
         self.import_button.clicked.connect(self._handle_import)
         self.export_button.clicked.connect(self._handle_export)
         self.reset_button.clicked.connect(self._handle_reset)
-        self.delete_button.clicked.connect(self._handle_delete)
-        self.rotate_button.clicked.connect(self._handle_rotate)
+        # Delete and Rotate button connections removed - functionality moved to context menu
 
         # Connect side menu signals
         self.group_list.itemDoubleClicked.connect(self._handle_rename_group)

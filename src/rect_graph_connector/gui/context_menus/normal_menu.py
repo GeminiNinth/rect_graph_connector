@@ -2,7 +2,8 @@
 This module contains the context menu for normal mode in the canvas.
 """
 
-from PyQt5.QtWidgets import QMenu, QAction, QInputDialog
+from PyQt5.QtWidgets import QAction, QInputDialog, QMenu
+
 from ...config import config
 
 
@@ -48,22 +49,46 @@ class NormalContextMenu(QMenu):
         self.paste_action.triggered.connect(self._paste_groups)
         self.paste_action.setEnabled(False)  # Initially disabled
 
+        # Delete group action
+        title = config.get_string("main_window.buttons.delete", "Delete Group")
+        self.delete_action = QAction(title, self)
+        self.delete_action.triggered.connect(self._delete_selected_groups)
+        self.delete_action.setEnabled(False)  # Initially disabled
+
+        # Rotate group action
+        title = config.get_string("main_window.buttons.rotate", "Rotate Group")
+        self.rotate_action = QAction(title, self)
+        self.rotate_action.triggered.connect(self._rotate_selected_groups)
+        self.rotate_action.setEnabled(False)  # Initially disabled
+
     def _build_menu(self):
         """Build the menu structure by adding actions."""
         self.addAction(self.set_node_id_start_action)
         self.addSeparator()
         self.addAction(self.copy_action)
         self.addAction(self.paste_action)
+        self.addSeparator()
+        self.addAction(self.delete_action)
+        self.addAction(self.rotate_action)
 
     def showEvent(self, event):
         """
         Update action states based on the current selection when the menu is shown.
         """
         super().showEvent(event)
+        # Check if there are selected groups or nodes
+        has_selection = (
+            len(self.canvas.graph.selected_groups) > 0
+            or len(self.canvas.graph.selected_nodes) > 0
+        )
+
         # Enable/disable copy action based on selection
         self.copy_action.setEnabled(len(self.canvas.graph.selected_groups) > 0)
         # Enable/disable paste action based on whether groups have been copied
         self.paste_action.setEnabled(self.copied_groups_data is not None)
+        # Enable/disable delete and rotate actions based on selection
+        self.delete_action.setEnabled(has_selection)
+        self.rotate_action.setEnabled(has_selection)
 
     def _set_node_id_start_index(self):
         """
@@ -137,3 +162,21 @@ class NormalContextMenu(QMenu):
 
             # Redraw the canvas
             self.canvas.update()
+
+    def _delete_selected_groups(self):
+        """
+        Delete the currently selected node groups or nodes.
+        This calls the main window's _handle_delete method.
+        """
+        main_window = self.canvas.window()
+        if hasattr(main_window, "_handle_delete"):
+            main_window._handle_delete()
+
+    def _rotate_selected_groups(self):
+        """
+        Rotate the currently selected node groups or nodes.
+        This calls the main window's _handle_rotate method.
+        """
+        main_window = self.canvas.window()
+        if hasattr(main_window, "_handle_rotate"):
+            main_window._handle_rotate()
