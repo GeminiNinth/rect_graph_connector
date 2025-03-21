@@ -622,7 +622,7 @@ class Canvas(QWidget):
 
                             if (
                                 source_group in self.edit_target_groups
-                                and target_group in self.edit_target_groups
+                                or target_group in self.edit_target_groups
                             ):
                                 self.selected_edges.append((source_node, target_node))
                         except StopIteration:
@@ -822,12 +822,12 @@ class Canvas(QWidget):
                     shift_pressed = event.modifiers() & Qt.ShiftModifier
 
                     if edge:
-                        # Check if edge belongs to target groups
+                        # Check if at least one endpoint of the edge belongs to target groups
                         source_group = self.graph.get_group_for_node(edge[0])
                         target_group = self.graph.get_group_for_node(edge[1])
                         if (
                             source_group in self.edit_target_groups
-                            and target_group in self.edit_target_groups
+                            or target_group in self.edit_target_groups
                         ):
                             # Handle edge selection with proper toggling
                             if edge in self.selected_edges and not shift_pressed:
@@ -1563,7 +1563,7 @@ class Canvas(QWidget):
 
                         if (
                             source_group in self.edit_target_groups
-                            and target_group in self.edit_target_groups
+                            or target_group in self.edit_target_groups
                         ):
 
                             # Get edge endpoints
