@@ -117,7 +117,22 @@ class EditContextMenu(QMenu):
 
     def _build_menu(self):
         """Build the menu structure by adding actions."""
+        # Add delete selected edges action
+        delete_edges_text = config.get_string(
+            "edit_menu.delete_edges.title", "Delete Selected Edges"
+        )
+        self.delete_edges_action = QAction(delete_edges_text, self)
+        self.delete_edges_action.setToolTip(
+            config.get_string(
+                "edit_menu.delete_edges.tooltip",
+                "Delete the currently selected edges.",
+            )
+        )
+        self.delete_edges_action.triggered.connect(self._delete_selected_edges)
+
         self.addMenu(self.connection_menu)
+        self.addSeparator()
+        self.addAction(self.delete_edges_action)
         self.addSeparator()
         self.addAction(self.toggle_knife_action)
 
@@ -203,11 +218,35 @@ class EditContextMenu(QMenu):
             else:
                 self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_PARALLEL)
 
+    def _delete_selected_edges(self):
+        """
+        Delete all currently selected edges.
+        """
+        if self.canvas and self.canvas.selected_edges:
+            # Create a copy of the selected edges to avoid modifying the list during iteration
+            edges_to_delete = self.canvas.selected_edges.copy()
+
+            for source_node, target_node in edges_to_delete:
+                edge_to_remove = None
+                for edge in self.canvas.graph.edges:
+                    if edge[0] == source_node.id and edge[1] == target_node.id:
+                        edge_to_remove = edge
+                        break
+                if edge_to_remove:
+                    self.canvas.graph.edges.remove(edge_to_remove)
+
+            # Clear the selection after deletion
+            self.canvas.selected_edges = []
+            self.canvas.update()
+
     def prepare_for_display(self):
         """
         Prepare the menu before displaying it, updating state as needed.
         """
         if self.canvas:
+            # Update delete edges action state (enabled only if edges are selected)
+            self.delete_edges_action.setEnabled(bool(self.canvas.selected_edges))
+
             # Update toggle knife action state
             self.toggle_knife_action.setChecked(
                 self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_KNIFE

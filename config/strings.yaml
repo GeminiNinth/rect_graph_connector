@@ -53,6 +53,9 @@ edit_menu:
   knife:
     title: "Knife Mode (Cut Edges)"
     tooltip: "Enables knife mode to cut edges between nodes by drawing a line across them."
+  delete_edges:
+    title: "Delete Selected Edges"
+    tooltip: "Delete the currently selected edges."
 
 file_handler:
   export:

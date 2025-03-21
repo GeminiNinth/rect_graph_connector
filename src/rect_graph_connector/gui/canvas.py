@@ -816,6 +816,7 @@ class Canvas(QWidget):
                             source_group in self.edit_target_groups
                             and target_group in self.edit_target_groups
                         ):
+                            # Handle edge selection with proper toggling
                             if edge in self.selected_edges and not shift_pressed:
                                 # Deselect if already selected and shift is not pressed
                                 self.selected_edges.remove(edge)
@@ -825,6 +826,8 @@ class Canvas(QWidget):
                                     self.selected_edges = []
                                 if edge not in self.selected_edges:
                                     self.selected_edges.append(edge)
+
+                            # Force update to ensure edge highlighting is visible
                             self.update()
                             return
 
