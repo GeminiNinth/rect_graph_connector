@@ -37,6 +37,8 @@ def setup_logging(log_dir: str = None) -> None:
     # Create/Update symlink to latest log directory using os module directly
     import os
     import shutil
+    import platform
+    import time
 
     latest_link_path = str(log_base_path / "latest")
     target_path = timestamp  # Just the timestamp string, not a Path object
@@ -52,24 +54,35 @@ def setup_logging(log_dir: str = None) -> None:
     except Exception as e:
         print(f"Warning: Failed to remove existing 'latest' link: {e}")
 
-    # Create the symlink using os.symlink directly
-    try:
-        os.symlink(target_path, latest_link_path, target_is_directory=True)
-    except FileExistsError:
-        # If it still fails, try one more aggressive approach
-        print(f"Warning: Failed to create symlink on first attempt, trying again...")
-        # Force remove again with different method
+    # Handle platform-specific symlink creation
+    if platform.system() == "Windows":
+        # On Windows, create a text file with the path to the latest log directory
+        # This is a workaround for the symlink permission issue on Windows
         try:
-            if os.path.exists(latest_link_path):
-                os.unlink(latest_link_path)
+            with open(latest_link_path + ".txt", "w") as f:
+                f.write(timestamp)
+            print(f"Created latest.txt pointer to {timestamp} log directory")
         except Exception as e:
-            print(f"Warning: Failed to remove link on second attempt: {e}")
+            print(f"Warning: Failed to create latest.txt pointer: {e}")
+    else:
+        # On Unix-like systems, create a proper symlink
+        try:
+            os.symlink(target_path, latest_link_path, target_is_directory=True)
+        except FileExistsError:
+            # If it still fails, try one more aggressive approach
+            print(
+                f"Warning: Failed to create symlink on first attempt, trying again..."
+            )
+            # Force remove again with different method
+            try:
+                if os.path.exists(latest_link_path):
+                    os.unlink(latest_link_path)
+            except Exception as e:
+                print(f"Warning: Failed to remove link on second attempt: {e}")
 
-        # Try again with a small delay
-        import time
-
-        time.sleep(0.1)
-        os.symlink(target_path, latest_link_path, target_is_directory=True)
+            # Try again with a small delay
+            time.sleep(0.1)
+            os.symlink(target_path, latest_link_path, target_is_directory=True)
 
     # Set up logging format from config
     log_format = config.get_constant(
