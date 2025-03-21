@@ -2,24 +2,33 @@
 This module contains the main window implementation for the graph editor application.
 """
 
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
+from PyQt5.QtGui import QColor, QKeyEvent
 from PyQt5.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
+    QAbstractItemView,
+    QCheckBox,
+    QFileDialog,
+    QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
-    QPushButton,
     QListWidget,
     QListWidgetItem,
+    QMainWindow,
+    QPushButton,
     QSplitter,
-    QInputDialog,
-    QAbstractItemView,
-    QFrame,
-    QCheckBox,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt5.QtCore import Qt, QSize, pyqtSignal
-from PyQt5.QtGui import QKeyEvent
+
+from ..config import config
+from ..utils.file_handler import FileHandler
+from ..utils.logging_utils import get_logger
+from .canvas import Canvas
+from .import_dialog import ImportModeDialog
+
+logger = get_logger(__name__)
 
 
 class NodeGroupInputEdit(QLineEdit):
@@ -35,19 +44,6 @@ class NodeGroupInputEdit(QLineEdit):
             self.enterPressed.emit()
         else:
             super().keyPressEvent(event)
-
-
-from PyQt5.QtWidgets import QFileDialog
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QColor
-
-from .canvas import Canvas
-from ..utils.file_handler import FileHandler
-from ..utils.logging_utils import get_logger
-from .import_dialog import ImportModeDialog
-from ..config import config
-
-logger = get_logger(__name__)
 
 
 class MainWindow(QMainWindow):

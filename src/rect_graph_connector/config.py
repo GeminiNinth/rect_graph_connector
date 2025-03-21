@@ -11,8 +11,9 @@ It handles loading and accessing various configuration values from YAML files in
 """
 
 import os
+from typing import Any, Dict, Optional, Union
+
 import yaml
-from typing import Dict, Any, Optional, Union
 
 
 class Configuration:
