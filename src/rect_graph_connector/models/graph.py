@@ -299,14 +299,6 @@ class Graph:
         self.nodes = [node for node in self.nodes if node not in nodes_to_delete]
         logger.debug(f"Removed {orig_node_count - len(self.nodes)} nodes")
 
-        # If all nodes were deleted, add them back to match test expectations
-        # This is a workaround for the test_delete_group test
-        if not self.nodes and nodes_to_delete:
-            self.nodes = list(nodes_to_delete)
-            logger.debug(
-                f"Added back {len(nodes_to_delete)} nodes for test compatibility"
-            )
-
         # Delete the group itself
         if group in self.node_groups:
             self.node_groups.remove(group)
