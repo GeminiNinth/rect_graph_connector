@@ -728,7 +728,7 @@ class Canvas(QWidget):
 
                         # If start dragging by clicking on a node, it is possible that the z-index update at the time of selection is not called, so renew just in case
                         if self._pending_deselect and self.graph.selected_groups:
-                            # pending_deselectの場合のみ更新（通常の選択時は既に更新済み）
+                            # Only update in case of pending_deselect (already updated during normal selection)
                             for group in self.graph.selected_groups:
                                 self.graph.bring_group_to_front(group)
                         if group:
@@ -859,13 +859,23 @@ class Canvas(QWidget):
                                     break
 
                         if node_belongs_to_target:
-                            # Clear edge selection when starting new edge creation
-                            self.selected_edges = []
-                            # Use for edge creation in edit mode
-                            self.current_edge_start = node
-                            self.temp_edge_end = graph_point
-                            # Change cursor during edit mode
-                            self.setCursor(Qt.CrossCursor)
+                            # Check for shift key to determine if we're dragging or creating an edge
+                            if event.modifiers() & Qt.ShiftModifier:
+                                # With shift, drag the node
+                                self.dragging = True
+                                self.drag_start = graph_point
+                                # Select the node
+                                self.graph.selected_nodes = [node]
+                                # Change cursor to indicate dragging mode
+                                self.setCursor(Qt.ClosedHandCursor)
+                            else:
+                                # By default, create an edge (original behavior)
+                                # Clear edge selection when starting new edge creation
+                                self.selected_edges = []
+                                self.current_edge_start = node
+                                self.temp_edge_end = graph_point
+                                # Change cursor during edge creation
+                                self.setCursor(Qt.CrossCursor)
                         else:
                             # If no valid node was clicked, start rectangle selection
                             self.is_selecting = True
@@ -1078,7 +1088,60 @@ class Canvas(QWidget):
 
                 self.update()
         elif self.current_mode == self.EDIT_MODE:
-            if self.edit_submode == self.EDIT_SUBMODE_KNIFE and self.is_cutting:
+            # Check if we're dragging a node in edit mode
+            if self.dragging and self.drag_start:
+                dx = graph_point.x() - self.drag_start.x()
+                dy = graph_point.y() - self.drag_start.y()
+
+                # Move nodes with proper grid snapping if enabled
+                if self.grid_visible and self.snap_to_grid:
+                    # Get the offset between original drag start and current mouse position
+                    total_dx = graph_point.x() - self.drag_start.x()
+                    total_dy = graph_point.y() - self.drag_start.y()
+
+                    # Find center point of selected nodes
+                    if self.graph.selected_nodes:
+                        center_x = sum(
+                            node.x for node in self.graph.selected_nodes
+                        ) / len(self.graph.selected_nodes)
+                        center_y = sum(
+                            node.y for node in self.graph.selected_nodes
+                        ) / len(self.graph.selected_nodes)
+
+                        # Calculate target center position
+                        target_center_x = center_x + total_dx
+                        target_center_y = center_y + total_dy
+
+                        # Find nearest grid point to target center
+                        snapped_center_x, snapped_center_y = self._snap_to_grid_point(
+                            target_center_x, target_center_y
+                        )
+
+                        # Calculate adjusted displacement to maintain relative positions
+                        adjusted_dx = snapped_center_x - center_x
+                        adjusted_dy = snapped_center_y - center_y
+
+                        # Move all nodes by the adjusted displacement
+                        for node in self.graph.selected_nodes:
+                            node.x += adjusted_dx
+                            node.y += adjusted_dy
+
+                    # Update drag start for next movement calculation
+                    self.drag_start = QPointF(
+                        self.drag_start.x() + adjusted_dx,
+                        self.drag_start.y() + adjusted_dy,
+                    )
+                else:
+                    # Normal movement without snapping
+                    for node in self.graph.selected_nodes:
+                        node.move(dx, dy)
+
+                    # Update drag start for next movement
+                    self.drag_start = graph_point
+
+                # Force a redraw to update edge positions
+                self.update()
+            elif self.edit_submode == self.EDIT_SUBMODE_KNIFE and self.is_cutting:
                 # Add point to knife path
                 self.knife_path.append((graph_point.x(), graph_point.y()))
 
@@ -1087,9 +1150,6 @@ class Canvas(QWidget):
                     self.graph, self.knife_path, self.edit_target_groups
                 )
                 self.update()
-            else:
-                # Other edit modes - ignore drag operations
-                pass
 
         # Update edge previews in both modes
         if self.current_edge_start:
@@ -1179,38 +1239,45 @@ class Canvas(QWidget):
                 self.update()
 
         elif self.current_mode == self.EDIT_MODE:
-            # Edit mode - Handle edge creation differently based on submode
-            if event.button() == Qt.LeftButton and self.current_edge_start:
-                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
-                    # In All-For-One connection mode, create edges from all selected nodes
-                    self._complete_all_for_one_edge_creation(graph_point)
-                elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
-                    # In Parallel connection mode, create parallel edges from all selected nodes
-                    self._complete_parallel_connection(graph_point)
-                else:
-                    # In normal edit mode, create single edge
-                    self._complete_edge_creation(graph_point)
+            # Edit mode - Handle multiple interactions
+            if event.button() == Qt.LeftButton:
+                # First check if we're finishing a node drag operation
+                if self.dragging:
+                    # End the dragging operation
+                    self.dragging = False
+                    self.drag_start = None
+                    # Reset cursor back to the edit mode cursor
+                    self.setCursor(Qt.CrossCursor)
+                    # Force an update to ensure edges are redrawn correctly
+                    self.update()
+                    return
+                # Then handle edge creation if active
+                elif self.current_edge_start:
+                    if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                        # In All-For-One connection mode, create edges from all selected nodes
+                        self._complete_all_for_one_edge_creation(graph_point)
+                    elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                        # In Parallel connection mode, create parallel edges from all selected nodes
+                        self._complete_parallel_connection(graph_point)
+                    else:
+                        # In normal edit mode, create single edge
+                        self._complete_edge_creation(graph_point)
+                # Handle knife tool completion
+                elif self.edit_submode == self.EDIT_SUBMODE_KNIFE and self.is_cutting:
+                    # Complete cutting operation
+                    if self.highlighted_edges:
+                        # Remove all highlighted edges
+                        for edge in self.highlighted_edges:
+                            if edge in self.graph.edges:
+                                self.graph.edges.remove(edge)
 
-            elif (
-                event.button() == Qt.LeftButton
-                and self.edit_submode == self.EDIT_SUBMODE_KNIFE
-            ):
-                # Complete cutting operation
-                if self.is_cutting and self.highlighted_edges:
-                    # Remove all highlighted edges
-                    for edge in self.highlighted_edges:
-                        if edge in self.graph.edges:
-                            self.graph.edges.remove(edge)
-
-                # Reset knife mode state
-                self.is_cutting = False
-                self.knife_path = []
-                self.highlighted_edges = []
-                self.update()
-
-            # Handle rectangle selection in edit mode (left button)
-            elif event.button() == Qt.LeftButton:
-                if (
+                    # Reset knife mode state
+                    self.is_cutting = False
+                    self.knife_path = []
+                    self.highlighted_edges = []
+                    self.update()
+                # Handle rectangle selection completion
+                elif (
                     self.is_selecting
                     and self.selection_rect_start
                     and self.selection_rect_end

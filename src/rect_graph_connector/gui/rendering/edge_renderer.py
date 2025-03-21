@@ -241,12 +241,14 @@ class EdgeRenderer(BaseRenderer):
                 start_center.x() + normalized_dir.x() * start_node.size / 2,
                 start_center.y() + normalized_dir.y() * start_node.size / 2,
             )
-            painter.drawLine(
-                int(start_point.x()),
-                int(start_point.y()),
-                int(end_point.x()),
-                int(end_point.y()),
-            )
+
+        # Draw the line from start_point to end_point
+        painter.drawLine(
+            int(start_point.x()),
+            int(start_point.y()),
+            int(end_point.x()),
+            int(end_point.y()),
+        )
 
     def _draw_all_for_one_edges(
         self, painter: QPainter, temp_edge_data, all_for_one_selected_nodes
@@ -289,12 +291,14 @@ class EdgeRenderer(BaseRenderer):
                         start_center.x() + normalized_dir.x() * node.size / 2,
                         start_center.y() + normalized_dir.y() * node.size / 2,
                     )
-                    painter.drawLine(
-                        int(start_point.x()),
-                        int(start_point.y()),
-                        int(end_point.x()),
-                        int(end_point.y()),
-                    )
+
+                # Draw the line from start_point to end_point for all cases
+                painter.drawLine(
+                    int(start_point.x()),
+                    int(start_point.y()),
+                    int(end_point.x()),
+                    int(end_point.y()),
+                )
 
     def _draw_parallel_edges(self, painter: QPainter, parallel_data):
         """Draw temporary virtual edges for parallel connection mode."""
@@ -338,12 +342,14 @@ class EdgeRenderer(BaseRenderer):
                         start_center.x() + normalized_dir.x() * node.size / 2,
                         start_center.y() + normalized_dir.y() * node.size / 2,
                     )
-                    painter.drawLine(
-                        int(start_point.x()),
-                        int(start_point.y()),
-                        int(end_point.x()),
-                        int(end_point.y()),
-                    )
+
+                # Draw the line from start_point to end_point for all cases
+                painter.drawLine(
+                    int(start_point.x()),
+                    int(start_point.y()),
+                    int(end_point.x()),
+                    int(end_point.y()),
+                )
 
     def calculate_edge_endpoints(self, source_node, target_node):
         """
