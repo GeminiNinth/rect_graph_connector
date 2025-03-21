@@ -1279,21 +1279,17 @@ class Canvas(QWidget):
 
             # Edit mode specific processing
             if self.current_mode == self.EDIT_MODE:
-                # Check if both nodes belong to any of the target groups
+                # Check if the source node belongs to any of the target groups
                 source_belongs = False
-                target_belongs = False
 
-                # Check if both nodes belong to any of the edit target groups
+                # Check if the source node belongs to any of the edit target groups
                 for group in self.edit_target_groups:
                     if self.current_edge_start in group.get_nodes(self.graph.nodes):
                         source_belongs = True
-                    if target_node in group.get_nodes(self.graph.nodes):
-                        target_belongs = True
-                    if source_belongs and target_belongs:
                         break
 
-                # Add edge if both nodes belong to the edit target groups
-                if source_belongs and target_belongs:
+                # Add edge if the source node belongs to the edit target groups
+                if source_belongs:
                     self.graph.add_edge(self.current_edge_start, target_node)
             elif self.current_mode == self.NORMAL_MODE:
                 # Normal mode - allow connections between any nodes
@@ -1337,19 +1333,11 @@ class Canvas(QWidget):
             self.update()
             return
 
-        # Check if target node belongs to any of the target groups
-        target_belongs = False
-        for group in self.edit_target_groups:
-            if target_node in group.get_nodes(self.graph.nodes):
-                target_belongs = True
-                break
-
-        if target_belongs:
-            # Create edges from all selected nodes to the target node
-            # regardless of whether the target is selected or not
-            for source_node in self.all_for_one_selected_nodes:
-                if source_node != target_node:  # Avoid self-loops
-                    self.graph.add_edge(source_node, target_node)
+        # Create edges from all selected nodes to the target node
+        # regardless of whether the target belongs to a selected group or not
+        for source_node in self.all_for_one_selected_nodes:
+            if source_node != target_node:  # Avoid self-loops
+                self.graph.add_edge(source_node, target_node)
 
         # Reset
         self.current_edge_start = None
@@ -1404,20 +1392,16 @@ class Canvas(QWidget):
 
             # If a target node was found and it's not the same as the source node
             if target_node and target_node != source_node:
-                # Check if both nodes belong to target groups
+                # Check if source node belongs to target groups
                 source_belongs = False
-                target_belongs = False
 
                 for group in self.edit_target_groups:
                     if source_node in group.get_nodes(self.graph.nodes):
                         source_belongs = True
-                    if target_node in group.get_nodes(self.graph.nodes):
-                        target_belongs = True
-                    if source_belongs and target_belongs:
                         break
 
-                # Add edge if both nodes belong to the edit target groups
-                if source_belongs and target_belongs:
+                # Add edge if source node belongs to the edit target groups
+                if source_belongs:
                     self.graph.add_edge(source_node, target_node)
 
         # Reset
