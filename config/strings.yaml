@@ -43,13 +43,16 @@ edit_menu:
   connection:
     title: "Connection"
     four_directions: "4-neighborhood"
+    four_directions_tooltip: "Connect all nodes in the selected group with edges in 4 directions (up, down, left, right)."
     eight_directions: "8-neighborhood"
+    eight_directions_tooltip: "Connect all nodes in the selected group with edges in 8 directions (including diagonals)."
     all_for_one: "All-For-One connection"
     all_for_one_tooltip: "Enables multiple node selection. When drawing from a selected node, identical edges extend from all selected nodes automatically."
     parallel: "Parallel connection"
     parallel_tooltip: "Enables selecting multiple nodes and drawing edges in parallel in the same direction and distance."
   knife:
     title: "Knife Mode (Cut Edges)"
+    tooltip: "Enables knife mode to cut edges between nodes by drawing a line across them."
 
 file_handler:
   export:
@@ -60,11 +63,16 @@ normal_menu:
   set_node_id:
     title: "Set Node ID Starting Index"
     prompt: "Enter the starting index for node IDs (0 or higher):"
+    tooltip: "Change the starting index for node IDs in the graph."
   copy:
     title: "Copy Group"
+    tooltip: "Copy the selected node group to be pasted later."
   paste:
     title: "Paste Group"
+    tooltip: "Paste the previously copied node group."
   delete:
     title: "Delete Group"
+    tooltip: "Delete the selected node group or nodes."
   rotate:
     title: "Rotate Group"
+    tooltip: "Rotate the selected node group or nodes by 90 degrees."

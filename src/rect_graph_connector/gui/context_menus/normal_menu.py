@@ -35,29 +35,57 @@ class NormalContextMenu(QMenu):
             "normal_menu.set_node_id.title", "Set Node ID Starting Index"
         )
         self.set_node_id_start_action = QAction(title, self)
+        self.set_node_id_start_action.setToolTip(
+            config.get_string(
+                "normal_menu.set_node_id.tooltip",
+                "Change the starting index for node IDs in the graph.",
+            )
+        )
         self.set_node_id_start_action.triggered.connect(self._set_node_id_start_index)
 
         # Copy group action
         title = config.get_string("normal_menu.copy.title", "Copy Group")
         self.copy_action = QAction(title, self)
+        self.copy_action.setToolTip(
+            config.get_string(
+                "normal_menu.copy.tooltip",
+                "Copy the selected node group to be pasted later.",
+            )
+        )
         self.copy_action.triggered.connect(self._copy_selected_groups)
         self.copy_action.setEnabled(False)  # Initially disabled
 
         # Paste group action
         title = config.get_string("normal_menu.paste.title", "Paste Group")
         self.paste_action = QAction(title, self)
+        self.paste_action.setToolTip(
+            config.get_string(
+                "normal_menu.paste.tooltip", "Paste the previously copied node group."
+            )
+        )
         self.paste_action.triggered.connect(self._paste_groups)
         self.paste_action.setEnabled(False)  # Initially disabled
 
         # Delete group action
         title = config.get_string("normal_menu.delete.title", "Delete Group")
         self.delete_action = QAction(title, self)
+        self.delete_action.setToolTip(
+            config.get_string(
+                "normal_menu.delete.tooltip", "Delete the selected node group or nodes."
+            )
+        )
         self.delete_action.triggered.connect(self._delete_selected_groups)
         self.delete_action.setEnabled(False)  # Initially disabled
 
         # Rotate group action
         title = config.get_string("normal_menu.rotate.title", "Rotate Group")
         self.rotate_action = QAction(title, self)
+        self.rotate_action.setToolTip(
+            config.get_string(
+                "normal_menu.rotate.tooltip",
+                "Rotate the selected node group or nodes by 90 degrees.",
+            )
+        )
         self.rotate_action.triggered.connect(self._rotate_selected_groups)
         self.rotate_action.setEnabled(False)  # Initially disabled
 

@@ -2,8 +2,9 @@
 This module contains the context menu for edit mode in the canvas.
 """
 
-from PyQt5.QtWidgets import QMenu, QAction
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QAction, QMenu
+
 from ...config import config
 
 
@@ -33,11 +34,20 @@ class EditContextMenu(QMenu):
         connection_title = config.get_string("edit_menu.connection.title", "Connection")
         self.connection_menu = QMenu(connection_title, self)
 
+        # Enable tooltips for the submenu
+        self.connection_menu.setToolTipsVisible(True)
+
         # Connect all nodes in 4 directions action
         four_dir_text = config.get_string(
             "edit_menu.connection.four_directions", "4-neighborhood"
         )
         self.connect_4_directions_action = QAction(four_dir_text, self)
+        self.connect_4_directions_action.setToolTip(
+            config.get_string(
+                "edit_menu.connection.four_directions_tooltip",
+                "Connect all nodes in the selected group with edges in 4 directions (up, down, left, right).",
+            )
+        )
         self.connect_4_directions_action.triggered.connect(
             self._connect_nodes_in_4_directions
         )
@@ -47,6 +57,12 @@ class EditContextMenu(QMenu):
             "edit_menu.connection.eight_directions", "8-neighborhood"
         )
         self.connect_8_directions_action = QAction(eight_dir_text, self)
+        self.connect_8_directions_action.setToolTip(
+            config.get_string(
+                "edit_menu.connection.eight_directions_tooltip",
+                "Connect all nodes in the selected group with edges in 8 directions (including diagonals).",
+            )
+        )
         self.connect_8_directions_action.triggered.connect(
             self._connect_nodes_in_8_directions
         )
@@ -90,6 +106,12 @@ class EditContextMenu(QMenu):
             "edit_menu.knife.title", "Knife Mode (Cut Edges)"
         )
         self.toggle_knife_action = QAction(knife_text, self)
+        self.toggle_knife_action.setToolTip(
+            config.get_string(
+                "edit_menu.knife.tooltip",
+                "Enables knife mode to cut edges between nodes by drawing a line across them.",
+            )
+        )
         self.toggle_knife_action.setCheckable(True)
         self.toggle_knife_action.triggered.connect(self._toggle_knife_mode)
 
