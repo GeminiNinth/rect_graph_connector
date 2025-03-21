@@ -889,21 +889,21 @@ class Canvas(QWidget):
                                     break
 
                         if node_belongs_to_target:
-                            if node in self.parallel_selected_nodes:
-                                # Start drawing edges from all selected nodes
-                                self.current_edge_start = node
-                                self.temp_edge_end = graph_point
-                                # Initialize endpoints for all selected nodes
-                                self.parallel_edge_endpoints = [None] * len(
-                                    self.parallel_selected_nodes
-                                )
-                                self.update()
-                            else:
+                            # If node is not already selected, add it to selection
+                            if node not in self.parallel_selected_nodes:
                                 # Select the node if shift is pressed, otherwise clear selection and select only this node
                                 if not shift_pressed:
                                     self.parallel_selected_nodes = []
                                 self.parallel_selected_nodes.append(node)
-                                self.update()
+
+                            # Start drawing edges from all selected nodes
+                            self.current_edge_start = node
+                            self.temp_edge_end = graph_point
+                            # Initialize endpoints for all selected nodes
+                            self.parallel_edge_endpoints = [None] * len(
+                                self.parallel_selected_nodes
+                            )
+                            self.update()
                     else:
                         # If no node was clicked, start rectangle selection
                         self.is_selecting = True
