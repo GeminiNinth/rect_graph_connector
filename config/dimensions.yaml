@@ -33,8 +33,6 @@ edge:
 
 main_window:
   initial:
-    x: 100
-    y: 100
     width: 800
     height: 600
   splitter:

@@ -73,11 +73,27 @@ class MainWindow(QMainWindow):
         )
         self.setWindowTitle(window_title)
 
-        initial_x = config.get_dimension("main_window.initial.x", 100)
-        initial_y = config.get_dimension("main_window.initial.y", 100)
+        # Get window dimensions from config
         initial_width = config.get_dimension("main_window.initial.width", 800)
         initial_height = config.get_dimension("main_window.initial.height", 600)
-        self.setGeometry(initial_x, initial_y, initial_width, initial_height)
+
+        # Set window size
+        self.resize(initial_width, initial_height)
+
+        # Center the window on the screen
+        self.center_window()
+
+    def center_window(self):
+        """Center the window on the screen."""
+        # Get the screen geometry
+        screen_geometry = self.screen().geometry()
+
+        # Calculate the center position
+        center_x = (screen_geometry.width() - self.width()) // 2
+        center_y = (screen_geometry.height() - self.height()) // 2
+
+        # Move the window to the center
+        self.move(center_x, center_y)
 
     def _create_widgets(self):
         # Main widget and canvas
