@@ -276,10 +276,7 @@ class NodeRenderer(BaseRenderer):
 
         node_color = QColor(node_fill_color)
 
-        # Fill the node rectangle
-        painter.fillRect(rect, node_color)
-
-        # Draw border based on selection state
+        # Set up border pen based on selection state
         if is_parallel_selected:
             border_color = config.get_color(
                 "node.border.parallel_selected", "#006400"
@@ -303,8 +300,19 @@ class NodeRenderer(BaseRenderer):
             pen = QPen(QColor(border_color))
             pen.setWidth(config.get_dimension("node.border_width.normal", 1))
 
-        painter.setPen(pen)
-        painter.drawRect(rect)
+        # Draw the node based on its shape
+        shape = getattr(node, "shape", "rectangle")
+
+        if shape == "circle":
+            # Draw circular node
+            painter.setBrush(node_color)
+            painter.setPen(pen)
+            painter.drawEllipse(rect)
+        else:
+            # Draw rectangular node (default)
+            painter.fillRect(rect, node_color)
+            painter.setPen(pen)
+            painter.drawRect(rect)
 
         # Draw node ID
         text_color = config.get_color("node.text", "#000000")

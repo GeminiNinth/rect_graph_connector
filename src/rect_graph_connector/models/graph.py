@@ -13,7 +13,7 @@ from ..utils.naming_utils import (
     generate_unique_name_if_needed,
     rename_node,
 )
-from .rect_node import SingleNode
+from .node import BaseNode, create_node, node_from_dict
 
 logger = get_logger(__name__)
 
@@ -26,7 +26,7 @@ class NodeGroup:
         id (str): Unique identifier for the node group
         name (str): Name of the node group
         node_ids (List[int]): List of node IDs in the group
-        nodes (List[SingleNode]): List of nodes in the group (computed property)
+        nodes (List[BaseNode]): List of nodes in the group (computed property)
         label_position (str): Position of the group name label ('top-left', 'top-center', etc.)
         z_index (int): Z-index for rendering order (higher values are rendered on top)
     """
@@ -39,7 +39,7 @@ class NodeGroup:
     def __init__(
         self,
         name: str,
-        nodes: Optional[List[SingleNode]] = None,
+        nodes: Optional[List[BaseNode]] = None,
         node_ids: Optional[List[int]] = None,
         label_position: str = POSITION_TOP,
         group_id: Optional[str] = None,
@@ -75,28 +75,28 @@ class NodeGroup:
             self._nodes_cache = None
 
     @property
-    def nodes(self) -> List[SingleNode]:
+    def nodes(self) -> List[BaseNode]:
         """
         Property maintained for compatibility, but should be used with caution.
         This property returns a cached list, so to get the latest node list,
         you should use get_nodes(graph.nodes).
 
         Returns:
-            List[SingleNode]: Cached node list if it exists, or an empty list
+            List[BaseNode]: Cached node list if it exists, or an empty list
         """
         if hasattr(self, "_nodes_cache") and self._nodes_cache:
             return self._nodes_cache
         return []
 
-    def get_nodes(self, all_nodes: List[SingleNode]) -> List[SingleNode]:
+    def get_nodes(self, all_nodes: List[BaseNode]) -> List[BaseNode]:
         """
         Get the nodes in this group from the full list of nodes.
 
         Args:
-            all_nodes (List[SingleNode]): All nodes in the graph
+            all_nodes (List[BaseNode]): All nodes in the graph
 
         Returns:
-            List[SingleNode]: Nodes that belong to this group
+            List[BaseNode]: Nodes that belong to this group
         """
         nodes = [node for node in all_nodes if node.id in self.node_ids]
         # Update cache
@@ -112,21 +112,21 @@ class Graph:
     for manipulating the graph structure and managing node selections.
 
     Attributes:
-        nodes (List[SingleNode]): List of all nodes in the graph
+        nodes (List[BaseNode]): List of all nodes in the graph
         edges (List[Tuple[int, int]]): List of edges represented as (source_id, target_id)
         node_groups (List[NodeGroup]): List of node groups
-        selected_nodes (List[SingleNode]): Currently selected nodes
+        selected_nodes (List[BaseNode]): Currently selected nodes
         selected_groups (List[NodeGroup]): Currently selected groups
         next_z_index (int): Next z-index value to assign for rendering order
     """
 
     def __init__(self):
         """Initialize an empty graph structure."""
-        self.nodes: List[SingleNode] = []
+        self.nodes: List[BaseNode] = []
         self.edges: List[Tuple[int, int]] = []
         self.node_groups: List[NodeGroup] = []
         self.group_map: Dict[str, NodeGroup] = {}  # Map with group ID as key
-        self.selected_nodes: List[SingleNode] = []
+        self.selected_nodes: List[BaseNode] = []
         self.selected_groups: List[NodeGroup] = []
         self.next_group_number: int = 1
         self.next_z_index: int = 0  # Counter for assigning z-index values
@@ -177,7 +177,9 @@ class Graph:
             for j in range(cols):
                 x = base_x + j * spacing
                 y = base_y + i * spacing
-                node = SingleNode(id=next_id, x=x, y=y, row=i, col=j)
+                # Get the default shape from configuration
+                shape = config.get_constant("node_shapes.default", "rectangle")
+                node = create_node(id=next_id, x=x, y=y, row=i, col=j, shape=shape)
                 self.nodes.append(node)
                 new_nodes.append(node)
                 next_id += 1
@@ -204,13 +206,13 @@ class Graph:
         logger.info(f"Added new group: {new_group.name} (ID: {new_group.id})")
         return new_group
 
-    def has_edge(self, source_node: SingleNode, target_node: SingleNode) -> bool:
+    def has_edge(self, source_node: BaseNode, target_node: BaseNode) -> bool:
         """
         Check if there is an edge between two nodes.
 
         Args:
-            source_node (SingleNode): Source node of the edge
-            target_node (SingleNode): Target node of the edge
+            source_node (BaseNode): Source node of the edge
+            target_node (BaseNode): Target node of the edge
 
         Returns:
             bool: True if an edge exists between the nodes, False otherwise
@@ -232,13 +234,13 @@ class Graph:
 
         return False
 
-    def add_edge(self, source_node: SingleNode, target_node: SingleNode) -> None:
+    def add_edge(self, source_node: BaseNode, target_node: BaseNode) -> None:
         """
         Add an edge between two nodes.
 
         Args:
-            source_node (SingleNode): Source node of the edge
-            target_node (SingleNode): Target node of the edge
+            source_node (BaseNode): Source node of the edge
+            target_node (BaseNode): Target node of the edge
         """
         if source_node != target_node and not self.has_edge(source_node, target_node):
             self.edges.append((source_node.id, target_node.id))
@@ -336,12 +338,12 @@ class Graph:
 
         logger.info(f"Group deletion complete. {len(self.node_groups)} groups remain.")
 
-    def rotate_group(self, nodes: List[SingleNode]) -> None:
+    def rotate_group(self, nodes: List[BaseNode]) -> None:
         """
         Rotate a group of nodes 90 degrees clockwise around their center.
 
         Args:
-            nodes (List[SingleNode]): The nodes to rotate
+            nodes (List[BaseNode]): The nodes to rotate
         """
         if not nodes:
             return
@@ -451,7 +453,7 @@ class Graph:
         if not merge:
             self.reset()
             # Just load all data directly
-            self.nodes = [SingleNode(**nd) for nd in data.get("nodes", [])]
+            self.nodes = [node_from_dict(nd) for nd in data.get("nodes", [])]
             self.edges = data.get("edges", [])
             for group_data in data.get("groups", []):
                 self._create_group_from_dict(group_data)
@@ -665,7 +667,7 @@ class Graph:
                 original_to_new_node_id[original_id] = new_id
                 id_offset += 1
 
-                incoming_nodes.append(SingleNode(**nd))
+                incoming_nodes.append(node_from_dict(nd))
 
         # Process ungrouped nodes last
         for nd in ungrouped_nodes:
@@ -680,7 +682,7 @@ class Graph:
             original_to_new_node_id[original_id] = new_id
             id_offset += 1
 
-            incoming_nodes.append(SingleNode(**nd))
+            incoming_nodes.append(node_from_dict(nd))
 
         # Process edges - update IDs with new mapping
         incoming_edges = []
@@ -1115,13 +1117,18 @@ class Graph:
         new_nodes = []
         for node_data in copied_data["nodes"]:
             old_id = node_data["id"]
-            new_node = SingleNode(
+            # Get shape from node data or use default
+            shape = node_data.get(
+                "shape", config.get_constant("node_shapes.default", "rectangle")
+            )
+            new_node = create_node(
                 id=next_id,
                 x=node_data["x"] + offset_x,
                 y=node_data["y"] + offset_y,
                 row=node_data["row"],
                 col=node_data["col"],
                 size=node_data.get("size", None),
+                shape=shape,
             )
 
             old_to_new_id[old_id] = next_id
@@ -1200,7 +1207,7 @@ class Graph:
         """
         return sorted(self.node_groups, key=lambda g: g.z_index)
 
-    def find_node_at_position(self, point: QPointF) -> Optional[SingleNode]:
+    def find_node_at_position(self, point: QPointF) -> Optional[BaseNode]:
         """
         Find a node at the given position.
         When multiple nodes overlap, returns the one in the frontmost group (highest z-index).
@@ -1209,7 +1216,7 @@ class Graph:
             point (QPointF): The position to check
 
         Returns:
-            Optional[SingleNode]: The node at the position, or None if no node is found
+            Optional[BaseNode]: The node at the position, or None if no node is found
         """
         # First, sort groups by z-index by descending order (highest value = first from the front)
         sorted_groups = sorted(self.node_groups, key=lambda g: g.z_index, reverse=True)
@@ -1229,12 +1236,12 @@ class Graph:
 
         return None
 
-    def get_group_for_node(self, node: SingleNode) -> Optional[NodeGroup]:
+    def get_group_for_node(self, node: BaseNode) -> Optional[NodeGroup]:
         """
         Find the group containing the given node.
 
         Args:
-            node (SingleNode): The node to find the group for
+            node (BaseNode): The node to find the group for
 
         Returns:
             Optional[NodeGroup]: The group containing the node, or None if not found
@@ -1248,13 +1255,13 @@ class Graph:
         return None
 
     def create_node_group(
-        self, nodes: List[SingleNode], name: Optional[str] = None
+        self, nodes: List[BaseNode], name: Optional[str] = None
     ) -> str:
         """
         Create a group from a list of nodes.
 
         Args:
-            nodes (List[SingleNode]): The nodes to include in the group
+            nodes (List[BaseNode]): The nodes to include in the group
             name (Optional[str]): Name of the group, defaults to "Node {n}"
 
         Returns:

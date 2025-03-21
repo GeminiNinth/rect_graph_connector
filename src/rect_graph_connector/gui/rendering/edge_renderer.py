@@ -222,11 +222,19 @@ class EdgeRenderer(BaseRenderer):
         pen.setWidth(config.get_dimension("edge.width.normal", 1))
         painter.setPen(pen)
 
-        # Calculate start point from node boundary
-        start_center = QPointF(start_node.x, start_node.y)
-        direction = QPointF(end_point) - start_center
-        if direction.manhattanLength() > 0:
-            # Calculate and draw edge
+        # Calculate start point from node boundary using shape-specific calculation if available
+        if hasattr(start_node, "calculate_edge_connection_point"):
+            start_x, start_y = start_node.calculate_edge_connection_point(
+                end_point.x(), end_point.y()
+            )
+            start_point = QPointF(start_x, start_y)
+        else:
+            # Fallback to the old calculation method
+            start_center = QPointF(start_node.x, start_node.y)
+            direction = QPointF(end_point) - start_center
+            if direction.manhattanLength() == 0:
+                return
+
             length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
             normalized_dir = QPointF(direction.x() / length, direction.y() / length)
             start_point = QPointF(
@@ -259,11 +267,20 @@ class EdgeRenderer(BaseRenderer):
         # Draw virtual edges from all selected nodes except the start node
         for node in all_for_one_selected_nodes:
             if node != start_node:
-                start_center = QPointF(node.x, node.y)
-                direction = QPointF(end_point) - start_center
+                # Calculate start point using shape-specific calculation if available
+                if hasattr(node, "calculate_edge_connection_point"):
+                    start_x, start_y = node.calculate_edge_connection_point(
+                        end_point.x(), end_point.y()
+                    )
+                    start_point = QPointF(start_x, start_y)
+                else:
+                    # Fallback to the old calculation method
+                    start_center = QPointF(node.x, node.y)
+                    direction = QPointF(end_point) - start_center
 
-                if direction.manhattanLength() > 0:
-                    # Calculate and draw edge
+                    if direction.manhattanLength() == 0:
+                        continue
+
                     length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
                     normalized_dir = QPointF(
                         direction.x() / length, direction.y() / length
@@ -297,12 +314,22 @@ class EdgeRenderer(BaseRenderer):
         # Draw each virtual edge
         for node, endpoint in zip(selected_nodes, edge_endpoints):
             if node and endpoint:
-                start_center = QPointF(node.x, node.y)
                 end_point = QPointF(endpoint[0], endpoint[1])
-                direction = end_point - start_center
 
-                if direction.manhattanLength() > 0:
-                    # Calculate and draw edge
+                # Calculate start point using shape-specific calculation if available
+                if hasattr(node, "calculate_edge_connection_point"):
+                    start_x, start_y = node.calculate_edge_connection_point(
+                        end_point.x(), end_point.y()
+                    )
+                    start_point = QPointF(start_x, start_y)
+                else:
+                    # Fallback to the old calculation method
+                    start_center = QPointF(node.x, node.y)
+                    direction = end_point - start_center
+
+                    if direction.manhattanLength() == 0:
+                        continue
+
                     length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
                     normalized_dir = QPointF(
                         direction.x() / length, direction.y() / length
@@ -317,3 +344,57 @@ class EdgeRenderer(BaseRenderer):
                         int(end_point.x()),
                         int(end_point.y()),
                     )
+
+    def calculate_edge_endpoints(self, source_node, target_node):
+        """
+        Calculate the start and end points for an edge between two nodes.
+        The points are on the boundaries of the nodes, not at their centers.
+        Uses the node's shape-specific edge connection point calculation.
+
+        Args:
+            source_node: The source node
+            target_node: The target node
+
+        Returns:
+            tuple: (start_point, end_point) as QPointF objects
+        """
+        # Use the node's shape-specific edge connection point calculation if available
+        if hasattr(source_node, "calculate_edge_connection_point") and hasattr(
+            target_node, "calculate_edge_connection_point"
+        ):
+            # Calculate source connection point
+            source_x, source_y = source_node.calculate_edge_connection_point(
+                target_node.x, target_node.y
+            )
+            # Calculate target connection point
+            target_x, target_y = target_node.calculate_edge_connection_point(
+                source_node.x, source_node.y
+            )
+
+            return QPointF(source_x, source_y), QPointF(target_x, target_y)
+        else:
+            # Fallback to the old calculation method for backward compatibility
+            # Get node centers
+            source_center = QPointF(source_node.x, source_node.y)
+            target_center = QPointF(target_node.x, target_node.y)
+
+            # Calculate direction vector
+            direction = target_center - source_center
+            if direction.manhattanLength() == 0:
+                return source_center, target_center
+
+            # Normalize direction
+            length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
+            normalized_dir = QPointF(direction.x() / length, direction.y() / length)
+
+            # Calculate points on node boundaries
+            start_point = QPointF(
+                source_center.x() + normalized_dir.x() * source_node.size / 2,
+                source_center.y() + normalized_dir.y() * source_node.size / 2,
+            )
+            end_point = QPointF(
+                target_center.x() - normalized_dir.x() * target_node.size / 2,
+                target_center.y() - normalized_dir.y() * target_node.size / 2,
+            )
+
+            return start_point, end_point

@@ -1,5 +1,11 @@
 # Application common constant value settings (manage modes, flags, and other hardcoded constant values)
 
+# Node shape settings
+node_shapes:
+  rectangle: "rectangle"
+  circle: "circle"
+  default: "circle"
+
 canvas_modes:
   normal: "normal"
   edit: "edit"
