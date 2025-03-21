@@ -249,6 +249,9 @@ class NodeRenderer(BaseRenderer):
             node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
         )
 
+        # 描画前にpainterの状態を保存
+        painter.save()
+
         # Determine node selection state
         is_node_selected = node in self.graph.selected_nodes
         is_all_for_one_selected = (
@@ -318,6 +321,9 @@ class NodeRenderer(BaseRenderer):
         text_color = config.get_color("node.text", "#000000")
         painter.setPen(QColor(text_color))
         painter.drawText(rect, Qt.AlignCenter, str(node.id))
+
+        # 描画後にpainterの状態を復元
+        painter.restore()
 
     def _draw_group_label(
         self,
