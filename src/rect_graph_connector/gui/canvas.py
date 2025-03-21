@@ -2,27 +2,27 @@
 This module contains the Canvas widget for graph visualization.
 """
 
+from PyQt5.QtCore import QMimeData, QPointF, QRect, QRectF, Qt, pyqtSignal
+from PyQt5.QtGui import QColor, QCursor, QPainter, QPen
 from PyQt5.QtWidgets import (
-    QWidget,
-    QMenu,
     QAction,
+    QApplication,
     QInputDialog,
     QMainWindow,
-    QApplication,
+    QMenu,
+    QWidget,
 )
-from PyQt5.QtGui import QPainter, QColor, QPen, QCursor
-from PyQt5.QtCore import Qt, QRectF, QPointF, QMimeData, pyqtSignal, QRect
 
+from ..config import config
+from ..models.connectivity import delete_edge_at_position, find_intersecting_edges
 from ..models.graph import Graph
 from ..models.rect_node import RectNode
 from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
+from .context_menus.edit_menu import EditContextMenu
+from .context_menus.normal_menu import NormalContextMenu
 from .import_dialog import ImportModeDialog
 from .rendering import CompositeRenderer
-from .context_menus.normal_menu import NormalContextMenu
-from .context_menus.edit_menu import EditContextMenu
-from ..models.connectivity import delete_edge_at_position, find_intersecting_edges
-from ..config import config
 
 
 class Canvas(QWidget):
@@ -54,6 +54,9 @@ class Canvas(QWidget):
 
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
+
+    # Signal to notify when a NodeGroup is selected in the canvas
+    group_selected = pyqtSignal(object)  # Emits the selected NodeGroup
 
     # NodeGroup selection deselection methods flags
     # These flags control which deselection methods are enabled
@@ -563,6 +566,8 @@ class Canvas(QWidget):
                         self.graph.selected_nodes.extend(
                             group.get_nodes(self.graph.nodes)
                         )
+                        # Emit signal for each selected group
+                        self.group_selected.emit(group)
                     self.update()
             elif self.current_mode == self.EDIT_MODE:
                 if self.edit_submode in [
@@ -734,11 +739,15 @@ class Canvas(QWidget):
                                     self.graph.selected_groups.append(group)
                                     # Move the added group to the front immediately (update z-index)
                                     self.graph.bring_group_to_front(group)
+                                    # Emit signal that a group was selected
+                                    self.group_selected.emit(group)
                             else:
                                 # Single selection (reset current selection)
                                 self.graph.selected_groups = [group]
                                 # Move selected groups to the front instantly (update z-index)
                                 self.graph.bring_group_to_front(group)
+                                # Emit signal that a group was selected
+                                self.group_selected.emit(group)
 
                             # Update selected nodes
                             self.graph.selected_nodes = []
@@ -763,11 +772,15 @@ class Canvas(QWidget):
                                 self.graph.selected_groups.append(group)
                                 # Move to the front the moment you select a group (update z-index)
                                 self.graph.bring_group_to_front(group)
+                                # Emit signal that a group was selected
+                                self.group_selected.emit(group)
                         else:
                             # Single selection (reset current selection)
                             self.graph.selected_groups = [group]
                             # Move to the front the moment you select a group (update z-index)
                             self.graph.bring_group_to_front(group)
+                            # Emit signal that a group was selected
+                            self.group_selected.emit(group)
 
                         # Update selected nodes
                         self.graph.selected_nodes = []
@@ -1478,6 +1491,10 @@ class Canvas(QWidget):
                 for group in selected_groups:
                     if group not in self.graph.selected_groups:
                         self.graph.selected_groups.append(group)
+
+            # Emit signal for each selected group
+            for group in selected_groups:
+                self.group_selected.emit(group)
 
             # Update selected nodes based on selected groups
             self.graph.selected_nodes = []

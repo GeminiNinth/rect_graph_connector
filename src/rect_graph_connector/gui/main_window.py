@@ -6,6 +6,7 @@ from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QKeyEvent
 from PyQt5.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QCheckBox,
     QFileDialog,
     QFrame,
@@ -108,7 +109,6 @@ class MainWindow(QMainWindow):
         self.reset_button = QPushButton(
             config.get_string("main_window.buttons.reset", "Reset All")
         )
-        # Delete and Rotate buttons removed - functionality moved to context menu
 
         # Side menu widgets
         self.group_list = QListWidget()
@@ -280,6 +280,9 @@ class MainWindow(QMainWindow):
 
         # Connecting mode change signal
         self.canvas.mode_changed.connect(self._update_mode_indicator)
+
+        # Connect group selection signal from canvas
+        self.canvas.group_selected.connect(self._handle_canvas_group_selected)
 
         # Connect grid signals
         self.canvas.grid_state_changed.connect(self._handle_grid_state_changed)
@@ -657,6 +660,36 @@ class MainWindow(QMainWindow):
         # Update the appearance of the checkbox
         opacity = 1.0 if visible else 0.5
         self.snap_checkbox.setStyleSheet(f"opacity: {opacity}")
+
+    def _handle_canvas_group_selected(self, group):
+        """
+        Handle the group_selected signal from the canvas.
+        Updates the side panel selection to match the canvas selection.
+
+        Args:
+            group (NodeGroup): The group that was selected in the canvas
+        """
+        # Find the index of the group in the node_groups list
+        try:
+            index = self.canvas.graph.node_groups.index(group)
+
+            # Check if we're in multi-selection mode (Shift key pressed)
+            modifiers = QApplication.keyboardModifiers()
+            shift_pressed = modifiers & Qt.ShiftModifier
+
+            if shift_pressed:
+                # In multi-selection mode, add to the current selection
+                # QListWidget doesn't support true multi-selection that matches the canvas behavior,
+                # so we'll just select the last group in multi-selection mode
+                self.group_list.setCurrentRow(index)
+            else:
+                # In single selection mode, just select the one group
+                self.group_list.setCurrentRow(index)
+        except ValueError:
+            # Group not found in the list
+            logger.warning(
+                f"Selected group not found in node_groups list: {group.name}"
+            )
 
     def _update_group_list(self):
         """Update the group list to reflect the current state of node groups."""
