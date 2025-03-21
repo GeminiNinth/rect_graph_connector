@@ -12,7 +12,7 @@ A Python application for creating rectangular graph structures with a graphical 
 
 ### Components
 
-- **RectNode**: Represents a rectangular node with position and size information
+- **SingleNode**: Represents a rectangular node with position and size information
 - **Graph**: Manages the graph structure, including nodes, edges, and groups
 - **Canvas**: Handles visualization and user interactions
 - **MainWindow**: Manages the application UI and user controls

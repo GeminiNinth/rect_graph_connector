@@ -14,7 +14,7 @@ from rect_graph_connector.gui.rendering.grid_renderer import GridRenderer
 from rect_graph_connector.gui.rendering.node_renderer import NodeRenderer
 from rect_graph_connector.gui.rendering.selection_renderer import SelectionRenderer
 from rect_graph_connector.models.graph import Graph
-from rect_graph_connector.models.rect_node import RectNode
+from rect_graph_connector.models.rect_node import SingleNode
 
 
 class MockPainter:
@@ -135,9 +135,9 @@ def graph_with_nodes():
     graph = Graph()
 
     # Create nodes
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
-    node3 = RectNode(x=100, y=200, size=40, id="node3")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
+    node3 = SingleNode(x=100, y=200, size=40, id="node3")
 
     # Add nodes to graph
     graph.nodes.extend([node1, node2, node3])

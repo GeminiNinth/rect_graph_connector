@@ -1,25 +1,25 @@
 """
-Tests for the RectNode model class.
+Tests for the SingleNode model class.
 """
 
 import uuid
 
 import pytest
 
-from rect_graph_connector.models.rect_node import RectNode
+from rect_graph_connector.models.rect_node import SingleNode
 
 
 def test_rect_node_initialization():
-    """Test that a RectNode initializes with the correct values."""
+    """Test that a SingleNode initializes with the correct values."""
     # Test with explicit ID
-    node = RectNode(x=100, y=200, size=40, id="test_node")
+    node = SingleNode(x=100, y=200, size=40, id="test_node")
     assert node.x == 100
     assert node.y == 200
     assert node.size == 40
     assert node.id == "test_node"
 
     # Test with auto-generated ID
-    node = RectNode(x=100, y=200, size=40)
+    node = SingleNode(x=100, y=200, size=40)
     assert node.x == 100
     assert node.y == 200
     assert node.size == 40
@@ -28,8 +28,8 @@ def test_rect_node_initialization():
 
 
 def test_rect_node_move():
-    """Test moving a RectNode."""
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    """Test moving a SingleNode."""
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
 
     # Move the node
     node.move(50, 25)
@@ -47,8 +47,8 @@ def test_rect_node_move():
 
 
 def test_rect_node_contains_point():
-    """Test checking if a RectNode contains a point."""
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    """Test checking if a SingleNode contains a point."""
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
 
     # Points inside the node
     assert node.contains_point(100, 100) is True  # Center
@@ -62,10 +62,10 @@ def test_rect_node_contains_point():
 
 
 def test_rect_node_equality():
-    """Test RectNode equality comparison."""
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=100, y=100, size=40, id="node1")  # Same ID as node1
-    node3 = RectNode(x=100, y=100, size=40, id="node3")  # Different ID
+    """Test SingleNode equality comparison."""
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=100, y=100, size=40, id="node1")  # Same ID as node1
+    node3 = SingleNode(x=100, y=100, size=40, id="node3")  # Different ID
 
     # Nodes with the same ID should be considered equal
     assert node1 == node2
@@ -78,9 +78,11 @@ def test_rect_node_equality():
 
 
 def test_rect_node_hash():
-    """Test RectNode hash function."""
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=200, size=30, id="node1")  # Same ID, different attributes
+    """Test SingleNode hash function."""
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(
+        x=200, y=200, size=30, id="node1"
+    )  # Same ID, different attributes
 
     # Nodes with the same ID should have the same hash
     assert hash(node1) == hash(node2)
@@ -93,8 +95,8 @@ def test_rect_node_hash():
 
 
 def test_rect_node_str_representation():
-    """Test the string representation of a RectNode."""
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    """Test the string representation of a SingleNode."""
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
 
     # Check that the string representation contains the node's attributes
     str_repr = str(node)
@@ -104,8 +106,8 @@ def test_rect_node_str_representation():
 
 
 def test_rect_node_to_dict():
-    """Test converting a RectNode to a dictionary."""
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    """Test converting a SingleNode to a dictionary."""
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
 
     # Convert to dictionary
     node_dict = node.to_dict()
@@ -118,12 +120,12 @@ def test_rect_node_to_dict():
 
 
 def test_rect_node_from_dict():
-    """Test creating a RectNode from a dictionary."""
+    """Test creating a SingleNode from a dictionary."""
     # Create a dictionary with node data
     node_dict = {"id": "test_node", "x": 100, "y": 100, "size": 40}
 
     # Create a node from the dictionary
-    node = RectNode.from_dict(node_dict)
+    node = SingleNode.from_dict(node_dict)
 
     # Check that the node has the correct values
     assert node.id == "test_node"
@@ -134,7 +136,7 @@ def test_rect_node_from_dict():
     # Test with missing ID (should generate one)
     node_dict = {"x": 100, "y": 100, "size": 40}
 
-    node = RectNode.from_dict(node_dict)
+    node = SingleNode.from_dict(node_dict)
     assert node.x == 100
     assert node.y == 100
     assert node.size == 40
@@ -143,8 +145,8 @@ def test_rect_node_from_dict():
 
 
 def test_rect_node_copy():
-    """Test creating a copy of a RectNode."""
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    """Test creating a copy of a SingleNode."""
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
 
     # Create a copy
     copy = node.copy()

@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QApplication
 
 from rect_graph_connector.gui.canvas import Canvas
 from rect_graph_connector.models.graph import Graph
-from rect_graph_connector.models.rect_node import RectNode
+from rect_graph_connector.models.rect_node import SingleNode
 
 
 @pytest.fixture
@@ -51,12 +51,12 @@ def canvas(app):
 @pytest.fixture
 def rect_node():
     """
-    Fixture that provides a RectNode instance for testing.
+    Fixture that provides a SingleNode instance for testing.
 
     Returns:
-        RectNode: A new RectNode instance with default values
+        SingleNode: A new SingleNode instance with default values
     """
-    return RectNode(x=100, y=100, size=40, id="test_node")
+    return SingleNode(x=100, y=100, size=40, id="test_node")
 
 
 @pytest.fixture
@@ -70,10 +70,10 @@ def populated_graph():
     graph = Graph()
 
     # Create nodes
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
-    node3 = RectNode(x=100, y=200, size=40, id="node3")
-    node4 = RectNode(x=200, y=200, size=40, id="node4")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
+    node3 = SingleNode(x=100, y=200, size=40, id="node3")
+    node4 = SingleNode(x=200, y=200, size=40, id="node4")
 
     # Add nodes to graph
     graph.nodes.extend([node1, node2, node3, node4])

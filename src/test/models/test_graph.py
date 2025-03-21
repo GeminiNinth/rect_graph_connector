@@ -6,7 +6,7 @@ import pytest
 from PyQt5.QtCore import QPointF
 
 from rect_graph_connector.models.graph import Graph
-from rect_graph_connector.models.rect_node import RectNode
+from rect_graph_connector.models.rect_node import SingleNode
 
 
 def test_graph_initialization():
@@ -22,7 +22,7 @@ def test_graph_initialization():
 def test_add_node():
     """Test adding a node to the graph."""
     graph = Graph()
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
 
     # Add the node
     graph.nodes.append(node)
@@ -35,8 +35,8 @@ def test_add_node():
 def test_add_edge():
     """Test adding an edge between two nodes."""
     graph = Graph()
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
 
     # Add the nodes
     graph.nodes.extend([node1, node2])
@@ -56,8 +56,8 @@ def test_add_edge():
 def test_create_node_group():
     """Test creating a node group."""
     graph = Graph()
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
 
     # Add the nodes
     graph.nodes.extend([node1, node2])
@@ -75,8 +75,8 @@ def test_create_node_group():
 def test_delete_group():
     """Test deleting a node group."""
     graph = Graph()
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
 
     # Add the nodes
     graph.nodes.extend([node1, node2])
@@ -98,8 +98,8 @@ def test_delete_group():
 def test_find_node_at_position():
     """Test finding a node at a specific position."""
     graph = Graph()
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
 
     # Add the nodes
     graph.nodes.extend([node1, node2])
@@ -124,9 +124,9 @@ def test_find_node_at_position():
 def test_get_group_for_node():
     """Test getting the group that a node belongs to."""
     graph = Graph()
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
-    node3 = RectNode(x=300, y=100, size=40, id="node3")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
+    node3 = SingleNode(x=300, y=100, size=40, id="node3")
 
     # Add the nodes
     graph.nodes.extend([node1, node2, node3])
@@ -151,10 +151,10 @@ def test_get_group_for_node():
 def test_bring_group_to_front():
     """Test bringing a group to the front (updating z-index)."""
     graph = Graph()
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
-    node3 = RectNode(x=300, y=100, size=40, id="node3")
-    node4 = RectNode(x=400, y=100, size=40, id="node4")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
+    node3 = SingleNode(x=300, y=100, size=40, id="node3")
+    node4 = SingleNode(x=400, y=100, size=40, id="node4")
 
     # Add the nodes
     graph.nodes.extend([node1, node2, node3, node4])
@@ -179,8 +179,8 @@ def test_bring_group_to_front():
 def test_rotate_node_groups():
     """Test rotating node groups."""
     graph = Graph()
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=200, y=100, size=40, id="node2")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=200, y=100, size=40, id="node2")
 
     # Add the nodes
     graph.nodes.extend([node1, node2])

@@ -10,7 +10,7 @@ from rect_graph_connector.models.connectivity import (
     find_intersecting_edges,
 )
 from rect_graph_connector.models.graph import Graph
-from rect_graph_connector.models.rect_node import RectNode
+from rect_graph_connector.models.rect_node import SingleNode
 
 
 @pytest.fixture
@@ -24,10 +24,10 @@ def graph_with_edges():
     graph = Graph()
 
     # Create nodes in a grid pattern
-    node1 = RectNode(x=100, y=100, size=40, id="node1")
-    node2 = RectNode(x=300, y=100, size=40, id="node2")
-    node3 = RectNode(x=100, y=300, size=40, id="node3")
-    node4 = RectNode(x=300, y=300, size=40, id="node4")
+    node1 = SingleNode(x=100, y=100, size=40, id="node1")
+    node2 = SingleNode(x=300, y=100, size=40, id="node2")
+    node3 = SingleNode(x=100, y=300, size=40, id="node3")
+    node4 = SingleNode(x=300, y=300, size=40, id="node4")
 
     # Add nodes to graph
     graph.nodes.extend([node1, node2, node3, node4])

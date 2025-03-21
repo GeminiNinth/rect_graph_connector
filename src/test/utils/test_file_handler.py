@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 from rect_graph_connector.models.graph import Graph
-from rect_graph_connector.models.rect_node import RectNode
+from rect_graph_connector.models.rect_node import SingleNode
 from rect_graph_connector.utils.file_handler import FileHandler
 
 

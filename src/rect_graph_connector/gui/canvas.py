@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
 from ..config import config
 from ..models.connectivity import delete_edge_at_position, find_intersecting_edges
 from ..models.graph import Graph
-from ..models.rect_node import RectNode
+from ..models.rect_node import SingleNode
 from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
 from .context_menus.edit_menu import EditContextMenu
@@ -580,7 +580,7 @@ class Canvas(QWidget):
                         eligible_nodes.extend(group.get_nodes(self.graph.nodes))
 
                     # Check if all eligible nodes are already selected
-                    # We need to compare node IDs instead of node objects since RectNode isn't hashable
+                    # We need to compare node IDs instead of node objects since SingleNode isn't hashable
                     eligible_node_ids = {node.id for node in eligible_nodes}
 
                     if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:

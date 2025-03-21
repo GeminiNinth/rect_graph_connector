@@ -1,5 +1,5 @@
 """
-This module contains the RectNode class which represents a rectangular node in the graph.
+This module contains the SingleNode class which represents a rectangular node in the graph.
 """
 
 from dataclasses import dataclass
@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class RectNode:
+class SingleNode:
     """
     A class representing a rectangular node in the graph.
 
@@ -42,7 +42,7 @@ class RectNode:
             self.id = str(uuid.uuid4())
 
         logger.debug(
-            f"DEBUG: RectNode.__post_init__ called with id={self.id}, x={self.x}, y={self.y}, row={self.row}, col={self.col}, size={self.size}"
+            f"DEBUG: SingleNode.__post_init__ called with id={self.id}, x={self.x}, y={self.y}, row={self.row}, col={self.col}, size={self.size}"
         )
         if self.size is None:
             self.size = config.get_dimension("node.default_size", 30.0)
@@ -92,15 +92,15 @@ class RectNode:
     @classmethod
     def from_dict(cls, data: dict):
         """
-        Create a RectNode from a dictionary.
+        Create a SingleNode from a dictionary.
 
         Args:
             data (dict): Dictionary containing node attributes
 
         Returns:
-            RectNode: A new RectNode instance
+            SingleNode: A new SingleNode instance
         """
-        logger.debug(f"DEBUG: RectNode.from_dict called with data={data}")
+        logger.debug(f"DEBUG: SingleNode.from_dict called with data={data}")
 
         # Handle missing keys with default values
         node_id = data.get("id", str(id(data)))  # Use object id if no id provided
@@ -117,9 +117,9 @@ class RectNode:
         Create a copy of this node.
 
         Returns:
-            RectNode: A new RectNode with the same attributes
+            SingleNode: A new SingleNode with the same attributes
         """
-        return RectNode(
+        return SingleNode(
             id=self.id, x=self.x, y=self.y, row=self.row, col=self.col, size=self.size
         )
 
@@ -146,13 +146,13 @@ class RectNode:
         Returns:
             bool: True if the nodes have the same ID, False otherwise
         """
-        if not isinstance(other, RectNode):
+        if not isinstance(other, SingleNode):
             return False
         return self.id == other.id
 
     def __hash__(self):
         """
-        Hash function for RectNode based on its ID.
+        Hash function for SingleNode based on its ID.
 
         Returns:
             int: Hash value

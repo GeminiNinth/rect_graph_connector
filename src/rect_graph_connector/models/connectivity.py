@@ -8,10 +8,10 @@ in various patterns like 4-directional connections.
 from typing import Dict, List, Tuple
 
 from .graph import Graph
-from .rect_node import RectNode
+from .rect_node import SingleNode
 
 
-def connect_nodes_in_4_directions(graph: Graph, nodes: List[RectNode]) -> None:
+def connect_nodes_in_4_directions(graph: Graph, nodes: List[SingleNode]) -> None:
     """
     Connect all nodes in a list in 4 directions (up, down, left, right).
 
@@ -24,7 +24,7 @@ def connect_nodes_in_4_directions(graph: Graph, nodes: List[RectNode]) -> None:
 
     Args:
         graph (Graph): The graph where connections will be added
-        nodes (List[RectNode]): The list of nodes to connect
+        nodes (List[SingleNode]): The list of nodes to connect
     """
     if not nodes:
         return
@@ -74,7 +74,7 @@ def connect_nodes_in_4_directions(graph: Graph, nodes: List[RectNode]) -> None:
                     graph.add_edge(node, neighbor_node)
 
 
-def connect_nodes_in_8_directions(graph: Graph, nodes: List[RectNode]) -> None:
+def connect_nodes_in_8_directions(graph: Graph, nodes: List[SingleNode]) -> None:
     """
     Connect all nodes in a list in 8 directions (including diagonals).
 
@@ -87,7 +87,7 @@ def connect_nodes_in_8_directions(graph: Graph, nodes: List[RectNode]) -> None:
 
     Args:
         graph (Graph): The graph where connections will be added
-        nodes (List[RectNode]): The list of nodes to connect
+        nodes (List[SingleNode]): The list of nodes to connect
     """
     if not nodes:
         return
@@ -277,14 +277,14 @@ def line_segments_intersect(
 
 
 def calculate_edge_endpoints(
-    source_node: RectNode, target_node: RectNode
+    source_node: SingleNode, target_node: SingleNode
 ) -> Tuple[Tuple[float, float], Tuple[float, float]]:
     """
     Calculate the actual visual endpoints of an edge considering node sizes.
 
     Args:
-        source_node (RectNode): The source node
-        target_node (RectNode): The target node
+        source_node (SingleNode): The source node
+        target_node (SingleNode): The target node
 
     Returns:
         Tuple[Tuple[float, float], Tuple[float, float]]: ((start_x, start_y), (end_x, end_y))
@@ -311,7 +311,7 @@ def calculate_edge_endpoints(
 
 
 def connect_all_for_one_edge_selection(
-    graph: Graph, source_nodes: List[RectNode], target_node: RectNode
+    graph: Graph, source_nodes: List[SingleNode], target_node: SingleNode
 ) -> None:
     """
     Connect multiple source nodes to a single target node.
@@ -321,8 +321,8 @@ def connect_all_for_one_edge_selection(
 
     Args:
         graph (Graph): The graph where connections will be added
-        source_nodes (List[RectNode]): List of source nodes to connect from
-        target_node (RectNode): The target node to connect to
+        source_nodes (List[SingleNode]): List of source nodes to connect from
+        target_node (SingleNode): The target node to connect to
     """
     if not source_nodes or not target_node:
         return

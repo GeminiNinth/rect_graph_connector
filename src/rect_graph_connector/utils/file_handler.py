@@ -50,7 +50,7 @@ class FileHandler:
             graph = graph_or_nodes
             nodes = []
 
-            # Convert RectNode objects to dictionaries
+            # Convert SingleNode objects to dictionaries
             for node in graph.nodes:
                 nodes.append(
                     {

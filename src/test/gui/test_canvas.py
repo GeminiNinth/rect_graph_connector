@@ -7,7 +7,7 @@ from PyQt5.QtCore import QPointF, Qt
 from PyQt5.QtTest import QTest
 
 from rect_graph_connector.gui.canvas import Canvas
-from rect_graph_connector.models.rect_node import RectNode
+from rect_graph_connector.models.rect_node import SingleNode
 
 
 def test_canvas_initialization(canvas):
@@ -71,7 +71,7 @@ def test_grid_visibility_toggle(canvas):
 def test_find_node_at_position(canvas):
     """Test finding a node at a specific position."""
     # Add a test node to the canvas
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
     canvas.graph.nodes.append(node)
 
     # Test finding the node at its position
@@ -94,7 +94,7 @@ def test_snap_to_grid(canvas):
 
     # Test snapping all nodes
     # First add a node
-    node = RectNode(x=42, y=37, size=40, id="test_node")
+    node = SingleNode(x=42, y=37, size=40, id="test_node")
     canvas.graph.nodes.append(node)
     canvas.graph.selected_nodes = [node]
 
@@ -112,7 +112,7 @@ def test_snap_to_grid(canvas):
 def test_key_press_escape(canvas):
     """Test that pressing Escape clears selections."""
     # Add a test node and select it
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
     canvas.graph.nodes.append(node)
     canvas.graph.selected_nodes = [node]
 
@@ -133,7 +133,7 @@ def test_mouse_press_on_node(canvas, qtbot):
     """Test selecting a node with mouse press."""
 
     # Add a test node
-    node = RectNode(x=100, y=100, size=40, id="test_node")
+    node = SingleNode(x=100, y=100, size=40, id="test_node")
     canvas.graph.nodes.append(node)
 
     # Create a group for the node

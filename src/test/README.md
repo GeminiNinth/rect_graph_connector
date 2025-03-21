@@ -16,7 +16,7 @@ src/test/
 │       └── test_renderers_fixed.py  # Fixed renderer tests for UV environment
 ├── models/                  # Tests for data models
 │   ├── test_graph.py        # Tests for the Graph class
-│   ├── test_rect_node.py    # Tests for the RectNode class
+│   ├── test_rect_node.py    # Tests for the SingleNode class
 │   └── test_connectivity.py # Tests for connectivity functions
 └── utils/                   # Tests for utility functions
     ├── test_geometry.py     # Tests for geometry utilities
