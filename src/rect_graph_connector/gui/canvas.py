@@ -729,6 +729,8 @@ class Canvas(QWidget):
                     else:
                         self.dragging = True
                         self.drag_start = clicked_point
+                        # Store the initially clicked node for reference during movement
+                        self._drag_start_node = node
 
                         # If start dragging by clicking on a node, it is possible that the z-index update at the time of selection is not called, so renew just in case
                         if self._pending_deselect and self.graph.selected_groups:
@@ -769,6 +771,9 @@ class Canvas(QWidget):
                     # If no node is found, check if click is within a NodeGroup boundary.
                     group = self.find_group_at_position(clicked_point)
                     if group:
+                        # Set dragging flag to true when clicking on a group
+                        self.dragging = True
+                        self.drag_start = clicked_point
                         # Multi-selection with Shift key
                         if shift_pressed:
                             # If already selected, do nothing; if not, add to selection
@@ -792,6 +797,11 @@ class Canvas(QWidget):
                             self.graph.selected_nodes.extend(
                                 g.get_nodes(self.graph.nodes)
                             )
+
+                        # Store a reference node from the clicked group for movement
+                        if group.get_nodes(self.graph.nodes):
+                            self._drag_start_node = group.get_nodes(self.graph.nodes)[0]
+
                         self.update()
                     else:
                         # If no node or group is found, it is considered a background click.
@@ -1059,32 +1069,38 @@ class Canvas(QWidget):
                     total_dx = graph_point.x() - self.drag_start.x()
                     total_dy = graph_point.y() - self.drag_start.y()
 
-                    # Find center point of selected nodes
-                    if self.graph.selected_nodes:
-                        center_x = sum(
-                            node.x for node in self.graph.selected_nodes
-                        ) / len(self.graph.selected_nodes)
-                        center_y = sum(
-                            node.y for node in self.graph.selected_nodes
-                        ) / len(self.graph.selected_nodes)
+                    # Use the initially clicked node as the reference point if available
+                    # Otherwise, fall back to using the first selected node
+                    if (
+                        self._drag_start_node
+                        and self._drag_start_node in self.graph.selected_nodes
+                    ):
+                        reference_x = self._drag_start_node.x
+                        reference_y = self._drag_start_node.y
+                    elif self.graph.selected_nodes:
+                        # Fall back to the first selected node if drag_start_node is not set
+                        reference_node = self.graph.selected_nodes[0]
+                        reference_x = reference_node.x
+                        reference_y = reference_node.y
+                    else:
+                        # This should not happen, but just in case
+                        return
 
-                        # Calculate target center position
-                        target_center_x = center_x + total_dx
-                        target_center_y = center_y + total_dy
+                    # Calculate target position for the reference node
+                    target_x = reference_x + total_dx
+                    target_y = reference_y + total_dy
 
-                        # Find nearest grid point to target center
-                        snapped_center_x, snapped_center_y = self._snap_to_grid_point(
-                            target_center_x, target_center_y
-                        )
+                    # Find nearest grid point for the reference node
+                    snapped_x, snapped_y = self._snap_to_grid_point(target_x, target_y)
 
-                        # Calculate adjusted displacement to maintain relative positions
-                        adjusted_dx = snapped_center_x - center_x
-                        adjusted_dy = snapped_center_y - center_y
+                    # Calculate adjusted displacement to maintain relative positions
+                    adjusted_dx = snapped_x - reference_x
+                    adjusted_dy = snapped_y - reference_y
 
-                        # Move all nodes by the adjusted displacement
-                        for node in self.graph.selected_nodes:
-                            node.x += adjusted_dx
-                            node.y += adjusted_dy
+                    # Move all selected nodes by the adjusted displacement
+                    for node in self.graph.selected_nodes:
+                        node.x += adjusted_dx
+                        node.y += adjusted_dy
 
                     # Update drag start for next movement calculation
                     self.drag_start = QPointF(
@@ -1112,32 +1128,38 @@ class Canvas(QWidget):
                     total_dx = graph_point.x() - self.drag_start.x()
                     total_dy = graph_point.y() - self.drag_start.y()
 
-                    # Find center point of selected nodes
-                    if self.graph.selected_nodes:
-                        center_x = sum(
-                            node.x for node in self.graph.selected_nodes
-                        ) / len(self.graph.selected_nodes)
-                        center_y = sum(
-                            node.y for node in self.graph.selected_nodes
-                        ) / len(self.graph.selected_nodes)
+                    # Use the initially clicked node as the reference point if available
+                    # Otherwise, fall back to using the first selected node
+                    if (
+                        self._drag_start_node
+                        and self._drag_start_node in self.graph.selected_nodes
+                    ):
+                        reference_x = self._drag_start_node.x
+                        reference_y = self._drag_start_node.y
+                    elif self.graph.selected_nodes:
+                        # Fall back to the first selected node if drag_start_node is not set
+                        reference_node = self.graph.selected_nodes[0]
+                        reference_x = reference_node.x
+                        reference_y = reference_node.y
+                    else:
+                        # This should not happen, but just in case
+                        return
 
-                        # Calculate target center position
-                        target_center_x = center_x + total_dx
-                        target_center_y = center_y + total_dy
+                    # Calculate target position for the reference node
+                    target_x = reference_x + total_dx
+                    target_y = reference_y + total_dy
 
-                        # Find nearest grid point to target center
-                        snapped_center_x, snapped_center_y = self._snap_to_grid_point(
-                            target_center_x, target_center_y
-                        )
+                    # Find nearest grid point for the reference node
+                    snapped_x, snapped_y = self._snap_to_grid_point(target_x, target_y)
 
-                        # Calculate adjusted displacement to maintain relative positions
-                        adjusted_dx = snapped_center_x - center_x
-                        adjusted_dy = snapped_center_y - center_y
+                    # Calculate adjusted displacement to maintain relative positions
+                    adjusted_dx = snapped_x - reference_x
+                    adjusted_dy = snapped_y - reference_y
 
-                        # Move all nodes by the adjusted displacement
-                        for node in self.graph.selected_nodes:
-                            node.x += adjusted_dx
-                            node.y += adjusted_dy
+                    # Move all selected nodes by the adjusted displacement
+                    for node in self.graph.selected_nodes:
+                        node.x += adjusted_dx
+                        node.y += adjusted_dy
 
                     # Update drag start for next movement calculation
                     self.drag_start = QPointF(
@@ -1231,6 +1253,7 @@ class Canvas(QWidget):
                 # Drag operation complete -No z-index update when drag is finished
                 self.dragging = False
                 self.drag_start = None
+                self._drag_start_node = None
 
                 # Handle rectangle selection completion
                 if (
@@ -1259,6 +1282,7 @@ class Canvas(QWidget):
                     # End the dragging operation
                     self.dragging = False
                     self.drag_start = None
+                    self._drag_start_node = None
                     # Reset cursor back to the edit mode cursor
                     self.setCursor(Qt.CrossCursor)
                     # Force an update to ensure edges are redrawn correctly

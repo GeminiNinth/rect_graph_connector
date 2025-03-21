@@ -1180,6 +1180,14 @@ class Graph:
             if old_src in old_to_new_id and old_dst in old_to_new_id:
                 self.edges.append((old_to_new_id[old_src], old_to_new_id[old_dst]))
 
+        # Set the newly created groups as selected
+        self.selected_groups = new_groups
+
+        # Update selected nodes based on the new groups
+        self.selected_nodes = []
+        for group in new_groups:
+            self.selected_nodes.extend(group.get_nodes(self.nodes))
+
         return new_groups
 
     def bring_group_to_front(self, group: NodeGroup) -> None:
