@@ -61,8 +61,6 @@ knife:
   path_width: 1 # Knife Pass Line Width
 
 grid:
-  base_x: 100.0
-  base_y: 100.0
   spacing: 40.0
 
 dialog:

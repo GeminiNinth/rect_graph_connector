@@ -157,13 +157,29 @@ class Graph:
         """
         from ..config import config
 
-        # Get grid settings from configuration file
-        if base_x is None:
-            base_x = config.get_dimension("grid.base_x", 100.0)
-        if base_y is None:
-            base_y = config.get_dimension("grid.base_y", 100.0)
+        # Get configuration values
         if spacing is None:
             spacing = config.get_dimension("grid.spacing", 40.0)
+
+        # Get node size and group margin
+        node_size = config.get_dimension("node.default_size", 30.0)
+        group_margin = config.get_dimension("group.border_margin", 5)
+
+        # Calculate total group size including nodes and margins
+        total_width = (cols - 1) * spacing + node_size + group_margin * 2
+        total_height = (rows - 1) * spacing + node_size + group_margin * 2
+
+        # Get canvas dimensions (use splitter.canvas for actual canvas width)
+        canvas_width = config.get_dimension("main_window.splitter.canvas", 650)
+        canvas_height = config.get_dimension("canvas.min_height", 500)
+
+        # Calculate center position considering node size and group margin
+        if base_x is None:
+            # Subtract node size to account for the node's own width
+            base_x = (canvas_width - total_width) / 2
+        if base_y is None:
+            # Subtract node size to account for the node's own height
+            base_y = (canvas_height - total_height) / 2
 
         # Get starting node ID based on configuration and existing nodes
         next_id = config.node_id_start
