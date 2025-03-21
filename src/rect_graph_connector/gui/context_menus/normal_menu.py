@@ -89,6 +89,19 @@ class NormalContextMenu(QMenu):
         self.rotate_action.triggered.connect(self._rotate_selected_groups)
         self.rotate_action.setEnabled(False)  # Initially disabled
 
+        # Switch to Edit-Mode action
+        title = config.get_string(
+            "normal_menu.switch_to_edit.title", "Switch to Edit-Mode"
+        )
+        self.switch_to_edit_action = QAction(title, self)
+        self.switch_to_edit_action.setToolTip(
+            config.get_string(
+                "normal_menu.switch_to_edit.tooltip",
+                "Switch to edit mode to create and modify connections between nodes.",
+            )
+        )
+        self.switch_to_edit_action.triggered.connect(self._switch_to_edit_mode)
+
     def _build_menu(self):
         """Build the menu structure by adding actions."""
         self.addAction(self.set_node_id_start_action)
@@ -98,6 +111,8 @@ class NormalContextMenu(QMenu):
         self.addSeparator()
         self.addAction(self.delete_action)
         self.addAction(self.rotate_action)
+        self.addSeparator()
+        self.addAction(self.switch_to_edit_action)
 
     def showEvent(self, event):
         """
@@ -117,6 +132,11 @@ class NormalContextMenu(QMenu):
         # Enable/disable delete and rotate actions based on selection
         self.delete_action.setEnabled(has_selection)
         self.rotate_action.setEnabled(has_selection)
+        # Enable switch_to_edit_action only if there are selected groups
+        # (since edit mode requires target groups)
+        self.switch_to_edit_action.setEnabled(
+            len(self.canvas.graph.selected_groups) > 0
+        )
 
     def _set_node_id_start_index(self):
         """
@@ -208,3 +228,12 @@ class NormalContextMenu(QMenu):
         main_window = self.canvas.window()
         if hasattr(main_window, "_handle_rotate"):
             main_window._handle_rotate()
+
+    def _switch_to_edit_mode(self):
+        """
+        Switch from normal mode to edit mode.
+        This uses the canvas's toggle_edit_mode method.
+        """
+        if self.canvas:
+            # If there are selected groups, they will be used as edit targets
+            self.canvas.toggle_edit_mode()

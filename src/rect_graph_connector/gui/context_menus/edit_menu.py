@@ -115,6 +115,19 @@ class EditContextMenu(QMenu):
         self.toggle_knife_action.setCheckable(True)
         self.toggle_knife_action.triggered.connect(self._toggle_knife_mode)
 
+        # Switch to Normal-Mode action
+        title = config.get_string(
+            "edit_menu.switch_to_normal.title", "Switch to Normal-Mode"
+        )
+        self.switch_to_normal_action = QAction(title, self)
+        self.switch_to_normal_action.setToolTip(
+            config.get_string(
+                "edit_menu.switch_to_normal.tooltip",
+                "Switch back to normal mode for node group management.",
+            )
+        )
+        self.switch_to_normal_action.triggered.connect(self._switch_to_normal_mode)
+
     def _build_menu(self):
         """Build the menu structure by adding actions."""
         # Add delete selected edges action
@@ -135,6 +148,8 @@ class EditContextMenu(QMenu):
         self.addAction(self.delete_edges_action)
         self.addSeparator()
         self.addAction(self.toggle_knife_action)
+        self.addSeparator()
+        self.addAction(self.switch_to_normal_action)
 
     def _toggle_knife_mode(self, checked):
         """
@@ -238,6 +253,14 @@ class EditContextMenu(QMenu):
             # Clear the selection after deletion
             self.canvas.selected_edges = []
             self.canvas.update()
+
+    def _switch_to_normal_mode(self):
+        """
+        Switch from edit mode to normal mode.
+        This uses the canvas's toggle_edit_mode method.
+        """
+        if self.canvas:
+            self.canvas.toggle_edit_mode()
 
     def prepare_for_display(self):
         """
