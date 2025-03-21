@@ -1221,6 +1221,53 @@ class Graph:
             f"Brought group '{group.name}' to front with z-index {group.z_index}"
         )
 
+    def rotate_groups_around_center(self, groups: List[NodeGroup]) -> None:
+        """
+        Rotate multiple node groups around their common center point.
+
+        This method calculates the center point of all nodes in the selected groups
+        and rotates each node around this common center point.
+
+        Args:
+            groups (List[NodeGroup]): The groups to rotate together
+        """
+        if not groups or len(groups) <= 1:
+            return
+
+        # Get all nodes from all selected groups
+        all_nodes = []
+        for group in groups:
+            group_nodes = group.get_nodes(self.nodes)
+            all_nodes.extend(group_nodes)
+
+        if not all_nodes:
+            return
+
+        # Calculate common center point of all nodes
+        center_x = sum(node.x for node in all_nodes) / len(all_nodes)
+        center_y = sum(node.y for node in all_nodes) / len(all_nodes)
+
+        logger.info(
+            f"Rotating {len(groups)} groups around common center: ({center_x:.2f}, {center_y:.2f})"
+        )
+
+        # Rotate all nodes around the common center
+        for node in all_nodes:
+            # Save original position for debugging
+            orig_x, orig_y = node.x, node.y
+
+            # Convert to relative coordinates
+            rel_x = node.x - center_x
+            rel_y = node.y - center_y
+
+            # Apply 90-degree rotation clockwise
+            node.x = center_x - rel_y
+            node.y = center_y + rel_x
+
+            logger.debug(
+                f"  Node {node.id}: ({orig_x:.2f}, {orig_y:.2f}) -> ({node.x:.2f}, {node.y:.2f})"
+            )
+
     def get_groups_by_z_index(self) -> List[NodeGroup]:
         """
         Get node groups sorted by z-index (lowest to highest).

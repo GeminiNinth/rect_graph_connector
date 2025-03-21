@@ -78,16 +78,32 @@ class NormalContextMenu(QMenu):
         self.delete_action.setEnabled(False)  # Initially disabled
 
         # Rotate group action
-        title = config.get_string("normal_menu.rotate.title", "Rotate Group")
+        title = config.get_string(
+            "normal_menu.rotate_individual.title", "Rotate Individual Elements"
+        )
         self.rotate_action = QAction(title, self)
         self.rotate_action.setToolTip(
             config.get_string(
-                "normal_menu.rotate.tooltip",
-                "Rotate the selected node group or nodes by 90 degrees.",
+                "normal_menu.rotate_individual.tooltip",
+                "Rotate each selected group or node around its own center point by 90 degrees.",
             )
         )
         self.rotate_action.triggered.connect(self._rotate_selected_groups)
         self.rotate_action.setEnabled(False)  # Initially disabled
+
+        # Rotate groups together action
+        title = config.get_string(
+            "normal_menu.rotate_common_center.title", "Rotate Around Common Center"
+        )
+        self.rotate_group_action = QAction(title, self)
+        self.rotate_group_action.setToolTip(
+            config.get_string(
+                "normal_menu.rotate_common_center.tooltip",
+                "Rotate multiple selected groups as a single unit around their common center point by 90 degrees.",
+            )
+        )
+        self.rotate_group_action.triggered.connect(self._rotate_groups_together)
+        self.rotate_group_action.setEnabled(False)  # Initially disabled
 
         # Switch to Edit-Mode action
         title = config.get_string(
@@ -111,6 +127,7 @@ class NormalContextMenu(QMenu):
         self.addSeparator()
         self.addAction(self.delete_action)
         self.addAction(self.rotate_action)
+        self.addAction(self.rotate_group_action)
         self.addSeparator()
         self.addAction(self.switch_to_edit_action)
 
@@ -132,6 +149,8 @@ class NormalContextMenu(QMenu):
         # Enable/disable delete and rotate actions based on selection
         self.delete_action.setEnabled(has_selection)
         self.rotate_action.setEnabled(has_selection)
+        # Enable rotate_group_action only if multiple groups are selected
+        self.rotate_group_action.setEnabled(len(self.canvas.graph.selected_groups) > 1)
         # Enable switch_to_edit_action only if there are selected groups
         # (since edit mode requires target groups)
         self.switch_to_edit_action.setEnabled(
@@ -222,12 +241,21 @@ class NormalContextMenu(QMenu):
 
     def _rotate_selected_groups(self):
         """
-        Rotate the currently selected node groups or nodes.
+        Rotate each selected group or node around its own center point individually.
         This calls the main window's _handle_rotate method.
         """
         main_window = self.canvas.window()
         if hasattr(main_window, "_handle_rotate"):
             main_window._handle_rotate()
+
+    def _rotate_groups_together(self):
+        """
+        Rotate multiple selected groups as a single unit around their common center point.
+        This calls the main window's _handle_rotate_groups method.
+        """
+        main_window = self.canvas.window()
+        if hasattr(main_window, "_handle_rotate_groups"):
+            main_window._handle_rotate_groups()
 
     def _switch_to_edit_mode(self):
         """

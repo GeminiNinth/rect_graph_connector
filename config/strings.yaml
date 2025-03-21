@@ -79,9 +79,12 @@ normal_menu:
   delete:
     title: "Delete Group"
     tooltip: "Delete the selected node group or nodes."
-  rotate:
-    title: "Rotate Group"
-    tooltip: "Rotate the selected node group or nodes by 90 degrees."
+  rotate_individual:
+    title: "Rotate Individual Elements"
+    tooltip: "Rotate each selected group or node around its own center point by 90 degrees."
+  rotate_common_center:
+    title: "Rotate Around Common Center"
+    tooltip: "Rotate multiple selected groups as a single unit around their common center point by 90 degrees."
   switch_to_edit:
     title: "Switch to Edit-Mode"
     tooltip: "Switch to edit mode to create and modify connections between nodes."

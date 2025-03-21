@@ -481,6 +481,30 @@ class MainWindow(QMainWindow):
             self.canvas.graph.rotate_group(self.canvas.graph.selected_nodes)
             self.canvas.update()
 
+    def _handle_rotate_groups(self):
+        """
+        Handle the Rotate Groups Together button click event.
+        This rotates multiple selected groups around their common center point.
+        """
+        if (
+            self.canvas.graph.selected_groups
+            and len(self.canvas.graph.selected_groups) > 1
+        ):
+            # Log how many groups are being rotated together
+            logger.info(
+                f"Rotating {len(self.canvas.graph.selected_groups)} groups around common center"
+            )
+
+            # Rotate all selected groups around their common center point
+            self.canvas.graph.rotate_groups_around_center(
+                self.canvas.graph.selected_groups
+            )
+
+            for group in self.canvas.graph.selected_groups:
+                logger.info(f"  Rotated group: {group.name} (ID: {group.id})")
+
+            self.canvas.update()
+
     def _handle_rename_group(self, item):
         """Handle the double-click event on a group item to rename it."""
         index = self.group_list.row(item)
@@ -709,9 +733,31 @@ class MainWindow(QMainWindow):
         Args:
             event (QKeyEvent): The key event to handle
         """
-        # Delete key (Del) pressed
-        if event.key() == Qt.Key_Delete:
+        # Get keyboard shortcuts from config
+        delete_key = getattr(
+            Qt, f"Key_{config.get_constant('keyboard_shortcuts.delete', 'Delete')}"
+        )
+        rotate_key = getattr(
+            Qt,
+            f"Key_{config.get_constant('keyboard_shortcuts.rotate_individual', 'R')}",
+        )
+        rotate_group_key = getattr(
+            Qt,
+            f"Key_{config.get_constant('keyboard_shortcuts.rotate_common_center', 'Shift+R')}",
+        )
+
+        # Get modifiers
+        modifiers = event.modifiers()
+        shift_pressed = bool(modifiers & Qt.ShiftModifier)
+
+        # Check for keyboard shortcuts
+        if event.key() == delete_key:
             self._handle_delete()
+        elif event.key() == rotate_key:
+            if shift_pressed:
+                self._handle_rotate_groups()  # Shift + R: rotate groups together
+            else:
+                self._handle_rotate()  # R: rotate individual elements
         else:
             # Pass other key events to parent class
             super().keyPressEvent(event)

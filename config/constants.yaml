@@ -48,7 +48,8 @@ keyboard_shortcuts:
   select_all: "Ctrl+A" # Select all node groups
   delete: "Delete" # Delete selected node group
   escape: "Escape" # Deselect
-  rotate: "R" # Rotate selected groups
+  rotate_individual: "R" # Rotate each selected element around its own center
+  rotate_common_center: "Shift+R" # Rotate multiple groups around their common center point
 
 logging:
   directory: ".log" # Log file storage directory
