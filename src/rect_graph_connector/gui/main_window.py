@@ -112,7 +112,7 @@ class MainWindow(QMainWindow):
 
         # Side menu widgets
         self.group_list = QListWidget()
-        self.group_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.group_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
         side_panel_min_width = config.get_dimension(
             "main_window.side_panel.min_width", 150
@@ -489,12 +489,33 @@ class MainWindow(QMainWindow):
 
     def _handle_select_group(self, item):
         """Handle the click event on a group item to select it."""
+        # Get all selected items in the list
+        selected_items = self.group_list.selectedItems()
+
+        # Check if we're in multi-selection mode (Shift key pressed)
+        modifiers = QApplication.keyboardModifiers()
+        shift_pressed = modifiers & Qt.ShiftModifier
+
+        # If not in multi-selection mode and not pressing shift, clear previous selection
+        if not shift_pressed and len(selected_items) <= 1:
+            self.canvas.graph.selected_groups = []
+            self.canvas.graph.selected_nodes = []
+
+        # Process the clicked item
         index = self.group_list.row(item)
         if 0 <= index < len(self.canvas.graph.node_groups):
             group = self.canvas.graph.node_groups[index]
-            self.canvas.graph.selected_nodes = group.get_nodes(self.canvas.graph.nodes)
-            self.canvas.graph.selected_group = group
-            self.canvas.update()
+
+            # Add this group to the selection if it's not already selected
+            if group not in self.canvas.graph.selected_groups:
+                self.canvas.graph.selected_groups.append(group)
+                # Add the group's nodes to the selected nodes
+                self.canvas.graph.selected_nodes.extend(
+                    group.get_nodes(self.canvas.graph.nodes)
+                )
+
+        # Update the canvas
+        self.canvas.update()
 
     def _handle_move_group_up(self):
         """Handle the move up button click event."""
@@ -669,27 +690,33 @@ class MainWindow(QMainWindow):
         Args:
             group (NodeGroup): The group that was selected in the canvas
         """
-        # Find the index of the group in the node_groups list
-        try:
-            index = self.canvas.graph.node_groups.index(group)
+        # Update the side panel to reflect all selected groups in the canvas
+        self._sync_side_panel_selection()
 
-            # Check if we're in multi-selection mode (Shift key pressed)
-            modifiers = QApplication.keyboardModifiers()
-            shift_pressed = modifiers & Qt.ShiftModifier
+    def _sync_side_panel_selection(self):
+        """
+        Synchronize the side panel selection with the canvas selection.
+        Selects all items in the side panel that correspond to selected groups in the canvas.
+        """
+        # Clear current selection in the side panel
+        self.group_list.clearSelection()
 
-            if shift_pressed:
-                # In multi-selection mode, add to the current selection
-                # QListWidget doesn't support true multi-selection that matches the canvas behavior,
-                # so we'll just select the last group in multi-selection mode
-                self.group_list.setCurrentRow(index)
-            else:
-                # In single selection mode, just select the one group
-                self.group_list.setCurrentRow(index)
-        except ValueError:
-            # Group not found in the list
-            logger.warning(
-                f"Selected group not found in node_groups list: {group.name}"
-            )
+        # Get all selected groups from the canvas
+        selected_groups = self.canvas.graph.selected_groups
+
+        # Select each corresponding item in the side panel
+        for group in selected_groups:
+            try:
+                index = self.canvas.graph.node_groups.index(group)
+                # Select the item without clearing other selections
+                item = self.group_list.item(index)
+                if item:
+                    item.setSelected(True)
+            except ValueError:
+                # Group not found in the list
+                logger.warning(
+                    f"Selected group not found in node_groups list: {group.name}"
+                )
 
     def _update_group_list(self):
         """Update the group list to reflect the current state of node groups."""
