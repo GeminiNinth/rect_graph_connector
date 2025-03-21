@@ -335,15 +335,18 @@ def connect_all_for_one_edge_selection(
 
 
 def find_intersecting_edges(
-    graph: Graph, path_points: List[Tuple[float, float]]
+    graph: Graph, path_points: List[Tuple[float, float]], target_groups=None
 ) -> List[Tuple[str, str]]:
     """
     Find all edges that intersect with a given path.
     Only considers the visible part of edges between node boundaries.
+    If target_groups is provided, only returns edges where at least one endpoint
+    belongs to one of the target groups.
 
     Args:
         graph (Graph): The graph containing the edges
         path_points (List[Tuple[float, float]]): List of points forming the path
+        target_groups (List, optional): List of target NodeGroups to filter edges by
 
     Returns:
         List[Tuple[str, str]]: List of edge tuples (source_id, target_id) that intersect with the path
@@ -362,6 +365,15 @@ def find_intersecting_edges(
             target_node = next(n for n in graph.nodes if n.id == target_id)
         except StopIteration:
             continue
+
+        # If target_groups is provided, check if at least one endpoint belongs to a target group
+        if target_groups:
+            source_group = graph.get_group_for_node(source_node)
+            target_group = graph.get_group_for_node(target_node)
+
+            # Skip this edge if neither endpoint belongs to a target group
+            if source_group not in target_groups and target_group not in target_groups:
+                continue
 
         # Calculate actual edge endpoints considering node sizes
         (start_x, start_y), (end_x, end_y) = calculate_edge_endpoints(

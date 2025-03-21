@@ -1082,9 +1082,9 @@ class Canvas(QWidget):
                 # Add point to knife path
                 self.knife_path.append((graph_point.x(), graph_point.y()))
 
-                # Find intersecting edges
+                # Find intersecting edges that belong to the target groups
                 self.highlighted_edges = find_intersecting_edges(
-                    self.graph, self.knife_path
+                    self.graph, self.knife_path, self.edit_target_groups
                 )
                 self.update()
             else:
