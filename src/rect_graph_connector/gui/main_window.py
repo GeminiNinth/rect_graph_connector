@@ -496,23 +496,71 @@ class MainWindow(QMainWindow):
         modifiers = QApplication.keyboardModifiers()
         shift_pressed = modifiers & Qt.ShiftModifier
 
+        # Get the index of the clicked item
+        current_index = self.group_list.row(item)
+
         # If not in multi-selection mode and not pressing shift, clear previous selection
         if not shift_pressed and len(selected_items) <= 1:
             self.canvas.graph.selected_groups = []
             self.canvas.graph.selected_nodes = []
 
-        # Process the clicked item
-        index = self.group_list.row(item)
-        if 0 <= index < len(self.canvas.graph.node_groups):
-            group = self.canvas.graph.node_groups[index]
+            # Process the clicked item
+            if 0 <= current_index < len(self.canvas.graph.node_groups):
+                group = self.canvas.graph.node_groups[current_index]
 
-            # Add this group to the selection if it's not already selected
-            if group not in self.canvas.graph.selected_groups:
+                # Add this group to the selection
                 self.canvas.graph.selected_groups.append(group)
                 # Add the group's nodes to the selected nodes
                 self.canvas.graph.selected_nodes.extend(
                     group.get_nodes(self.canvas.graph.nodes)
                 )
+        else:
+            # Handle Shift key continuous selection
+            if shift_pressed and len(selected_items) > 0:
+                # Find the index of the last selected item before this click
+                last_selected_index = -1
+                for i in range(self.group_list.count()):
+                    if i != current_index and self.group_list.item(i).isSelected():
+                        last_selected_index = i
+
+                # If we found a previously selected item, select all items between it and the current item
+                if last_selected_index != -1:
+                    # Determine the range of indices to select
+                    start_idx = min(last_selected_index, current_index)
+                    end_idx = max(last_selected_index, current_index)
+
+                    # Select all groups in the range
+                    for idx in range(start_idx, end_idx + 1):
+                        if 0 <= idx < len(self.canvas.graph.node_groups):
+                            group = self.canvas.graph.node_groups[idx]
+                            if group not in self.canvas.graph.selected_groups:
+                                self.canvas.graph.selected_groups.append(group)
+                                # Add the group's nodes to the selected nodes
+                                self.canvas.graph.selected_nodes.extend(
+                                    group.get_nodes(self.canvas.graph.nodes)
+                                )
+                                # Select the item in the list
+                                self.group_list.item(idx).setSelected(True)
+                else:
+                    # If no previous selection, just add the current group
+                    if 0 <= current_index < len(self.canvas.graph.node_groups):
+                        group = self.canvas.graph.node_groups[current_index]
+                        if group not in self.canvas.graph.selected_groups:
+                            self.canvas.graph.selected_groups.append(group)
+                            # Add the group's nodes to the selected nodes
+                            self.canvas.graph.selected_nodes.extend(
+                                group.get_nodes(self.canvas.graph.nodes)
+                            )
+            else:
+                # Regular multi-selection (Ctrl key)
+                if 0 <= current_index < len(self.canvas.graph.node_groups):
+                    group = self.canvas.graph.node_groups[current_index]
+                    if group not in self.canvas.graph.selected_groups:
+                        self.canvas.graph.selected_groups.append(group)
+                        # Add the group's nodes to the selected nodes
+                        self.canvas.graph.selected_nodes.extend(
+                            group.get_nodes(self.canvas.graph.nodes)
+                        )
 
         # Update the canvas
         self.canvas.update()
@@ -520,28 +568,71 @@ class MainWindow(QMainWindow):
     def _handle_move_group_up(self):
         """Handle the move up button click event."""
         selected_items = self.group_list.selectedItems()
-        if selected_items:
-            index = self.group_list.row(selected_items[0])
+        if not selected_items:
+            return
+
+        # Get all selected indices and sort them in ascending order
+        selected_indices = sorted(
+            [self.group_list.row(item) for item in selected_items]
+        )
+
+        # Check if the topmost selected group is already at the top
+        if selected_indices[0] <= 0:
+            return
+
+        # Move all selected groups up as a unit
+        # We need to move them one by one, starting from the top
+        for index in selected_indices:
             if 0 <= index < len(self.canvas.graph.node_groups):
                 group = self.canvas.graph.node_groups[index]
-                if self.canvas.graph.move_group_up(group):
-                    self._update_group_list()
-                    # Select the moved group
-                    self.group_list.setCurrentRow(index - 1)
-                    self.canvas.update()
+                self.canvas.graph.move_group_up(group)
+
+        # Update the list and maintain selection
+        self._update_group_list()
+
+        # Select all moved groups at their new positions
+        self.group_list.clearSelection()
+        for index in selected_indices:
+            if index > 0:  # Only select if it was actually moved
+                self.group_list.item(index - 1).setSelected(True)
+
+        self.canvas.update()
 
     def _handle_move_group_down(self):
         """Handle the move down button click event."""
         selected_items = self.group_list.selectedItems()
-        if selected_items:
-            index = self.group_list.row(selected_items[0])
+        if not selected_items:
+            return
+
+        # Get all selected indices and sort them in descending order
+        # We need to move from bottom to top when moving down to avoid index issues
+        selected_indices = sorted(
+            [self.group_list.row(item) for item in selected_items], reverse=True
+        )
+
+        # Check if the bottommost selected group is already at the bottom
+        if selected_indices[0] >= len(self.canvas.graph.node_groups) - 1:
+            return
+
+        # Move all selected groups down as a unit
+        # We need to move them one by one, starting from the bottom
+        for index in selected_indices:
             if 0 <= index < len(self.canvas.graph.node_groups):
                 group = self.canvas.graph.node_groups[index]
-                if self.canvas.graph.move_group_down(group):
-                    self._update_group_list()
-                    # Select the moved group
-                    self.group_list.setCurrentRow(index + 1)
-                    self.canvas.update()
+                self.canvas.graph.move_group_down(group)
+
+        # Update the list and maintain selection
+        self._update_group_list()
+
+        # Select all moved groups at their new positions
+        self.group_list.clearSelection()
+        for index in selected_indices:
+            if (
+                index < len(self.canvas.graph.node_groups) - 1
+            ):  # Only select if it was actually moved
+                self.group_list.item(index + 1).setSelected(True)
+
+        self.canvas.update()
 
     def _update_mode_indicator(self, mode):
         """
