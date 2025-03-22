@@ -1168,9 +1168,26 @@ class Canvas(QWidget):
                         if group in self.edit_target_groups:
                             # Handle NodeGroup selection for bridge mode
                             if group in self.bridge_selected_groups:
-                                # If already selected, do nothing (will keep the group selected)
-                                # We don't want to deselect a group by clicking on it again in bridge mode
-                                pass
+                                # If already selected, deselect it and remove its floating menu
+                                self.bridge_selected_groups.remove(group)
+                                if group.id in self.bridge_floating_menus:
+                                    del self.bridge_floating_menus[group.id]
+                                # Reset connection parameters and preview lines
+                                self.bridge_connection_params = BridgeConnectionParams()
+                                self.bridge_preview_lines = []
+                                # If there's still one group selected, make it the source
+                                if len(self.bridge_selected_groups) == 1:
+                                    remaining_group = self.bridge_selected_groups[0]
+                                    # Update floating menu to show it's now the source
+                                    if remaining_group.id in self.bridge_floating_menus:
+                                        del self.bridge_floating_menus[
+                                            remaining_group.id
+                                        ]
+                                    self.bridge_floating_menus[remaining_group.id] = (
+                                        FloatingMenu(
+                                            remaining_group, group_type="source"
+                                        )
+                                    )
                             else:
                                 # If not already selected, add to selected groups (max 2)
                                 if len(self.bridge_selected_groups) >= 2:
@@ -1183,16 +1200,22 @@ class Canvas(QWidget):
                                 # Add new group to selected groups
                                 self.bridge_selected_groups.append(group)
 
-                            # Create floating menu for this group
-                            # Determine if this is a source or target group based on selection order
-                            group_type = (
-                                "source"
-                                if len(self.bridge_selected_groups) == 1
-                                else "target"
-                            )
-                            self.bridge_floating_menus[group.id] = FloatingMenu(
-                                group, group_type=group_type
-                            )
+                                # Create floating menu for this group
+                                # Determine if this is a source or target group based on selection order
+                                group_type = (
+                                    "source"
+                                    if len(self.bridge_selected_groups) == 1
+                                    else "target"
+                                )
+                                self.bridge_floating_menus[group.id] = FloatingMenu(
+                                    group, group_type=group_type
+                                )
+
+                                # Reset connection parameters when selecting new source
+                                if len(self.bridge_selected_groups) == 1:
+                                    self.bridge_connection_params = (
+                                        BridgeConnectionParams()
+                                    )
 
                             # Update edge nodes
                             self._update_bridge_edge_nodes()
