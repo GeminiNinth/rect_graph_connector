@@ -36,7 +36,7 @@ from PyQt5.QtWidgets import (
 from ..config import config
 from ..models.graph import Graph, NodeGroup
 from ..models.node import BaseNode
-from ..models.bridge_connector import BridgeConnector, BridgeConnectionParams
+from ..models.special.bridge_connection import BridgeConnector, BridgeConnectionParams
 from ..utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -467,7 +467,7 @@ class BridgeConnectionWindow(QDialog):
         """
         super().__init__(parent)
         self.graph = graph
-        self.bridge_connector = BridgeConnector(graph)
+        self.bridge_connection = BridgeConnector(graph)
 
         # Initialize parameters
         self.source_group = None
@@ -744,10 +744,10 @@ class BridgeConnectionWindow(QDialog):
         self.node_connection_label.setText(connection_label_text)
 
         # Get edge nodes based on highlight positions
-        source_edge_nodes = self.bridge_connector._get_edge_nodes(
+        source_edge_nodes = self.bridge_connection._get_edge_nodes(
             source_group, self.params.source_highlight_pos
         )
-        target_edge_nodes = self.bridge_connector._get_edge_nodes(
+        target_edge_nodes = self.bridge_connection._get_edge_nodes(
             target_group, self.params.target_highlight_pos
         )
 
@@ -796,10 +796,10 @@ class BridgeConnectionWindow(QDialog):
             return
 
         # Get edge nodes from both groups
-        source_nodes = self.bridge_connector._get_edge_nodes(
+        source_nodes = self.bridge_connection._get_edge_nodes(
             self.source_group, self.params.source_highlight_pos
         )
-        target_nodes = self.bridge_connector._get_edge_nodes(
+        target_nodes = self.bridge_connection._get_edge_nodes(
             self.target_group, self.params.target_highlight_pos
         )
 
@@ -851,7 +851,7 @@ class BridgeConnectionWindow(QDialog):
 
         # Create bidirectional connections with our single connection count
         # Generate balanced connections from source to target
-        connections = self.bridge_connector._generate_bipartite_mapping(
+        connections = self.bridge_connection._generate_bipartite_mapping(
             source_edge_nodes,
             target_edge_nodes,
             self.connection_count,
@@ -874,7 +874,7 @@ class BridgeConnectionWindow(QDialog):
         # Note: For a true bidirectional/symmetric connection, we don't need both directions
         # But we'll keep it as-is for preview consistency with the original implementation
 
-        connections = self.bridge_connector._generate_bipartite_mapping(
+        connections = self.bridge_connection._generate_bipartite_mapping(
             target_edge_nodes,
             source_edge_nodes,
             self.connection_count,
@@ -928,7 +928,7 @@ class BridgeConnectionWindow(QDialog):
 
         # Create bidirectional connections with our single connection count
         # Source to target connections
-        connections = self.bridge_connector._generate_bipartite_mapping(
+        connections = self.bridge_connection._generate_bipartite_mapping(
             source_edge_nodes,
             target_edge_nodes,
             self.connection_count,
@@ -942,7 +942,7 @@ class BridgeConnectionWindow(QDialog):
                 self.graph.add_edge(source_node, target_node)
 
         # Target to source connections
-        connections = self.bridge_connector._generate_bipartite_mapping(
+        connections = self.bridge_connection._generate_bipartite_mapping(
             target_edge_nodes,
             source_edge_nodes,
             self.connection_count,

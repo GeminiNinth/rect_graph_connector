@@ -24,7 +24,7 @@ from .context_menus.normal_menu import NormalContextMenu
 from .floating_menu import FloatingMenu
 from .import_dialog import ImportModeDialog
 from .rendering import CompositeRenderer
-from ..models.bridge_connector import BridgeConnector, BridgeConnectionParams
+from ..models.special.bridge_connection import BridgeConnector, BridgeConnectionParams
 
 
 class Canvas(QWidget):
@@ -152,7 +152,9 @@ class Canvas(QWidget):
             []
         )  # NodeGroups selected for bridge connection (max 2)
         self.bridge_floating_menus = {}  # Floating menus for each selected group
-        self.bridge_connector = BridgeConnector(self.graph)  # Bridge connector instance
+        self.bridge_connection = BridgeConnector(
+            self.graph
+        )  # Bridge connector instance
         self.bridge_connection_params = (
             BridgeConnectionParams()
         )  # Connection parameters
@@ -552,7 +554,7 @@ class Canvas(QWidget):
             elif i == 1:
                 highlight_pos = self.bridge_connection_params.target_highlight_pos
 
-            edge_nodes = self.bridge_connector._get_edge_nodes(group, highlight_pos)
+            edge_nodes = self.bridge_connection._get_edge_nodes(group, highlight_pos)
             if edge_nodes:
                 self.bridge_edge_nodes[group.id] = edge_nodes
 
@@ -570,7 +572,7 @@ class Canvas(QWidget):
         target_group = self.bridge_selected_groups[1]
 
         # Get preview lines from bridge connector
-        self.bridge_preview_lines = self.bridge_connector.get_connection_preview(
+        self.bridge_preview_lines = self.bridge_connection.get_connection_preview(
             source_group, target_group, self.bridge_connection_params
         )
 

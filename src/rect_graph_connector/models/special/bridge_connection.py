@@ -9,10 +9,10 @@ from typing import Dict, List, Optional, Tuple, Set
 
 from PyQt5.QtCore import QPointF
 
-from ..config import config
-from .graph import Graph, NodeGroup
-from .node import BaseNode
-from ..utils.logging_utils import get_logger
+from ...config import config
+from ..graph import Graph, NodeGroup
+from ..node import BaseNode
+from ...utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

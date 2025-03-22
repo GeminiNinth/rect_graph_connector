@@ -526,7 +526,7 @@ class Graph:
                 node_id_map[original_id] = original_id
 
             # Create and add the node
-            new_nodes.append(SingleNode(**node_data))
+            new_nodes.append(create_node(**node_data))
 
         # Add new nodes to the graph
         self.nodes.extend(new_nodes)
