@@ -15,6 +15,7 @@ from ..config import config
 from ..models.graph import NodeGroup
 from ..models.bridge_connector import BridgeConnector
 from ..utils.logging_utils import get_logger
+from ..gui.rendering.base_renderer import parse_rgba
 
 logger = get_logger(__name__)
 
@@ -207,58 +208,24 @@ class FloatingMenu:
             return
 
         # Get colors from config
-        if self.theme == "dark":
-            bg_color = QColor(
-                config.get_color(
-                    "bridge.floating_menu.background",
-                    "rgba(60, 60, 60, 220)",
-                    theme="dark",
-                )
-            )
-            text_color = QColor(
-                config.get_color("bridge.floating_menu.text", "#FFFFFF", theme="dark")
-            )
-            button_bg = QColor(
-                config.get_color(
-                    "bridge.floating_menu.button.background", "#505050", theme="dark"
-                )
-            )
-            button_hover_bg = QColor(
-                config.get_color(
-                    "bridge.floating_menu.button.hover", "#606060", theme="dark"
-                )
-            )
-            button_text = QColor(
-                config.get_color(
-                    "bridge.floating_menu.button.text", "#FFFFFF", theme="dark"
-                )
-            )
-            button_border = QColor(
-                config.get_color(
-                    "bridge.floating_menu.button.border", "#707070", theme="dark"
-                )
-            )
-        else:
-            bg_color = QColor(
-                config.get_color(
-                    "bridge.floating_menu.background", "rgba(240, 240, 240, 220)"
-                )
-            )
-            text_color = QColor(
-                config.get_color("bridge.floating_menu.text", "#000000")
-            )
-            button_bg = QColor(
-                config.get_color("bridge.floating_menu.button.background", "#E0E0E0")
-            )
-            button_hover_bg = QColor(
-                config.get_color("bridge.floating_menu.button.hover", "#D0D0D0")
-            )
-            button_text = QColor(
-                config.get_color("bridge.floating_menu.button.text", "#000000")
-            )
-            button_border = QColor(
-                config.get_color("bridge.floating_menu.button.border", "#A0A0A0")
-            )
+        bg_color_text = config.get_color(
+            "bridge.floating_menu.background",
+            "rgba(60, 60, 60, 220)",
+        )
+        bg_color = parse_rgba(bg_color_text)
+        text_color = QColor(config.get_color("bridge.floating_menu.text", "#FFFFFF"))
+        button_bg = QColor(
+            config.get_color("bridge.floating_menu.button.background", "#505050")
+        )
+        button_hover_bg = QColor(
+            config.get_color("bridge.floating_menu.button.hover", "#606060")
+        )
+        button_text = QColor(
+            config.get_color("bridge.floating_menu.button.text", "#FFFFFF")
+        )
+        button_border = QColor(
+            config.get_color("bridge.floating_menu.button.border", "#707070")
+        )
 
         # Save current painter state
         painter.save()

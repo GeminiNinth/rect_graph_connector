@@ -13,6 +13,7 @@ node:
     selected: 2
     all_for_one_selected: 3
     parallel_selected: 3
+    bridge_highlighted: 2
 
 group:
   border_width:

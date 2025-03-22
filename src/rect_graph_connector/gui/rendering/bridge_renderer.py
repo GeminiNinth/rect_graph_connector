@@ -104,33 +104,16 @@ class BridgeRenderer(BaseRenderer):
         if not edge_nodes_dict:
             return
 
-        # Save painter state
-        painter.save()
+        # Create a NodeRenderer instance to draw nodes with proper shape handling
+        from .node_renderer import NodeRenderer
 
-        # Get node highlight style
-        # theme = "dark" if self._is_dark_mode() else "light"
-        fill_color_text = config.get_color(
-            "node.fill.bridge_highlighted", "rgba(255, 165, 0, 200)"
-        )
-        fill_color = parse_rgba(fill_color_text)
-        border_color = QColor(
-            config.get_color("node.border.bridge_highlighted", "#FF8C00")
-        )
+        node_renderer = NodeRenderer(self.canvas, self.graph)
 
-        # Draw each highlighted node
+        # Draw each highlighted node using the NodeRenderer
         for group_id, nodes in edge_nodes_dict.items():
             for node in nodes:
-                # Draw the highlighted node
-                radius = config.get_dimension("node.default_size", 30.0)
-
-                # Draw the node with highlight
-                painter.setBrush(QBrush(fill_color))
-
-                painter.setPen(QPen(border_color, 2.0))
-                painter.drawEllipse(QPointF(node.x, node.y), radius, radius)
-
-        # Restore painter state
-        painter.restore()
+                # Use the _draw_node method with bridge highlighting flag
+                node_renderer._draw_node(painter, node, is_bridge_highlighted=True)
 
     def _draw_floating_menus(self, painter: QPainter, floating_menus, selected_groups):
         """

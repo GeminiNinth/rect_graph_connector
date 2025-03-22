@@ -37,13 +37,13 @@ light:
       selected: "#ADD8E6"
       all_for_one_selected: "#FFA07A" # Light salmon color for All-For-One mode selected nodes
       parallel_selected: "#90EE90" # Light green for Parallel connection mode
-      bridge_highlighted: "rgba(255, 165, 0, 200)" # Orange with transparency for bridge highlight
+      bridge_highlighted: "#10DDFF" # Orange with transparency for bridge highlight
     border:
       normal: "gray"
       selected: "blue"
       all_for_one_selected: "#FF4500" # OrangeRed for All-For-One mode selected node border
       parallel_selected: "#006400" # Dark green for Parallel connection mode
-      bridge_highlighted: "#FF8C00" # Dark orange for bridge highlighted node border
+      bridge_highlighted: "#50FCC0" # Dark orange for bridge highlighted node border
     text: "#000000" # Node ID display text color
 
   mode_indicator:

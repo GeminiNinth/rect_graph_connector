@@ -48,6 +48,7 @@ class NodeRenderer(BaseRenderer):
                     node,
                     all_for_one_selected_nodes,
                     parallel_selected_nodes,
+                    is_bridge_highlighted=False,
                 )
             return
 
@@ -86,6 +87,7 @@ class NodeRenderer(BaseRenderer):
                     node,
                     all_for_one_selected_nodes,
                     parallel_selected_nodes,
+                    is_bridge_highlighted=False,
                 )
         else:
             # Draw everything (backwards compatibility)
@@ -107,6 +109,7 @@ class NodeRenderer(BaseRenderer):
                     node,
                     all_for_one_selected_nodes,
                     parallel_selected_nodes,
+                    is_bridge_highlighted=False,
                 )
 
     def _draw_node_group_backgrounds(self, painter: QPainter):
@@ -203,6 +206,7 @@ class NodeRenderer(BaseRenderer):
                 node,
                 all_for_one_selected_nodes,
                 parallel_selected_nodes,
+                is_bridge_highlighted=False,
             )
 
         # Draw group border
@@ -241,10 +245,20 @@ class NodeRenderer(BaseRenderer):
         self,
         painter: QPainter,
         node,
-        all_for_one_selected_nodes,
-        parallel_selected_nodes,
+        all_for_one_selected_nodes=None,
+        parallel_selected_nodes=None,
+        is_bridge_highlighted=False,
     ):
-        """Draw a single node with its fill, border, and label."""
+        """
+        Draw a single node with its fill, border, and label.
+
+        Args:
+            painter (QPainter): The painter to use for drawing
+            node: The node to draw
+            all_for_one_selected_nodes: List of nodes selected in All-For-One mode
+            parallel_selected_nodes: List of nodes selected in Parallel mode
+            is_bridge_highlighted (bool): Whether this node is highlighted in bridge mode
+        """
         rect = QRectF(
             node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
         )
@@ -257,10 +271,17 @@ class NodeRenderer(BaseRenderer):
         is_all_for_one_selected = (
             all_for_one_selected_nodes and node in all_for_one_selected_nodes
         )
-        is_parallel_selected = node in parallel_selected_nodes
+        is_parallel_selected = (
+            parallel_selected_nodes and node in parallel_selected_nodes
+        )
 
         # Fill color based on selection state
-        if is_parallel_selected:
+        if is_bridge_highlighted:
+            # Bridge highlighting takes precedence
+            node_fill_color = config.get_color(
+                "node.fill.bridge_highlighted", "#10DDFF"
+            )  # Light blue
+        elif is_parallel_selected:
             node_fill_color = config.get_color(
                 "node.fill.parallel_selected", "#90EE90"
             )  # Light green
@@ -280,7 +301,16 @@ class NodeRenderer(BaseRenderer):
         node_color = QColor(node_fill_color)
 
         # Set up border pen based on selection state
-        if is_parallel_selected:
+        if is_bridge_highlighted:
+            # Bridge highlighting takes precedence
+            border_color = config.get_color(
+                "node.border.bridge_highlighted", "#50FCC0"
+            )  # Emerald green
+            pen = QPen(QColor(border_color))
+            pen.setWidth(
+                int(config.get_dimension("node.border_width.bridge_highlighted", 2))
+            )
+        elif is_parallel_selected:
             border_color = config.get_color(
                 "node.border.parallel_selected", "#006400"
             )  # Dark green
