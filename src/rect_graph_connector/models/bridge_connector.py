@@ -26,6 +26,7 @@ class BridgeConnectionParams:
         target_to_source_count (int): Number of connections from target to source group
         source_highlight_pos (str): Position of highlighted nodes in source group
         target_highlight_pos (str): Position of highlighted nodes in target group
+        flip_direction (bool): Whether to flip the direction of adjacent connections
     """
 
     def __init__(
@@ -34,6 +35,7 @@ class BridgeConnectionParams:
         target_to_source_count: int = 1,
         source_highlight_pos: str = None,
         target_highlight_pos: str = None,
+        flip_direction: bool = False,
     ):
         """
         Initialize bridge connection parameters.
@@ -43,6 +45,7 @@ class BridgeConnectionParams:
             target_to_source_count: Number of connections from target to source (default: 1)
             source_highlight_pos: Position of highlighted nodes in source group
             target_highlight_pos: Position of highlighted nodes in target group
+            flip_direction: Whether to flip the direction of adjacent connections (default: False)
         """
         # Get the default position from config if not specified
         default_pos = config.get_constant(
@@ -53,6 +56,7 @@ class BridgeConnectionParams:
         self.target_to_source_count = max(1, target_to_source_count)
         self.source_highlight_pos = source_highlight_pos or default_pos
         self.target_highlight_pos = target_highlight_pos or default_pos
+        self.flip_direction = flip_direction
 
         # Validate counts
         min_conn = config.get_constant("bridge_connection.min_connections", 1)
@@ -130,13 +134,19 @@ class BridgeConnector:
         # Create source to target connections
         if params.source_to_target_count > 0:
             self._generate_bipartite_connections(
-                source_nodes, target_nodes, params.source_to_target_count
+                source_nodes,
+                target_nodes,
+                params.source_to_target_count,
+                params.flip_direction,
             )
 
         # Create target to source connections
         if params.target_to_source_count > 0:
             self._generate_bipartite_connections(
-                target_nodes, source_nodes, params.target_to_source_count
+                target_nodes,
+                source_nodes,
+                params.target_to_source_count,
+                params.flip_direction,
             )
 
         logger.info(
@@ -176,7 +186,10 @@ class BridgeConnector:
         # Add source to target preview lines
         if params.source_to_target_count > 0:
             connections = self._generate_bipartite_mapping(
-                source_nodes, target_nodes, params.source_to_target_count
+                source_nodes,
+                target_nodes,
+                params.source_to_target_count,
+                params.flip_direction,
             )
             for source_idx, target_indices in connections.items():
                 source_node = source_nodes[source_idx]
@@ -192,7 +205,10 @@ class BridgeConnector:
         # Add target to source preview lines
         if params.target_to_source_count > 0:
             connections = self._generate_bipartite_mapping(
-                target_nodes, source_nodes, params.target_to_source_count
+                target_nodes,
+                source_nodes,
+                params.target_to_source_count,
+                params.flip_direction,
             )
             for target_idx, source_indices in connections.items():
                 target_node = target_nodes[target_idx]
@@ -284,6 +300,7 @@ class BridgeConnector:
         source_nodes: List[BaseNode],
         target_nodes: List[BaseNode],
         connection_count: int,
+        flip_direction: bool = False,
     ) -> Dict[int, Set[int]]:
         """
         Generate a mapping of source to target node indices for bipartite connections.
@@ -292,6 +309,7 @@ class BridgeConnector:
             source_nodes: List of source nodes
             target_nodes: List of target nodes
             connection_count: Number of connections per source node
+            flip_direction: Whether to flip the direction of adjacent connections
 
         Returns:
             Dict mapping source node index to set of target node indices
@@ -316,14 +334,51 @@ class BridgeConnector:
                 for target_idx in range(target_count):
                     connections[source_idx].add(target_idx)
             else:
-                # Connect to a subset of targets
-                # Uses a distribution pattern based on source index to evenly spread connections
-                for c in range(max_connections):
-                    # Calculate target index with even distribution
-                    target_idx = (
-                        source_idx + c * (target_count // max_connections)
-                    ) % target_count
-                    connections[source_idx].add(target_idx)
+                # Connect to the current node and adjacent nodes based on connection count
+                # Connect always to the matching index first
+                connections[source_idx].add(source_idx % target_count)
+
+                # If more than one connection is needed, add adjacent nodes
+                if max_connections > 1:
+                    remaining_connections = max_connections - 1
+                    offset = 1  # Start with offset 1
+
+                    while remaining_connections > 0:
+                        if flip_direction:
+                            # Connect upward (to nodes with lower indices)
+                            if (
+                                source_idx - offset >= 0
+                                and source_idx - offset < target_count
+                            ):
+                                connections[source_idx].add(
+                                    (source_idx - offset) % target_count
+                                )
+                            # If we need more connections and connection_count is 3 or more, also connect downward
+                            if remaining_connections > 1 and max_connections >= 3:
+                                if source_idx + offset < target_count:
+                                    connections[source_idx].add(
+                                        (source_idx + offset) % target_count
+                                    )
+                                remaining_connections -= 1
+                        else:
+                            # Connect downward (to nodes with higher indices)
+                            if source_idx + offset < target_count:
+                                connections[source_idx].add(
+                                    (source_idx + offset) % target_count
+                                )
+                            # If we need more connections and connection_count is 3 or more, also connect upward
+                            if remaining_connections > 1 and max_connections >= 3:
+                                if (
+                                    source_idx - offset >= 0
+                                    and source_idx - offset < target_count
+                                ):
+                                    connections[source_idx].add(
+                                        (source_idx - offset) % target_count
+                                    )
+                                remaining_connections -= 1
+
+                        offset += 1
+                        remaining_connections -= 1
 
         return connections
 
@@ -332,6 +387,7 @@ class BridgeConnector:
         source_nodes: List[BaseNode],
         target_nodes: List[BaseNode],
         connection_count: int,
+        flip_direction: bool = False,
     ) -> None:
         """
         Generate bipartite connections between source and target nodes.
@@ -340,9 +396,10 @@ class BridgeConnector:
             source_nodes: List of source nodes
             target_nodes: List of target nodes
             connection_count: Number of connections per source node
+            flip_direction: Whether to flip the direction of adjacent connections
         """
         connections = self._generate_bipartite_mapping(
-            source_nodes, target_nodes, connection_count
+            source_nodes, target_nodes, connection_count, flip_direction
         )
 
         # Create actual edges in the graph

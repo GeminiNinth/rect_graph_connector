@@ -102,7 +102,7 @@ bridge_connection:
     close: "Close"
     connection_counts:
       source_to_target_label: "{source} → {target} connections:"
-      target_to_source_label: "← {target} → {source} connections:"
+      target_to_source_label: "{target} → {source} connections:"
       increase: "+"
       decrease: "-"
     preview_button: "Preview"

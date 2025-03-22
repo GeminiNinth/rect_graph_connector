@@ -587,9 +587,14 @@ class Canvas(QWidget):
         source_group = self.bridge_selected_groups[0]
         target_group = self.bridge_selected_groups[1]
 
-        # Show the bridge connection window
+        # Show the bridge connection window with highlight positions
         if BridgeConnectionWindow.show_dialog(
-            self.graph, source_group, target_group, self
+            self.graph,
+            source_group,
+            target_group,
+            self.bridge_connection_params.source_highlight_pos,
+            self.bridge_connection_params.target_highlight_pos,
+            self,
         ):
             # If connections were created, exit bridge mode
             self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
