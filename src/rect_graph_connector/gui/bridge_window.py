@@ -76,10 +76,10 @@ class NodeView(QWidget):
         self.node_fill_color = QColor(config.get_color("node.fill.normal", "skyblue"))
         self.node_border_color = QColor(config.get_color("node.border.normal", "gray"))
         self.highlight_fill_color = QColor(
-            config.get_color("node.fill.bridge_highlighted", "rgba(255, 165, 0, 200)")
+            config.get_color("node.fill.bridge_target_highlighted", "#50FCC0")
         )
         self.highlight_border_color = QColor(
-            config.get_color("node.border.bridge_highlighted", "#FF8C00")
+            config.get_color("node.border.bridge_target_highlighted", "#10DDFF")
         )
         self.connection_color = QColor(
             config.get_color("bridge.window.node_area.connection_line", "#6495ED")

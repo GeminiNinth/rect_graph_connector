@@ -286,7 +286,7 @@ class NodeRenderer(BaseRenderer):
         elif is_bridge_highlighted:
             # Target node highlighting takes precedence
             node_fill_color = config.get_color(
-                "node.fill.bridge_highlighted", "#10DDFF"
+                "node.fill.bridge_target_highlighted", "#50FCC0"
             )  # Light blue
         elif is_parallel_selected:
             node_fill_color = config.get_color(
@@ -320,7 +320,7 @@ class NodeRenderer(BaseRenderer):
         elif is_bridge_highlighted:
             # Target node highlighting takes precedence
             border_color = config.get_color(
-                "node.border.bridge_highlighted", "#50FCC0"
+                "node.border.bridge_target_highlighted", "#10DDFF"
             )  # Turquoise
             pen = QPen(QColor(border_color))
             pen.setWidth(
