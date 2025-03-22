@@ -21,8 +21,8 @@ from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
 from .context_menus.edit_menu import EditContextMenu
 from .context_menus.normal_menu import NormalContextMenu
-from .floating_menu import FloatingMenu
-from .import_dialog import ImportModeDialog
+from .sub_windows.floating_menu import FloatingMenu
+from .sub_windows.import_dialog import ImportModeDialog
 from .rendering import CompositeRenderer
 from ..models.special.bridge_connection import BridgeConnector, BridgeConnectionParams
 
@@ -218,17 +218,17 @@ class Canvas(QWidget):
         old_mode = self.current_mode
         self.current_mode = mode
 
-        # カーソルをモードに合わせて変更
+        # Change cursor to the mode
         if mode == self.EDIT_MODE:
             self.setCursor(Qt.CrossCursor)
         else:
             self.setCursor(Qt.ArrowCursor)
 
-        # モード変更通知
+        # Mode change notification
         if old_mode != mode:
             self.mode_changed.emit(mode)
 
-        # 再描画
+        # Draw again
         self.update()
 
     def toggle_edit_mode(self, target_group=None):
@@ -580,7 +580,7 @@ class Canvas(QWidget):
         """
         Open the bridge connection settings window.
         """
-        from .bridge_window import BridgeConnectionWindow
+        from .sub_windows.bridge_window import BridgeConnectionWindow
 
         # Make sure we have exactly 2 groups selected
         if len(self.bridge_selected_groups) != 2:

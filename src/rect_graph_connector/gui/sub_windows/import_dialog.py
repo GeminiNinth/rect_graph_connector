@@ -3,7 +3,7 @@ This module contains the import mode dialog for selecting and explaining import 
 """
 
 from typing import Dict, Optional, Any, Union, cast
-from ..config import config
+from ...config import config
 from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,

@@ -33,11 +33,11 @@ from PyQt5.QtWidgets import (
     QApplication,
 )
 
-from ..config import config
-from ..models.graph import Graph, NodeGroup
-from ..models.node import BaseNode
-from ..models.special.bridge_connection import BridgeConnector, BridgeConnectionParams
-from ..utils.logging_utils import get_logger
+from ...config import config
+from ...models.graph import Graph, NodeGroup
+from ...models.node import BaseNode
+from ...models.special.bridge_connection import BridgeConnector, BridgeConnectionParams
+from ...utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

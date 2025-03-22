@@ -27,7 +27,7 @@ from ..config import config
 from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
 from .canvas import Canvas
-from .import_dialog import ImportModeDialog
+from .sub_windows.import_dialog import ImportModeDialog
 
 logger = get_logger(__name__)
 

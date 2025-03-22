@@ -11,11 +11,11 @@ from PyQt5.QtCore import QPointF, QRectF, Qt
 from PyQt5.QtGui import QColor, QPainter, QPainterPath, QPen, QFont, QFontMetrics
 from PyQt5.QtWidgets import QApplication
 
-from ..config import config
-from ..models.graph import NodeGroup
-from ..models.special.bridge_connection import BridgeConnector
-from ..utils.logging_utils import get_logger
-from ..gui.rendering.base_renderer import parse_rgba
+from ...config import config
+from ...models.graph import NodeGroup
+from ...models.special.bridge_connection import BridgeConnector
+from ...utils.logging_utils import get_logger
+from ..rendering.base_renderer import parse_rgba
 
 logger = get_logger(__name__)
 
