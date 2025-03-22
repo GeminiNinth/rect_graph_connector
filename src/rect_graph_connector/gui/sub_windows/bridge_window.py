@@ -846,54 +846,27 @@ class BridgeConnectionWindow(QDialog):
         if not target_edge_nodes:
             target_edge_nodes = target_displayed_nodes
 
-        # Create preview connections
+        unique_edges = set()
+        s2t = self.bridge_connection._generate_bipartite_mapping(
+            source_edge_nodes,
+            target_edge_nodes,
+            self.connection_count,
+            self.flip_direction,
+        )
+        for src_idx, tgt_set in s2t.items():
+            for tgt_idx in tgt_set:
+                unique_edges.add((src_idx, tgt_idx))
+
         connection_lines = []
-
-        # Create bidirectional connections with our single connection count
-        # Generate balanced connections from source to target
-        connections = self.bridge_connection._generate_bipartite_mapping(
-            source_edge_nodes,
-            target_edge_nodes,
-            self.connection_count,
-            self.flip_direction,
-        )
-
-        for source_idx, target_indices in connections.items():
-            source_node = source_edge_nodes[source_idx]
-            for target_idx in target_indices:
-                target_node = target_edge_nodes[target_idx]
-                # Create connection points
-                connection_lines.append(
-                    (
-                        QPointF(source_node.x, source_node.y),
-                        QPointF(target_node.x, target_node.y),
-                    )
+        for src_idx, tgt_idx in unique_edges:
+            source_node = source_edge_nodes[src_idx]
+            target_node = target_edge_nodes[tgt_idx]
+            connection_lines.append(
+                (
+                    QPointF(source_node.x, source_node.y),
+                    QPointF(target_node.x, target_node.y),
                 )
-
-        # Generate balanced connections from target to source if needed
-        # Note: For a true bidirectional/symmetric connection, we don't need both directions
-        # But we'll keep it as-is for preview consistency with the original implementation
-
-        connections = self.bridge_connection._generate_bipartite_mapping(
-            target_edge_nodes,
-            source_edge_nodes,
-            self.connection_count,
-            self.flip_direction,
-        )
-
-        for target_idx, source_indices in connections.items():
-            target_node = target_edge_nodes[target_idx]
-            for source_idx in source_indices:
-                source_node = source_edge_nodes[source_idx]
-                # Create connection points
-                connection_lines.append(
-                    (
-                        QPointF(target_node.x, target_node.y),
-                        QPointF(source_node.x, source_node.y),
-                    )
-                )
-
-        # Update the unified view with the connections
+            )
         self.unified_view.set_connections(connection_lines)
 
     def _apply_connections(self):
@@ -926,34 +899,40 @@ class BridgeConnectionWindow(QDialog):
 
         success = True
 
-        # Create bidirectional connections with our single connection count
-        # Source to target connections
-        connections = self.bridge_connection._generate_bipartite_mapping(
+        # Instead of trying to recreate the connections from the preview lines,
+        # use the same algorithm that generated the preview to create the actual connections
+        # This ensures the preview and actual connections match exactly
+
+        # Clear any existing connections between the two groups first
+        # to avoid duplicate connections
+        for source_node in source_edge_nodes:
+            for target_node in target_edge_nodes:
+                # Find and remove any existing edges between these nodes
+                for edge in list(
+                    self.graph.edges
+                ):  # Create a copy to safely modify during iteration
+                    if (edge[0] == source_node.id and edge[1] == target_node.id) or (
+                        edge[0] == target_node.id and edge[1] == source_node.id
+                    ):
+                        self.graph.edges.remove(edge)
+
+        # Generate source to target connections using the same mapping function
+        # that was used for the preview
+        unique_edges = set()
+        s2t = self.bridge_connection._generate_bipartite_mapping(
             source_edge_nodes,
             target_edge_nodes,
             self.connection_count,
             self.flip_direction,
         )
+        for src_idx, tgt_set in s2t.items():
+            for tgt_idx in tgt_set:
+                unique_edges.add((src_idx, tgt_idx))
 
-        for source_idx, target_indices in connections.items():
-            source_node = source_edge_nodes[source_idx]
-            for target_idx in target_indices:
-                target_node = target_edge_nodes[target_idx]
-                self.graph.add_edge(source_node, target_node)
-
-        # Target to source connections
-        connections = self.bridge_connection._generate_bipartite_mapping(
-            target_edge_nodes,
-            source_edge_nodes,
-            self.connection_count,
-            self.flip_direction,
-        )
-
-        for target_idx, source_indices in connections.items():
-            target_node = target_edge_nodes[target_idx]
-            for source_idx in source_indices:
-                source_node = source_edge_nodes[source_idx]
-                self.graph.add_edge(target_node, source_node)
+        for src_idx, tgt_idx in unique_edges:
+            source_node = source_edge_nodes[src_idx]
+            target_node = target_edge_nodes[tgt_idx]
+            self.graph.add_edge(source_node, target_node)
 
         if success:
             # Accept the dialog (will close it)
