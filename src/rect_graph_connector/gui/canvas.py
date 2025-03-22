@@ -789,7 +789,19 @@ class Canvas(QWidget):
         ):
             # Rotate selected groups using keyboard shortcut
             if self.graph.selected_groups:
-                self.graph.rotate_node_groups(self.graph.selected_groups)
+                # Check if Shift is pressed
+                if event.modifiers() & Qt.ShiftModifier:
+                    # Rotate around common center if Shift is pressed and multiple groups selected
+                    if len(self.graph.selected_groups) > 1:
+                        self.graph.rotate_groups_around_center(
+                            self.graph.selected_groups
+                        )
+                    else:
+                        # Fall back to individual rotation if only one group
+                        self.graph.rotate_node_groups(self.graph.selected_groups)
+                else:
+                    # Rotate each group individually if Shift is not pressed
+                    self.graph.rotate_node_groups(self.graph.selected_groups)
                 self.update()
         elif event.key() == Qt.Key_Delete:
             if self.current_mode == self.NORMAL_MODE:
