@@ -28,16 +28,20 @@ class FloatingMenu:
     for bridge connections.
     """
 
-    def __init__(self, node_group: NodeGroup, theme: str = "light"):
+    def __init__(
+        self, node_group: NodeGroup, theme: str = "light", group_type: str = "source"
+    ):
         """
         Initialize the floating menu.
 
         Args:
             node_group: The node group this menu is attached to
             theme: The color theme to use (light or dark)
+            group_type: The type of group ("source" or "target")
         """
         self.node_group = node_group
         self.theme = theme
+        self.group_type = group_type
         self.visible = True
         self.highlight_position = config.get_constant(
             "bridge_connection.highlight_positions.default", "row_first"
@@ -68,10 +72,15 @@ class FloatingMenu:
             "bridge_connection.floating_menu.next_button", "▶"
         )
 
-        # Menu title
-        self.title = config.get_string(
-            "bridge_connection.floating_menu.title", "Edge Nodes"
-        )
+        # Menu title based on group type
+        if group_type == "source":
+            self.title = config.get_string(
+                "bridge_connection.floating_menu.source_title", "Source Nodes"
+            )
+        else:  # target
+            self.title = config.get_string(
+                "bridge_connection.floating_menu.target_title", "Target Nodes"
+            )
 
         # UI dimensions
         self.padding = 5
@@ -223,9 +232,16 @@ class FloatingMenu:
         button_text = QColor(
             config.get_color("bridge.floating_menu.button.text", "#FFFFFF")
         )
-        button_border = QColor(
-            config.get_color("bridge.floating_menu.button.border", "#707070")
-        )
+
+        # Get border color based on group type
+        if hasattr(self, "group_type") and self.group_type == "source":
+            button_border = QColor(
+                config.get_color("bridge.floating_menu.source_border", "#FF5080")
+            )
+        else:  # target or default
+            button_border = QColor(
+                config.get_color("bridge.floating_menu.target_border", "#FFA500")
+            )
 
         # Save current painter state
         painter.save()

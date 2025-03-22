@@ -37,13 +37,15 @@ light:
       selected: "#ADD8E6"
       all_for_one_selected: "#FFA07A" # Light salmon color for All-For-One mode selected nodes
       parallel_selected: "#90EE90" # Light green for Parallel connection mode
-      bridge_highlighted: "#10DDFF" # Orange with transparency for bridge highlight
+      bridge_highlighted: "#10DDFF" # Blue with transparency for target node highlight
+      bridge_source_highlighted: "#FFD0E0" # Light pink for source node highlight
     border:
       normal: "gray"
       selected: "blue"
       all_for_one_selected: "#FF4500" # OrangeRed for All-For-One mode selected node border
       parallel_selected: "#006400" # Dark green for Parallel connection mode
-      bridge_highlighted: "#50FCC0" # Dark orange for bridge highlighted node border
+      bridge_highlighted: "#50FCC0" # Turquoise for target node highlighted border
+      bridge_source_highlighted: "#FF80A0" # Darker pink for source node highlighted border
     text: "#000000" # Node ID display text color
 
   mode_indicator:
@@ -55,6 +57,9 @@ light:
     floating_menu:
       background: "rgba(240, 240, 240, 220)" # Light gray with transparency
       text: "#000000" # Black text
+      border: "#A0A0A0" # Default border color
+      source_border: "#FF80A0" # Pink border for source floating menu
+      target_border: "#50FCC0" # Turquoise border for target floating menu
       button:
         background: "#E0E0E0" # Light gray button
         hover: "#D0D0D0" # Slightly darker on hover
@@ -115,13 +120,15 @@ dark:
       selected: "#66CCFF"
       all_for_one_selected: "#FF6347" # Darker salmon for dark mode
       parallel_selected: "#66CC66" # Darker green for dark mode
-      bridge_highlighted: "rgba(255, 165, 0, 220)" # Orange with transparency for bridge highlight
+      bridge_highlighted: "rgba(255, 165, 0, 220)" # Orange with transparency for target node highlight
+      bridge_source_highlighted: "#FF99B3" # Darker pink for source node highlight in dark mode
     border:
       normal: "#999999"
       selected: "#AACCFF"
       all_for_one_selected: "#FF6600" # Brighter orange for dark mode
       parallel_selected: "#009900" # Brighter green for dark mode
-      bridge_highlighted: "#FFA500" # Brighter orange for dark mode
+      bridge_highlighted: "#FFA500" # Brighter orange for target node border
+      bridge_source_highlighted: "#FF5080" # Brighter pink for source node border in dark mode
     text: "#FFFFFF"
 
   mode_indicator:
@@ -133,6 +140,9 @@ dark:
     floating_menu:
       background: "rgba(60, 60, 60, 220)" # Dark gray with transparency
       text: "#FFFFFF" # White text
+      border: "#707070" # Default border color
+      source_border: "#FF5080" # Brighter pink border for source floating menu in dark mode
+      target_border: "#FFA500" # Orange border for target floating menu in dark mode
       button:
         background: "#505050" # Medium gray button
         hover: "#606060" # Slightly lighter on hover

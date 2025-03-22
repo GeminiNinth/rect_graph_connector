@@ -248,6 +248,7 @@ class NodeRenderer(BaseRenderer):
         all_for_one_selected_nodes=None,
         parallel_selected_nodes=None,
         is_bridge_highlighted=False,
+        is_bridge_source_highlighted=False,
     ):
         """
         Draw a single node with its fill, border, and label.
@@ -257,7 +258,8 @@ class NodeRenderer(BaseRenderer):
             node: The node to draw
             all_for_one_selected_nodes: List of nodes selected in All-For-One mode
             parallel_selected_nodes: List of nodes selected in Parallel mode
-            is_bridge_highlighted (bool): Whether this node is highlighted in bridge mode
+            is_bridge_highlighted (bool): Whether this node is highlighted as a target node in bridge mode
+            is_bridge_source_highlighted (bool): Whether this node is highlighted as a source node in bridge mode
         """
         rect = QRectF(
             node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
@@ -276,8 +278,13 @@ class NodeRenderer(BaseRenderer):
         )
 
         # Fill color based on selection state
-        if is_bridge_highlighted:
-            # Bridge highlighting takes precedence
+        if is_bridge_source_highlighted:
+            # Source node highlighting takes precedence
+            node_fill_color = config.get_color(
+                "node.fill.bridge_source_highlighted", "#FFD0E0"
+            )  # Light pink
+        elif is_bridge_highlighted:
+            # Target node highlighting takes precedence
             node_fill_color = config.get_color(
                 "node.fill.bridge_highlighted", "#10DDFF"
             )  # Light blue
@@ -301,11 +308,20 @@ class NodeRenderer(BaseRenderer):
         node_color = QColor(node_fill_color)
 
         # Set up border pen based on selection state
-        if is_bridge_highlighted:
-            # Bridge highlighting takes precedence
+        if is_bridge_source_highlighted:
+            # Source node highlighting takes precedence
+            border_color = config.get_color(
+                "node.border.bridge_source_highlighted", "#FF80A0"
+            )  # Pink
+            pen = QPen(QColor(border_color))
+            pen.setWidth(
+                int(config.get_dimension("node.border_width.bridge_highlighted", 2))
+            )
+        elif is_bridge_highlighted:
+            # Target node highlighting takes precedence
             border_color = config.get_color(
                 "node.border.bridge_highlighted", "#50FCC0"
-            )  # Emerald green
+            )  # Turquoise
             pen = QPen(QColor(border_color))
             pen.setWidth(
                 int(config.get_dimension("node.border_width.bridge_highlighted", 2))
@@ -348,11 +364,10 @@ class NodeRenderer(BaseRenderer):
             painter.drawRect(rect)
 
         # Draw node ID
-        text_color = config.get_color("node.text", "#000000")
-        painter.setPen(QColor(text_color))
+        painter.setPen(QPen(QColor(config.get_color("node.text", "#000000")), 1))
         painter.drawText(rect, Qt.AlignCenter, str(node.id))
 
-        # 描画後にpainterの状態を復元
+        # Restore painter state
         painter.restore()
 
     def _draw_group_label(
@@ -367,44 +382,23 @@ class NodeRenderer(BaseRenderer):
         max_x,
         max_y,
     ):
-        """Draw the label for a node group."""
-        # Calculate label width (including margins)
-        font_metrics = painter.fontMetrics()
-        text_margin = config.get_dimension("group.label.text_margin", 10)
-        text_width = font_metrics.width(group.name) + text_margin
-        half_width = text_width // 2
+        """
+        Draw the label for a node group.
 
-        # Calculate label position
-        center_x = (min_x + max_x) / 2
-        margin = config.get_dimension("group.label.position_margin", 30)
-        label_height = config.get_dimension("group.label.height", 20)
-        fixed_width = config.get_dimension("group.label.fixed_width", 100)
+        Args:
+            painter (QPainter): The painter to use for drawing
+            group: The group to draw the label for
+            group_nodes: List of nodes in the group
+            is_selected: Whether the group is selected
+            pen_color: Color for the label text
+            min_x, min_y: Top-left corner of the group
+            max_x, max_y: Bottom-right corner of the group
+        """
+        if not group.name:
+            return
 
-        # Determine label position and width based on group settings
-        if group.label_position == group.POSITION_RIGHT:
-            # Right position with dynamic offset
-            dynamic_offset = max(margin, (max_x - min_x) * 0.1)
-            label_x = int(max_x + dynamic_offset)
-            label_y = int((min_y + max_y) / 2 - 10)
-            display_width = text_width if is_selected else min(fixed_width, text_width)
-            display_text = (
-                group.name
-                if is_selected or text_width <= fixed_width
-                else font_metrics.elidedText(group.name, Qt.ElideRight, fixed_width)
-            )
-        else:  # POSITION_TOP or POSITION_BOTTOM
-            # Center the label
-            label_x = int(center_x - text_width / 2)
-            label_y = (
-                int(min_y - margin)
-                if group.label_position == group.POSITION_TOP
-                else int(max_y + margin)
-            )
-            display_width = text_width
-            display_text = group.name
-
-        # Draw label background
-        label_bg_value = (
+        # Set up label background
+        label_bg_color_value = (
             config.get_color(
                 "group.label.background.selected", "rgba(240, 240, 255, 200)"
             )
@@ -413,21 +407,29 @@ class NodeRenderer(BaseRenderer):
                 "group.label.background.normal", "rgba(240, 240, 240, 180)"
             )
         )
-        label_bg = parse_rgba(label_bg_value)
-        painter.fillRect(label_x, label_y, display_width, label_height, label_bg)
+        label_bg_color = parse_rgba(label_bg_color_value)
+
+        # Set up label text color
+        label_text_color = QColor(config.get_color("group.label.text", "#000000"))
+
+        # Calculate label position (centered at the top of the group)
+        label_padding = config.get_dimension("group.label_padding", 2)
+        label_height = config.get_dimension("group.label_height", 20)
+        label_width = min(
+            config.get_dimension("group.label_max_width", 150),
+            max_x - min_x,
+        )
+        label_x = min_x + (max_x - min_x - label_width) / 2
+        label_y = min_y - label_height - label_padding
+
+        # Draw label background
+        label_rect = QRectF(label_x, label_y, label_width, label_height)
+        painter.fillRect(label_rect, label_bg_color)
 
         # Draw label border
         painter.setPen(pen_color)
-        painter.drawRect(label_x, label_y, display_width, label_height)
+        painter.drawRect(label_rect)
 
-        # Draw group name
-        text_color = config.get_color("group.label.text", "#000000")
-        painter.setPen(QColor(text_color))
-        painter.drawText(
-            label_x,
-            label_y,
-            display_width,
-            label_height,
-            Qt.AlignCenter,
-            display_text,
-        )
+        # Draw label text
+        painter.setPen(label_text_color)
+        painter.drawText(label_rect, Qt.AlignCenter, group.name)

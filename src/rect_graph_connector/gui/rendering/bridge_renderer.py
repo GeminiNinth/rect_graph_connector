@@ -110,10 +110,25 @@ class BridgeRenderer(BaseRenderer):
         node_renderer = NodeRenderer(self.canvas, self.graph)
 
         # Draw each highlighted node using the NodeRenderer
+        # Determine which group is source and which is target
+        source_group_id = None
+        if len(self.canvas.bridge_selected_groups) > 0:
+            source_group_id = self.canvas.bridge_selected_groups[0].id
+
         for group_id, nodes in edge_nodes_dict.items():
+            # Check if this is the source group or target group
+            is_source = group_id == source_group_id
+
             for node in nodes:
-                # Use the _draw_node method with bridge highlighting flag
-                node_renderer._draw_node(painter, node, is_bridge_highlighted=True)
+                # Use the _draw_node method with appropriate highlighting flag
+                if is_source:
+                    # Source nodes get pink highlight
+                    node_renderer._draw_node(
+                        painter, node, is_bridge_source_highlighted=True
+                    )
+                else:
+                    # Target nodes get the default blue highlight
+                    node_renderer._draw_node(painter, node, is_bridge_highlighted=True)
 
     def _draw_floating_menus(self, painter: QPainter, floating_menus, selected_groups):
         """
@@ -148,10 +163,3 @@ class BridgeRenderer(BaseRenderer):
                 menu.draw(painter, menu_pos)
                 # Store the last position in the menu
                 menu.last_position = menu_pos
-
-    # def _is_dark_mode(self):
-    #     """Check if the canvas is in dark mode."""
-    #     # You might implement this based on your application's theme management
-    #     if hasattr(self.canvas, "theme"):
-    #         return self.canvas.theme == "dark"
-    #     return False

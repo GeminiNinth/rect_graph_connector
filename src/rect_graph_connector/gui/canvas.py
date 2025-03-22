@@ -1163,7 +1163,15 @@ class Canvas(QWidget):
                             self.bridge_selected_groups.append(group)
 
                             # Create floating menu for this group
-                            self.bridge_floating_menus[group.id] = FloatingMenu(group)
+                            # Determine if this is a source or target group based on selection order
+                            group_type = (
+                                "source"
+                                if len(self.bridge_selected_groups) == 1
+                                else "target"
+                            )
+                            self.bridge_floating_menus[group.id] = FloatingMenu(
+                                group, group_type=group_type
+                            )
 
                             # Update edge nodes
                             self._update_bridge_edge_nodes()

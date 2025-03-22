@@ -113,6 +113,8 @@ bridge_connection:
 
   floating_menu:
     title: "Edge Nodes"
+    source_title: "Source Nodes"
+    target_title: "Target Nodes"
     prev_button: "◀"
     next_button: "▶"
     position_label:

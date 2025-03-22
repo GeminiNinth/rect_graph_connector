@@ -73,56 +73,20 @@ class NodeView(QWidget):
 
     def _update_colors(self):
         """Update colors based on the current theme."""
-        if self.theme == "dark":
-            self.node_fill_color = QColor(
-                config.get_color("node.fill.normal", "#3399CC", theme="dark")
-            )
-            self.node_border_color = QColor(
-                config.get_color("node.border.normal", "#999999", theme="dark")
-            )
-            self.highlight_fill_color = QColor(
-                config.get_color(
-                    "node.fill.bridge_highlighted",
-                    "rgba(255, 165, 0, 220)",
-                    theme="dark",
-                )
-            )
-            self.highlight_border_color = QColor(
-                config.get_color(
-                    "node.border.bridge_highlighted", "#FFA500", theme="dark"
-                )
-            )
-            self.connection_color = QColor(
-                config.get_color(
-                    "bridge.window.node_area.connection_line", "#6495ED", theme="dark"
-                )
-            )
-            self.bg_color = QColor(
-                config.get_color(
-                    "bridge.window.node_area.background", "#303030", theme="dark"
-                )
-            )
-        else:
-            self.node_fill_color = QColor(
-                config.get_color("node.fill.normal", "skyblue")
-            )
-            self.node_border_color = QColor(
-                config.get_color("node.border.normal", "gray")
-            )
-            self.highlight_fill_color = QColor(
-                config.get_color(
-                    "node.fill.bridge_highlighted", "rgba(255, 165, 0, 200)"
-                )
-            )
-            self.highlight_border_color = QColor(
-                config.get_color("node.border.bridge_highlighted", "#FF8C00")
-            )
-            self.connection_color = QColor(
-                config.get_color("bridge.window.node_area.connection_line", "#6495ED")
-            )
-            self.bg_color = QColor(
-                config.get_color("bridge.window.node_area.background", "#F5F5F5")
-            )
+        self.node_fill_color = QColor(config.get_color("node.fill.normal", "skyblue"))
+        self.node_border_color = QColor(config.get_color("node.border.normal", "gray"))
+        self.highlight_fill_color = QColor(
+            config.get_color("node.fill.bridge_highlighted", "rgba(255, 165, 0, 200)")
+        )
+        self.highlight_border_color = QColor(
+            config.get_color("node.border.bridge_highlighted", "#FF8C00")
+        )
+        self.connection_color = QColor(
+            config.get_color("bridge.window.node_area.connection_line", "#6495ED")
+        )
+        self.bg_color = QColor(
+            config.get_color("bridge.window.node_area.background", "#F5F5F5")
+        )
 
     def set_theme(self, theme: str):
         """
@@ -139,10 +103,80 @@ class NodeView(QWidget):
         """
         Set the nodes to display.
 
+        Only displays edge nodes (first/last row, first/last column) to create
+        a simplified view with just input and output layers.
+
         Args:
             nodes: List of nodes to display
         """
-        self.nodes = nodes
+        # Filter to only show edge nodes (first/last row, first/last column)
+        if nodes:
+            # Group nodes by row and column
+            rows = {}
+            cols = {}
+
+            for node in nodes:
+                if node.row not in rows:
+                    rows[node.row] = []
+                if node.col not in cols:
+                    cols[node.col] = []
+
+                rows[node.row].append(node)
+                cols[node.col].append(node)
+
+            # Sort nodes within each row/column
+            for r in rows:
+                rows[r].sort(key=lambda n: n.col)
+
+            for c in cols:
+                cols[c].sort(key=lambda n: n.row)
+
+            # Get edge nodes using a list instead of a set to avoid hashability issues
+            edge_nodes = []
+
+            # Helper function to add a node if it's not already in the list
+            def add_unique_node(node):
+                for existing_node in edge_nodes:
+                    if existing_node.id == node.id:
+                        return
+                edge_nodes.append(node)
+
+            # First and last row
+            sorted_rows = sorted(rows.keys())
+            if sorted_rows:
+                first_row = sorted_rows[0]
+                last_row = sorted_rows[-1]
+
+                # Add first and last node in first row
+                if rows[first_row]:
+                    add_unique_node(rows[first_row][0])  # First node in first row
+                    add_unique_node(rows[first_row][-1])  # Last node in first row
+
+                # Add first and last node in last row
+                if rows[last_row] and last_row != first_row:
+                    add_unique_node(rows[last_row][0])  # First node in last row
+                    add_unique_node(rows[last_row][-1])  # Last node in last row
+
+            # First and last column
+            sorted_cols = sorted(cols.keys())
+            if sorted_cols:
+                first_col = sorted_cols[0]
+                last_col = sorted_cols[-1]
+
+                # Add first and last node in first column
+                if cols[first_col]:
+                    add_unique_node(cols[first_col][0])  # First node in first column
+                    add_unique_node(cols[first_col][-1])  # Last node in first column
+
+                # Add first and last node in last column
+                if cols[last_col] and last_col != first_col:
+                    add_unique_node(cols[last_col][0])  # First node in last column
+                    add_unique_node(cols[last_col][-1])  # Last node in last column
+
+            self.nodes = edge_nodes
+        else:
+            self.nodes = []
+
         self.update()
 
     def set_edge_nodes(self, edge_nodes: List[BaseNode], highlight_position: str):
@@ -265,45 +299,58 @@ class NodeView(QWidget):
         """
         Calculate positions for all nodes in view coordinates.
 
+        Creates a simplified layout with source nodes on the left and target nodes on the right,
+        arranged vertically regardless of their original positions.
+
         Returns:
             List of node positions in view coordinates
         """
         if not self.nodes:
             return []
 
-        # Calculate the bounds of all nodes in graph coordinates
-        min_x = min(node.x for node in self.nodes)
-        max_x = max(node.x for node in self.nodes)
-        min_y = min(node.y for node in self.nodes)
-        max_y = max(node.y for node in self.nodes)
+        # Determine if this is a source or target view based on the first node's presence in edge_nodes
+        is_source_view = False
+        if self.edge_nodes and self.nodes:
+            # Check if any node in self.nodes is in self.edge_nodes and has highlight_position
+            # that matches a source position (ROW_FIRST, ROW_LAST, COL_FIRST, COL_LAST)
+            source_positions = [
+                BridgeConnector.POS_ROW_FIRST,
+                BridgeConnector.POS_ROW_LAST,
+                BridgeConnector.POS_COL_FIRST,
+                BridgeConnector.POS_COL_LAST,
+            ]
+            is_source_view = self.highlight_position in source_positions
 
         # Add some margin
         margin = 20
         width = self.width() - 2 * margin
         height = self.height() - 2 * margin
 
-        # Calculate scale factors
-        graph_width = max(max_x - min_x, 1)
-        graph_height = max(max_y - min_y, 1)
-
-        scale_x = width / graph_width
-        scale_y = height / graph_height
-
-        # Use the smaller scale to maintain aspect ratio
-        scale = min(scale_x, scale_y)
-
-        # Calculate positions
+        # For simplified layout, position nodes in a vertical column
+        # Source nodes on the left side, target nodes on the right side
         positions = []
-        for node in self.nodes:
-            x = margin + (node.x - min_x) * scale
-            y = margin + (node.y - min_y) * scale
-            positions.append(QPointF(x, y))
+        node_count = len(self.nodes)
+
+        if node_count > 0:
+            # Calculate vertical spacing
+            vertical_spacing = height / (node_count + 1)
+
+            for i, node in enumerate(self.nodes):
+                # Position in a vertical column
+                # Source nodes on left (25% of width), target nodes on right (75% of width)
+                x = margin + (0.25 * width if is_source_view else 0.75 * width)
+                y = margin + ((i + 1) * vertical_spacing)
+                positions.append(QPointF(x, y))
 
         return positions
 
     def _map_to_view(self, point: QPointF) -> QPointF:
         """
         Map a point from graph coordinates to view coordinates.
+
+        In the simplified layout, this is primarily used for connection endpoints.
+        Since we're using a virtual layout, we need to find the closest node
+        and use its position in the simplified layout.
 
         Args:
             point: Point in graph coordinates
@@ -314,32 +361,35 @@ class NodeView(QWidget):
         if not self.nodes:
             return QPointF(0, 0)
 
-        # Calculate the bounds of all nodes in graph coordinates
-        min_x = min(node.x for node in self.nodes)
-        max_x = max(node.x for node in self.nodes)
-        min_y = min(node.y for node in self.nodes)
-        max_y = max(node.y for node in self.nodes)
+        # For the simplified layout, we need to find which node this point belongs to
+        # and return that node's position in our virtual layout
 
-        # Add some margin
-        margin = 20
-        width = self.width() - 2 * margin
-        height = self.height() - 2 * margin
+        # Find the node closest to this point
+        closest_node = None
+        min_distance = float("inf")
 
-        # Calculate scale factors
-        graph_width = max(max_x - min_x, 1)
-        graph_height = max(max_y - min_y, 1)
+        for node in self.nodes:
+            # Calculate distance to this node
+            dx = node.x - point.x()
+            dy = node.y - point.y()
+            distance = dx * dx + dy * dy  # Square of distance is enough for comparison
 
-        scale_x = width / graph_width
-        scale_y = height / graph_height
+            if distance < min_distance:
+                min_distance = distance
+                closest_node = node
 
-        # Use the smaller scale to maintain aspect ratio
-        scale = min(scale_x, scale_y)
+        # If we found a node, use its position in our layout
+        if closest_node:
+            # Get all node positions in our virtual layout
+            positions = self._get_node_positions()
 
-        # Map the point
-        x = margin + (point.x() - min_x) * scale
-        y = margin + (point.y() - min_y) * scale
+            # Find the position of our closest node
+            for i, node in enumerate(self.nodes):
+                if node.id == closest_node.id:
+                    return positions[i]
 
-        return QPointF(x, y)
+        # Fallback to center of view
+        return QPointF(self.width() / 2, self.height() / 2)
 
     def mousePressEvent(self, event):
         """
@@ -666,14 +716,84 @@ class BridgeConnectionWindow(QDialog):
         self.params.source_to_target_count = self.source_to_target_spinbox.value()
         self.params.target_to_source_count = self.target_to_source_spinbox.value()
 
-        # Get connection preview
-        preview_lines = self.bridge_connector.get_connection_preview(
-            self.source_group, self.target_group, self.params
-        )
+        # Get the displayed nodes from each view
+        source_displayed_nodes = self.source_view.nodes
+        target_displayed_nodes = self.target_view.nodes
 
-        # Update views
-        self.source_view.set_connections(preview_lines)
-        self.target_view.set_connections(preview_lines)
+        if not source_displayed_nodes or not target_displayed_nodes:
+            return
+
+        # Get the edge nodes (selected nodes) from each view
+        source_edge_nodes = self.source_view.edge_nodes
+        target_edge_nodes = self.target_view.edge_nodes
+
+        # If no edge nodes are selected, use all displayed nodes
+        if not source_edge_nodes:
+            source_edge_nodes = source_displayed_nodes
+        if not target_edge_nodes:
+            target_edge_nodes = target_displayed_nodes
+
+        # Create preview lines between edge nodes only
+        source_preview_lines = []
+        target_preview_lines = []
+
+        # For source to target connections
+        if self.params.source_to_target_count > 0:
+            # Use bridge connector's bipartite mapping logic but only for edge nodes
+            connections = self.bridge_connector._generate_bipartite_mapping(
+                source_edge_nodes,
+                target_edge_nodes,
+                self.params.source_to_target_count,
+            )
+
+            for source_idx, target_indices in connections.items():
+                source_node = source_edge_nodes[source_idx]
+                for target_idx in target_indices:
+                    target_node = target_edge_nodes[target_idx]
+                    # Create connection points for both views
+                    source_preview_lines.append(
+                        (
+                            QPointF(source_node.x, source_node.y),
+                            QPointF(target_node.x, target_node.y),
+                        )
+                    )
+                    target_preview_lines.append(
+                        (
+                            QPointF(source_node.x, source_node.y),
+                            QPointF(target_node.x, target_node.y),
+                        )
+                    )
+
+        # For target to source connections
+        if self.params.target_to_source_count > 0:
+            # Use bridge connector's bipartite mapping logic but only for edge nodes
+            connections = self.bridge_connector._generate_bipartite_mapping(
+                target_edge_nodes,
+                source_edge_nodes,
+                self.params.target_to_source_count,
+            )
+
+            for target_idx, source_indices in connections.items():
+                target_node = target_edge_nodes[target_idx]
+                for source_idx in source_indices:
+                    source_node = source_edge_nodes[source_idx]
+                    # Create connection points for both views
+                    source_preview_lines.append(
+                        (
+                            QPointF(target_node.x, target_node.y),
+                            QPointF(source_node.x, source_node.y),
+                        )
+                    )
+                    target_preview_lines.append(
+                        (
+                            QPointF(target_node.x, target_node.y),
+                            QPointF(source_node.x, source_node.y),
+                        )
+                    )
+
+        # Update views with their respective connection lines
+        self.source_view.set_connections(source_preview_lines)
+        self.target_view.set_connections(target_preview_lines)
 
     def _apply_connections(self):
         """Apply the configured bridge connections to the graph."""
@@ -684,21 +804,70 @@ class BridgeConnectionWindow(QDialog):
         self.params.source_to_target_count = self.source_to_target_spinbox.value()
         self.params.target_to_source_count = self.target_to_source_spinbox.value()
 
-        # Create bridge connections
-        success = self.bridge_connector.create_bridge_connection(
-            self.source_group, self.target_group, self.params
-        )
+        # Get the edge nodes (selected nodes) from each view
+        source_edge_nodes = self.source_view.edge_nodes
+        target_edge_nodes = self.target_view.edge_nodes
 
-        if success:
-            # Accept the dialog (will close it)
-            self.accept()
-        else:
-            # Log error but keep dialog open
-            logger.error("Failed to create bridge connection")
+        # Get the displayed nodes from each view as fallback
+        source_displayed_nodes = self.source_view.nodes
+        target_displayed_nodes = self.target_view.nodes
+
+        # If no edge nodes are selected, use all displayed nodes
+        if not source_edge_nodes:
+            source_edge_nodes = source_displayed_nodes
+        if not target_edge_nodes:
+            target_edge_nodes = target_displayed_nodes
+
+        if not source_edge_nodes or not target_edge_nodes:
+            logger.error("No nodes available for connection")
+            return
+
+        success = True
+
+        # For source to target connections
+        if self.params.source_to_target_count > 0:
+            # Use bridge connector's bipartite connection logic but only for edge nodes
+            connections = self.bridge_connector._generate_bipartite_mapping(
+                source_edge_nodes,
+                target_edge_nodes,
+                self.params.source_to_target_count,
+            )
+
+            for source_idx, target_indices in connections.items():
+                source_node = source_edge_nodes[source_idx]
+                for target_idx in target_indices:
+                    target_node = target_edge_nodes[target_idx]
+                    self.graph.add_edge(source_node, target_node)
+
+        # For target to source connections
+        if self.params.target_to_source_count > 0:
+            # Use bridge connector's bipartite connection logic but only for edge nodes
+            connections = self.bridge_connector._generate_bipartite_mapping(
+                target_edge_nodes,
+                source_edge_nodes,
+                self.params.target_to_source_count,
+            )
+
+            for target_idx, source_indices in connections.items():
+                target_node = target_edge_nodes[target_idx]
+                for source_idx in source_indices:
+                    source_node = source_edge_nodes[source_idx]
+                    self.graph.add_edge(target_node, source_node)
+
+            if success:
+                # Accept the dialog (will close it)
+                self.accept()
+            else:
+                # Log error but keep dialog open
+                logger.error("Failed to create bridge connection")
 
     @classmethod
     def show_dialog(
-        cls, graph: Graph, source_group: NodeGroup, target_group: NodeGroup, parent=None
+        cls,
+        graph: Graph,
+        source_group: NodeGroup,
+        target_group: NodeGroup,
+        parent=None,
     ) -> bool:
         """
         Show the bridge connection dialog.
