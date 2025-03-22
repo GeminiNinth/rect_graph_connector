@@ -35,14 +35,21 @@ logger = get_logger(__name__)
 class NodeGroupInputEdit(QLineEdit):
     """
     Custom QLineEdit for node group input that emits a signal when Enter is pressed.
+    Also handles Tab and Shift+Tab for navigation between input fields.
     """
 
     enterPressed = pyqtSignal()
 
     def keyPressEvent(self, event: QKeyEvent):
-        """Handle key press events, specifically the Enter/Return key."""
+        """Handle key press events, specifically the Enter/Return key and Tab navigation."""
         if event.key() in (Qt.Key_Return, Qt.Key_Enter):
             self.enterPressed.emit()
+        elif event.key() == Qt.Key_Tab and event.modifiers() & Qt.ShiftModifier:
+            # Shift+Tab should focus the previous widget
+            self.focusPreviousChild()
+        elif event.key() == Qt.Key_Tab:
+            # Tab should focus the next widget
+            self.focusNextChild()
         else:
             super().keyPressEvent(event)
 
@@ -737,13 +744,10 @@ class MainWindow(QMainWindow):
         delete_key = getattr(
             Qt, f"Key_{config.get_constant('keyboard_shortcuts.delete', 'Delete')}"
         )
+        # Get the key for rotation (without modifiers)
         rotate_key = getattr(
             Qt,
             f"Key_{config.get_constant('keyboard_shortcuts.rotate_individual', 'R')}",
-        )
-        rotate_group_key = getattr(
-            Qt,
-            f"Key_{config.get_constant('keyboard_shortcuts.rotate_common_center', 'Shift+R')}",
         )
 
         # Get modifiers
