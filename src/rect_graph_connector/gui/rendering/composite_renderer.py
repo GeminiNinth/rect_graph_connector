@@ -12,6 +12,7 @@ from .grid_renderer import GridRenderer
 from .knife_renderer import KnifeRenderer
 from .node_renderer import NodeRenderer
 from .selection_renderer import SelectionRenderer
+from .bridge_renderer import BridgeRenderer
 
 
 class CompositeRenderer(BaseRenderer):
@@ -37,6 +38,7 @@ class CompositeRenderer(BaseRenderer):
         self.node_renderer = NodeRenderer(canvas, graph)
         self.selection_renderer = SelectionRenderer(canvas, graph)
         self.knife_renderer = KnifeRenderer(canvas, graph)
+        self.bridge_renderer = BridgeRenderer(canvas, graph)
 
     def draw(
         self,
@@ -49,6 +51,7 @@ class CompositeRenderer(BaseRenderer):
         all_for_one_selected_nodes=None,
         selection_rect_data=None,
         parallel_data=None,
+        bridge_data=None,
         **kwargs,
     ):
         """
@@ -65,6 +68,7 @@ class CompositeRenderer(BaseRenderer):
             all_for_one_selected_nodes (list, optional): List of nodes selected in All-For-One mode
             selection_rect_data (dict, optional): Data for the selection rectangle
             parallel_data (dict, optional): Data for parallel connection mode
+            bridge_data (dict, optional): Data for bridge connection mode
             **kwargs: Additional drawing parameters
         """
         # Draw grid if enabled
@@ -82,7 +86,8 @@ class CompositeRenderer(BaseRenderer):
         # 3. Node groups and nodes
         # 4. Selection rectangle
         # 5. Knife tool path
-        # 6. Canvas border (most front) - drawn after everything else
+        # 6. Bridge connection elements (previews, highlighted nodes)
+        # 7. Canvas border (most front) - drawn after everything else
 
         # Draw node group backgrounds first
         self.node_renderer.draw(
@@ -118,6 +123,12 @@ class CompositeRenderer(BaseRenderer):
         self.knife_renderer.draw(
             painter,
             knife_data=knife_data,
+        )
+
+        # Draw bridge connection elements if in bridge mode
+        self.bridge_renderer.draw(
+            painter,
+            bridge_data=bridge_data,
         )
 
         # Restore painter state

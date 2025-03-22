@@ -95,11 +95,25 @@ class EditContextMenu(QMenu):
         )
         self.parallel_action.triggered.connect(self._toggle_parallel_connection_mode)
 
+        # Bridge connection action
+        bridge_text = config.get_string(
+            "edit_menu.connection.bridge", "Bridge connection"
+        )
+        self.bridge_action = QAction(bridge_text, self)
+        self.bridge_action.setToolTip(
+            config.get_string(
+                "edit_menu.connection.bridge_tooltip",
+                "Creates bipartite graph connections between two selected node groups with customizable connection patterns.",
+            )
+        )
+        self.bridge_action.triggered.connect(self._toggle_bridge_connection_mode)
+
         # Add connection actions to the submenu
         self.connection_menu.addAction(self.connect_4_directions_action)
         self.connection_menu.addAction(self.connect_8_directions_action)
         self.connection_menu.addAction(self.all_for_one_action)
         self.connection_menu.addAction(self.parallel_action)
+        self.connection_menu.addAction(self.bridge_action)
 
         # Toggle knife mode action
         knife_text = config.get_string(
@@ -176,6 +190,20 @@ class EditContextMenu(QMenu):
                 self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
             else:
                 self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_ALL_FOR_ONE)
+
+    def _toggle_bridge_connection_mode(self):
+        """
+        Toggle Bridge connection mode.
+
+        This mode allows selecting two node groups and creating bipartite graph connections
+        between their edge nodes with customizable parameters.
+        """
+        if self.canvas:
+            # Check if already in Bridge connection mode, if so go back to connect mode
+            if self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_BRIDGE:
+                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
+            else:
+                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_BRIDGE)
 
     def _connect_nodes_in_8_directions(self):
         """
@@ -287,4 +315,11 @@ class EditContextMenu(QMenu):
                 self.parallel_action.setCheckable(True)
             self.parallel_action.setChecked(
                 self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_PARALLEL
+            )
+
+            # Update Bridge connection action state
+            if not hasattr(self.bridge_action, "setCheckable"):
+                self.bridge_action.setCheckable(True)
+            self.bridge_action.setChecked(
+                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_BRIDGE
             )

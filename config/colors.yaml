@@ -10,6 +10,7 @@ light:
   edge:
     normal: "#000000"
     highlighted: "#FF0000"
+    bridge_preview: "rgba(100, 100, 255, 150)" # Bridge connection preview line
 
   knife:
     path: "#C80000" # Knife Pass Color
@@ -36,17 +37,46 @@ light:
       selected: "#ADD8E6"
       all_for_one_selected: "#FFA07A" # Light salmon color for All-For-One mode selected nodes
       parallel_selected: "#90EE90" # Light green for Parallel connection mode
+      bridge_highlighted: "rgba(255, 165, 0, 200)" # Orange with transparency for bridge highlight
     border:
       normal: "gray"
       selected: "blue"
       all_for_one_selected: "#FF4500" # OrangeRed for All-For-One mode selected node border
       parallel_selected: "#006400" # Dark green for Parallel connection mode
+      bridge_highlighted: "#FF8C00" # Dark orange for bridge highlighted node border
     text: "#000000" # Node ID display text color
 
   mode_indicator:
     normal: "rgba(240, 240, 240, 180)"
     edit: "rgba(255, 220, 220, 180)"
     text: "#000000" # Indicator text color
+
+  bridge:
+    floating_menu:
+      background: "rgba(240, 240, 240, 220)" # Light gray with transparency
+      text: "#000000" # Black text
+      button:
+        background: "#E0E0E0" # Light gray button
+        hover: "#D0D0D0" # Slightly darker on hover
+        text: "#000000" # Black text
+        border: "#A0A0A0" # Medium gray border
+    window:
+      background: "rgba(255, 255, 255, 240)" # Almost white with transparency
+      border: "#A0A0A0" # Medium gray border
+      title_bar: "#E6E6FA" # Lavender color for title bar
+      node_area:
+        background: "#F5F5F5" # Very light gray
+        connection_line: "#6495ED" # Cornflower blue
+      controls:
+        button:
+          background: "#E0E0E0"
+          hover: "#D0D0D0"
+          text: "#000000"
+          border: "#A0A0A0"
+        counter:
+          text: "#000000"
+          background: "#FFFFFF"
+          border: "#A0A0A0"
 
 # Dark Mode
 dark:
@@ -58,6 +88,7 @@ dark:
   edge:
     normal: "#FFFFFF"
     highlighted: "#FF6666"
+    bridge_preview: "rgba(120, 120, 255, 180)" # Bridge connection preview line (brighter for dark mode)
 
   knife:
     path: "#FF6666"
@@ -84,14 +115,43 @@ dark:
       selected: "#66CCFF"
       all_for_one_selected: "#FF6347" # Darker salmon for dark mode
       parallel_selected: "#66CC66" # Darker green for dark mode
+      bridge_highlighted: "rgba(255, 165, 0, 220)" # Orange with transparency for bridge highlight
     border:
       normal: "#999999"
       selected: "#AACCFF"
       all_for_one_selected: "#FF6600" # Brighter orange for dark mode
       parallel_selected: "#009900" # Brighter green for dark mode
+      bridge_highlighted: "#FFA500" # Brighter orange for dark mode
     text: "#FFFFFF"
 
   mode_indicator:
     normal: "rgba(60, 60, 60, 180)"
     edit: "rgba(120, 60, 60, 180)"
     text: "#FFFFFF"
+
+  bridge:
+    floating_menu:
+      background: "rgba(60, 60, 60, 220)" # Dark gray with transparency
+      text: "#FFFFFF" # White text
+      button:
+        background: "#505050" # Medium gray button
+        hover: "#606060" # Slightly lighter on hover
+        text: "#FFFFFF" # White text
+        border: "#707070" # Light gray border
+    window:
+      background: "rgba(40, 40, 40, 240)" # Almost black with transparency
+      border: "#707070" # Light gray border
+      title_bar: "#483D8B" # Dark slate blue for title bar
+      node_area:
+        background: "#303030" # Dark gray
+        connection_line: "#6495ED" # Cornflower blue
+      controls:
+        button:
+          background: "#505050"
+          hover: "#606060"
+          text: "#FFFFFF"
+          border: "#707070"
+        counter:
+          text: "#FFFFFF"
+          background: "#404040"
+          border: "#707070"

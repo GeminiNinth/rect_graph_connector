@@ -15,6 +15,7 @@ edit_submodes:
   knife: "knife" # Edge Cutting Mode
   all_for_one: "all_for_one" # All-For-One Connection Mode
   parallel: "parallel" # Parallel Connection Mode
+  bridge: "bridge" # Bridge Connection Mode
 
 # Flags for deselection method
 deselect_methods:
@@ -65,3 +66,16 @@ file_output:
   patterns:
     yaml_export: "graph_output_{date_str}.yaml" # YAML export file name pattern
     date_format: "%Y%m%d_%H%M%S" # Date format used for filenames
+
+# Bridge connection settings
+bridge_connection:
+  max_selected_groups: 2 # Maximum number of groups that can be selected
+  preview_line_style: "dashed" # Style for preview connection lines
+  min_connections: 1 # Minimum number of connections
+  max_connections: 10 # Maximum number of connections (full bipartite graph)
+  highlight_positions:
+    row_first: "row_first" # First node in each row
+    row_last: "row_last" # Last node in each row
+    col_first: "col_first" # First node in each column
+    col_last: "col_last" # Last node in each column
+    default: "row_first" # Default highlight position

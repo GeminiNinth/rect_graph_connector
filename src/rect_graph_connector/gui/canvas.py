@@ -21,8 +21,10 @@ from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
 from .context_menus.edit_menu import EditContextMenu
 from .context_menus.normal_menu import NormalContextMenu
+from .floating_menu import FloatingMenu
 from .import_dialog import ImportModeDialog
 from .rendering import CompositeRenderer
+from ..models.bridge_connector import BridgeConnector, BridgeConnectionParams
 
 
 class Canvas(QWidget):
@@ -51,6 +53,9 @@ class Canvas(QWidget):
     EDIT_SUBMODE_PARALLEL = config.get_constant(
         "edit_submodes.parallel", "parallel"
     )  # Parallel connection mode for drawing edges in same direction
+    EDIT_SUBMODE_BRIDGE = config.get_constant(
+        "edit_submodes.bridge", "bridge"
+    )  # Bridge connection mode for bipartite connections between node groups
 
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
@@ -141,6 +146,18 @@ class Canvas(QWidget):
         self.parallel_edge_endpoints = (
             []
         )  # Temporary virtual edges during parallel connection drag
+
+        # Bridge connection mode state
+        self.bridge_selected_groups = (
+            []
+        )  # NodeGroups selected for bridge connection (max 2)
+        self.bridge_floating_menus = {}  # Floating menus for each selected group
+        self.bridge_connector = BridgeConnector(self.graph)  # Bridge connector instance
+        self.bridge_connection_params = (
+            BridgeConnectionParams()
+        )  # Connection parameters
+        self.bridge_preview_lines = []  # Preview lines for bridge connections
+        self.bridge_edge_nodes = {}  # Dict of edge nodes for each group
 
         # Rectangle selection state
         self.selection_rect_start = (
@@ -263,7 +280,7 @@ class Canvas(QWidget):
 
         Args:
             submode (str): The submode to set (EDIT_SUBMODE_CONNECT, EDIT_SUBMODE_KNIFE,
-                          EDIT_SUBMODE_ALL_FOR_ONE, or EDIT_SUBMODE_PARALLEL)
+                          EDIT_SUBMODE_ALL_FOR_ONE, EDIT_SUBMODE_PARALLEL, or EDIT_SUBMODE_BRIDGE)
         """
         old_submode = self.edit_submode
         self.edit_submode = submode
@@ -289,6 +306,17 @@ class Canvas(QWidget):
             self.parallel_selected_nodes = []
             self.parallel_edge_endpoints = []
 
+        # Reset Bridge connection mode state when exiting Bridge connection mode
+        if (
+            old_submode == self.EDIT_SUBMODE_BRIDGE
+            and submode != self.EDIT_SUBMODE_BRIDGE
+        ):
+            self.bridge_selected_groups = []
+            self.bridge_floating_menus = {}
+            self.bridge_preview_lines = []
+            self.bridge_edge_nodes = {}
+            self.bridge_connection_params = BridgeConnectionParams()
+
         # Update cursor based on submode
         if submode == self.EDIT_SUBMODE_KNIFE:
             # Knife cursor (using CrossCursor as a temporary solution)
@@ -300,12 +328,21 @@ class Canvas(QWidget):
         elif submode == self.EDIT_SUBMODE_PARALLEL:
             # Parallel connection mode cursor
             self.setCursor(Qt.ArrowCursor)
+        elif submode == self.EDIT_SUBMODE_BRIDGE:
+            # Bridge connection mode cursor
+            self.setCursor(Qt.ArrowCursor)
         else:
             # Default edit mode cursor
             self.setCursor(Qt.CrossCursor)
 
         # Emit mode changed signal to update the UI
-        self.mode_changed.emit(self.current_mode)
+        mode_text = self.current_mode
+        if submode == self.EDIT_SUBMODE_BRIDGE:
+            mode_text = config.get_string(
+                "main_window.mode.edit_bridge", "Mode: Edit - Bridge"
+            )
+
+        self.mode_changed.emit(mode_text)
 
     def paintEvent(self, event):
         """
@@ -353,6 +390,19 @@ class Canvas(QWidget):
                 "edge_endpoints": self.parallel_edge_endpoints,
             }
 
+        # Pass Bridge connection data to renderer
+        bridge_data = None
+        if (
+            self.current_mode == self.EDIT_MODE
+            and self.edit_submode == self.EDIT_SUBMODE_BRIDGE
+        ):
+            bridge_data = {
+                "floating_menus": self.bridge_floating_menus,
+                "preview_lines": self.bridge_preview_lines,
+                "selected_groups": self.bridge_selected_groups,
+                "edge_nodes": self.bridge_edge_nodes,
+            }
+
         # Prepare selection rectangle data
         selection_rect_data = None
         if self.is_selecting and self.selection_rect_start and self.selection_rect_end:
@@ -372,6 +422,7 @@ class Canvas(QWidget):
             all_for_one_selected_nodes=all_for_one_data,
             selection_rect_data=selection_rect_data,
             parallel_data=parallel_data,
+            bridge_data=bridge_data,
         )
 
     def find_edge_at_position(self, point, tolerance=5):
@@ -487,6 +538,63 @@ class Canvas(QWidget):
 
         return None
 
+    def _update_bridge_edge_nodes(self):
+        """
+        Update the edge nodes for the bridge connection based on current highlight positions.
+        """
+        self.bridge_edge_nodes = {}
+
+        # Get edge nodes for each selected group
+        for i, group in enumerate(self.bridge_selected_groups):
+            highlight_pos = None
+            if i == 0 and len(self.bridge_selected_groups) > 0:
+                highlight_pos = self.bridge_connection_params.source_highlight_pos
+            elif i == 1:
+                highlight_pos = self.bridge_connection_params.target_highlight_pos
+
+            edge_nodes = self.bridge_connector._get_edge_nodes(group, highlight_pos)
+            if edge_nodes:
+                self.bridge_edge_nodes[group.id] = edge_nodes
+
+    def _update_bridge_preview_lines(self):
+        """
+        Update the preview lines for bridge connections between selected groups.
+        """
+        self.bridge_preview_lines = []
+
+        # Make sure we have exactly 2 groups selected
+        if len(self.bridge_selected_groups) != 2:
+            return
+
+        source_group = self.bridge_selected_groups[0]
+        target_group = self.bridge_selected_groups[1]
+
+        # Get preview lines from bridge connector
+        self.bridge_preview_lines = self.bridge_connector.get_connection_preview(
+            source_group, target_group, self.bridge_connection_params
+        )
+
+    def _open_bridge_connection_window(self):
+        """
+        Open the bridge connection settings window.
+        """
+        from .bridge_window import BridgeConnectionWindow
+
+        # Make sure we have exactly 2 groups selected
+        if len(self.bridge_selected_groups) != 2:
+            return
+
+        source_group = self.bridge_selected_groups[0]
+        target_group = self.bridge_selected_groups[1]
+
+        # Show the bridge connection window
+        if BridgeConnectionWindow.show_dialog(
+            self.graph, source_group, target_group, self
+        ):
+            # If connections were created, exit bridge mode
+            self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+            self.update()
+
     def keyPressEvent(self, event):
         """
         Handle keyboard events for mode switching and edge operations.
@@ -538,6 +646,19 @@ class Canvas(QWidget):
                     self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
                     self.update()
                     return
+                elif self.edit_submode == self.EDIT_SUBMODE_BRIDGE:
+                    # In Bridge mode, ESC clears selected groups or exits the mode
+                    if self.bridge_selected_groups:
+                        # Clear selected groups
+                        self.bridge_selected_groups = []
+                        self.bridge_floating_menus = {}
+                        self.bridge_edge_nodes = {}
+                        self.bridge_preview_lines = {}
+                        self.update()
+                    else:
+                        # Exit bridge mode if no groups are selected
+                        self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                    return
 
             # Only when deselection using the ESC key is enabled
             if self.enabled_deselect_methods.get(self.DESELECT_BY_ESCAPE, True):
@@ -557,6 +678,13 @@ class Canvas(QWidget):
                 # Confirm connections by exiting All-For-One connection mode but keeping any changes
                 self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
                 self.update()
+            elif (
+                self.current_mode == self.EDIT_MODE
+                and self.edit_submode == self.EDIT_SUBMODE_BRIDGE
+                and len(self.bridge_selected_groups) == 2
+            ):
+                # Open bridge connection window when Enter is pressed with 2 groups selected
+                self._open_bridge_connection_window()
         elif event.key() == Qt.Key_E and self.graph.selected_groups:
             # When entering edit mode, use all selected groups
             self.toggle_edit_mode()
@@ -977,6 +1105,79 @@ class Canvas(QWidget):
                         if not shift_pressed:
                             self.parallel_selected_nodes = []
                         self.update()
+
+                elif self.edit_submode == self.EDIT_SUBMODE_BRIDGE:
+                    # In Bridge connection mode, left click selects NodeGroups and interacts with floating menus
+                    shift_pressed = event.modifiers() & Qt.ShiftModifier
+
+                    # First check if the click is inside a floating menu
+                    clicked_menu = False
+                    for group_id, menu in self.bridge_floating_menus.items():
+                        if menu.contains(graph_point):
+                            # Handle floating menu click (e.g., change edge highlighting position)
+                            new_position = menu.handle_click(graph_point)
+                            if new_position:
+                                # Update edge nodes for the group based on new highlight position
+                                for i, group in enumerate(self.bridge_selected_groups):
+                                    if group.id == group_id:
+                                        if i == 0:
+                                            self.bridge_connection_params.source_highlight_pos = (
+                                                new_position
+                                            )
+                                        else:
+                                            self.bridge_connection_params.target_highlight_pos = (
+                                                new_position
+                                            )
+                                        break
+
+                                # Update edge nodes
+                                self._update_bridge_edge_nodes()
+                                # Update preview lines
+                                self._update_bridge_preview_lines()
+                                self.update()
+                            clicked_menu = True
+                            break
+
+                    if clicked_menu:
+                        # If we clicked a menu, don't process further
+                        return
+
+                    # If click wasn't on a menu, check for NodeGroup selection
+                    group = self.find_group_at_position(graph_point)
+                    if group:
+                        # Handle NodeGroup selection for bridge mode
+                        if group in self.bridge_selected_groups:
+                            # If already selected, do nothing (will keep the group selected)
+                            # We don't want to deselect a group by clicking on it again in bridge mode
+                            pass
+                        else:
+                            # If not already selected, add to selected groups (max 2)
+                            if len(self.bridge_selected_groups) >= 2:
+                                # If already have 2 groups, remove the first one (FIFO)
+                                removed_group = self.bridge_selected_groups.pop(0)
+                                # Remove its floating menu
+                                if removed_group.id in self.bridge_floating_menus:
+                                    del self.bridge_floating_menus[removed_group.id]
+
+                            # Add new group to selected groups
+                            self.bridge_selected_groups.append(group)
+
+                            # Create floating menu for this group
+                            self.bridge_floating_menus[group.id] = FloatingMenu(group)
+
+                            # Update edge nodes
+                            self._update_bridge_edge_nodes()
+
+                            # Update preview lines if we have 2 groups
+                            if len(self.bridge_selected_groups) == 2:
+                                self._update_bridge_preview_lines()
+
+                            # Update UI with selected groups
+                            title_text = config.get_string(
+                                "main_window.mode.edit_bridge", "Mode: Edit - Bridge"
+                            )
+                            self.mode_changed.emit(title_text)
+                            self.update()
 
                 elif self.edit_submode == self.EDIT_SUBMODE_KNIFE:
                     # Knife mode - start cutting operation

@@ -30,6 +30,7 @@ main_window:
     edit_with_target: "Mode: Edit - {group_names}" # {group_names} replaces at runtime
     edit_all_for_one: "Mode: Edit - All-For-One"
     edit_parallel: "Mode: Edit - Parallel"
+    edit_bridge: "Mode: Edit - Bridge"
 
   dialogs:
     rename:
@@ -50,6 +51,8 @@ edit_menu:
     all_for_one_tooltip: "Enables multiple node selection. When drawing from a selected node, identical edges extend from all selected nodes automatically."
     parallel: "Parallel connection"
     parallel_tooltip: "Enables selecting multiple nodes and drawing edges in parallel in the same direction and distance."
+    bridge: "Bridge connection"
+    bridge_tooltip: "Creates bipartite graph connections between two selected node groups with customizable connection patterns."
   knife:
     title: "Knife Mode (Cut Edges)"
     tooltip: "Enables knife mode to cut edges between nodes by drawing a line across them."
@@ -88,3 +91,33 @@ normal_menu:
   switch_to_edit:
     title: "Switch to Edit-Mode"
     tooltip: "Switch to edit mode to create and modify connections between nodes."
+
+bridge_connection:
+  window:
+    title: "Bridge Connection Settings"
+    source_group: "Source Group:"
+    target_group: "Target Group:"
+    apply: "Apply"
+    cancel: "Cancel"
+    close: "Close"
+    connection_counts:
+      source_to_target_label: "{source} → {target} connections:"
+      target_to_source_label: "← {target} → {source} connections:"
+      increase: "+"
+      decrease: "-"
+    preview_button: "Preview"
+    node_selection:
+      source_title: "Source Nodes"
+      target_title: "Target Nodes"
+      instruction: "Click nodes to toggle connection"
+
+  floating_menu:
+    title: "Edge Nodes"
+    prev_button: "◀"
+    next_button: "▶"
+    position_label:
+      row_first: "Row First"
+      row_last: "Row Last"
+      col_first: "Column First"
+      col_last: "Column Last"
+    tooltip: "Select which edge nodes to use for bridge connection"

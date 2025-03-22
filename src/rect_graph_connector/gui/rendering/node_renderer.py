@@ -249,7 +249,7 @@ class NodeRenderer(BaseRenderer):
             node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
         )
 
-        # 描画前にpainterの状態を保存
+        # Save painter state before drawing
         painter.save()
 
         # Determine node selection state
