@@ -1164,22 +1164,24 @@ class Canvas(QWidget):
                     # If click wasn't on a menu, check for NodeGroup selection
                     group = self.find_group_at_position(graph_point)
                     if group:
-                        # Handle NodeGroup selection for bridge mode
-                        if group in self.bridge_selected_groups:
-                            # If already selected, do nothing (will keep the group selected)
-                            # We don't want to deselect a group by clicking on it again in bridge mode
-                            pass
-                        else:
-                            # If not already selected, add to selected groups (max 2)
-                            if len(self.bridge_selected_groups) >= 2:
-                                # If already have 2 groups, remove the first one (FIFO)
-                                removed_group = self.bridge_selected_groups.pop(0)
-                                # Remove its floating menu
-                                if removed_group.id in self.bridge_floating_menus:
-                                    del self.bridge_floating_menus[removed_group.id]
+                        # Check if the group is in edit_target_groups
+                        if group in self.edit_target_groups:
+                            # Handle NodeGroup selection for bridge mode
+                            if group in self.bridge_selected_groups:
+                                # If already selected, do nothing (will keep the group selected)
+                                # We don't want to deselect a group by clicking on it again in bridge mode
+                                pass
+                            else:
+                                # If not already selected, add to selected groups (max 2)
+                                if len(self.bridge_selected_groups) >= 2:
+                                    # If already have 2 groups, remove the first one (FIFO)
+                                    removed_group = self.bridge_selected_groups.pop(0)
+                                    # Remove its floating menu
+                                    if removed_group.id in self.bridge_floating_menus:
+                                        del self.bridge_floating_menus[removed_group.id]
 
-                            # Add new group to selected groups
-                            self.bridge_selected_groups.append(group)
+                                # Add new group to selected groups
+                                self.bridge_selected_groups.append(group)
 
                             # Create floating menu for this group
                             # Determine if this is a source or target group based on selection order
