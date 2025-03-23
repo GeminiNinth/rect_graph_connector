@@ -1,7 +1,5 @@
 src\rect_graph_connector\gui\canvas.pyがあまりにも肥大化しているため、SOLID原則と高凝集・疎結合の考えに基づきレンダリングシステムをリファクタリングする計画を立てる。
 もともとsrc\rect_graph_connector\guiにあった機能を以下のような形で移行したい。
-一気にやらず、ステップバイステップで行きましょう。
-特に「リファクタリング手順」のステップごとにmain.pyから動作の様子を見たいので報告をお願いします。
 
 # レンダリングシステムリファクタリング計画
 
@@ -38,120 +36,7 @@ src/rect_graph_connector/
 
 ## 2. 主要コンポーネントの設計
 
-### ViewStateModel
-
-```python
-class ViewStateModel:
-    def __init__(self):
-        self._zoom = 1.0
-        self._pan_offset = QPointF(0, 0)
-        self._grid_visible = False
-        self._snap_to_grid = False
-        self.state_changed = Event()
-
-    @property
-    def zoom(self): 
-        return self._zoom
-
-    @zoom.setter
-    def zoom(self, value):
-        self._zoom = value
-        self.state_changed.emit()
-
-    @property
-    def pan_offset(self):
-        return self._pan_offset
-
-    @pan_offset.setter
-    def pan_offset(self, value):
-        self._pan_offset = value
-        self.state_changed.emit()
-```
-
-### SelectionModel
-
-```python
-class SelectionModel:
-    def __init__(self):
-        self.selected_nodes = []
-        self.selected_groups = []
-        self.selected_edges = []
-        self.selection_changed = Event()
-
-    def select_node(self, node, add_to_selection=False):
-        if not add_to_selection:
-            self.selected_nodes.clear()
-        if node not in self.selected_nodes:
-            self.selected_nodes.append(node)
-            self.selection_changed.emit()
-
-    def select_group(self, group, add_to_selection=False):
-        if not add_to_selection:
-            self.selected_groups.clear()
-        if group not in self.selected_groups:
-            self.selected_groups.append(group)
-            self.selection_changed.emit()
-```
-
-### HoverStateModel
-
-```python
-class HoverStateModel:
-    def __init__(self):
-        self.hovered_node = None
-        self.hovered_connected_nodes = []
-        self.hovered_edges = []
-        self.potential_target_node = None
-        self.hover_changed = Event()
-
-    def update_hover_state(self, node, connected_nodes=None, edges=None):
-        self.hovered_node = node
-        self.hovered_connected_nodes = connected_nodes or []
-        self.hovered_edges = edges or []
-        self.hover_changed.emit()
-```
-
-### 改善されたBaseRenderer
-
-```python
-class BaseRenderer(ABC):
-    def __init__(self, view_state: ViewStateModel, style: BaseStyle):
-        self.view_state = view_state
-        self.style = style
-        
-    @abstractmethod
-    def draw(self, painter: QPainter, **kwargs):
-        pass
-
-    def apply_transform(self, painter: QPainter):
-        painter.translate(self.view_state.pan_offset)
-        painter.scale(self.view_state.zoom, self.view_state.zoom)
-```
-
-### InputHandler
-
-```python
-class InputHandler:
-    def __init__(self, view_state: ViewStateModel, selection_model: SelectionModel):
-        self.view_state = view_state
-        self.selection_model = selection_model
-        self.current_mode = None
-
-    def handle_mouse_press(self, event, graph_point):
-        if self.current_mode:
-            return self.current_mode.handle_mouse_press(event, graph_point)
-        return False
-
-    def handle_mouse_move(self, event, graph_point):
-        if self.current_mode:
-            return self.current_mode.handle_mouse_move(event, graph_point)
-        return False
-
-    def handle_mouse_release(self, event, graph_point):
-        if self.current_mode:
-            return self.current_mode.handle_mouse_release(event, graph_point)
-        return False
-```
+抽象化によりコード数を少なくロバストに。
 
 ## 3. リファクタリング手順
 
