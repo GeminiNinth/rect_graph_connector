@@ -3,7 +3,7 @@ Node renderer for drawing nodes.
 """
 
 from PyQt5.QtCore import QPointF, QRectF, Qt
-from PyQt5.QtGui import QPainter, QPainterPath
+from PyQt5.QtGui import QPainter, QPainterPath, QPen
 
 from ...models.graph import Graph
 from ...models.view_state_model import ViewStateModel
