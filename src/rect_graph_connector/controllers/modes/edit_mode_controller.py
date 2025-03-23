@@ -11,6 +11,15 @@ from PyQt5.QtWidgets import QApplication
 from ..mode_controller import ModeController
 from ...config import config
 from ...models.connectivity import find_intersecting_edges
+from .edit_mode_helpers import (
+    ConnectModeHelper,
+    KnifeModeHelper,
+    AllForOneModeHelper,
+    ParallelModeHelper,
+    BridgeModeHelper,
+    DragHelper,
+    EdgeHelper,
+)
 
 
 class EditModeController(ModeController):
@@ -81,6 +90,7 @@ class EditModeController(ModeController):
         # Parallel connection mode state
         self.parallel_selected_nodes = []
         self.parallel_edge_endpoints = []
+        self._pending_parallel_drag = False
 
         # Bridge connection mode state
         self.bridge_selected_groups = []
@@ -283,28 +293,263 @@ class EditModeController(ModeController):
 
         return False
 
-    # The rest of the implementation is in edit_mode_controller_part2.py
-    from .edit_mode_controller_part2 import EditModeControllerPart2
+    def handle_mouse_release(self, event, graph_point, widget_point):
+        """
+        Handle mouse release events in edit mode.
 
-    # Mix in the methods from part 2
-    handle_mouse_release = EditModeControllerPart2.handle_mouse_release
-    handle_key_press = EditModeControllerPart2.handle_key_press
-    _handle_connect_mode_press = EditModeControllerPart2._handle_connect_mode_press
-    _handle_knife_mode_press = EditModeControllerPart2._handle_knife_mode_press
-    _handle_all_for_one_mode_press = (
-        EditModeControllerPart2._handle_all_for_one_mode_press
-    )
-    _handle_parallel_mode_press = EditModeControllerPart2._handle_parallel_mode_press
-    _handle_bridge_mode_press = EditModeControllerPart2._handle_bridge_mode_press
-    _handle_dragging = EditModeControllerPart2._handle_dragging
-    _complete_edge_creation = EditModeControllerPart2._complete_edge_creation
-    _complete_all_for_one_edge_creation = (
-        EditModeControllerPart2._complete_all_for_one_edge_creation
-    )
-    _complete_parallel_connection = (
-        EditModeControllerPart2._complete_parallel_connection
-    )
-    _update_parallel_edge_endpoints = (
-        EditModeControllerPart2._update_parallel_edge_endpoints
-    )
-    _find_edge_at_position = EditModeControllerPart2._find_edge_at_position
+        In edit mode, mouse release behavior depends on the current submode.
+
+        Args:
+            event: The mouse event
+            graph_point: The point in graph coordinates
+            widget_point: The point in widget coordinates
+
+        Returns:
+            bool: True if the event was handled, False otherwise
+        """
+        if event.button() == Qt.LeftButton:
+            # First check if we're finishing a node drag operation
+            if self.dragging:
+                self.dragging = False
+                self.drag_start = None
+                self.drag_start_node = None
+                return True
+
+            # Check if we have a pending drag operation that was never started
+            elif self._pending_parallel_drag:
+                # If we reached here, the user clicked on a node but didn't drag far enough
+                # to start edge creation, so we should deselect the node now
+                if self.drag_start_node:
+                    if (
+                        self.edit_submode == self.EDIT_SUBMODE_PARALLEL
+                        and self.drag_start_node in self.parallel_selected_nodes
+                    ):
+                        # Remove node from parallel selection
+                        self.parallel_selected_nodes.remove(self.drag_start_node)
+                    elif (
+                        self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
+                        and self.drag_start_node in self.all_for_one_selected_nodes
+                    ):
+                        # Remove node from all-for-one selection
+                        self.all_for_one_selected_nodes.remove(self.drag_start_node)
+
+                # Reset state
+                self._pending_parallel_drag = False
+                self.drag_start_node = None
+                self.press_pos = None
+                return True
+
+            # Then handle edge creation if active
+            elif self.current_edge_start:
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    self._complete_all_for_one_edge_creation(graph_point)
+                elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                    self._complete_parallel_connection(graph_point)
+                else:
+                    self._complete_edge_creation(graph_point)
+                return True
+
+            # Handle knife tool completion
+            elif self.edit_submode == self.EDIT_SUBMODE_KNIFE and self.is_cutting:
+                # Complete cutting operation
+                if self.highlighted_edges:
+                    # Remove all highlighted edges
+                    for edge in self.highlighted_edges:
+                        if edge in self.graph.edges:
+                            self.graph.edges.remove(edge)
+
+                # Reset knife mode state
+                self.is_cutting = False
+                self.knife_path = []
+                self.highlighted_edges = []
+                return True
+
+            # Handle rectangle selection completion
+            elif (
+                self.is_selecting
+                and self.selection_rect_start
+                and self.selection_rect_end
+            ):
+                self._complete_rectangle_selection()
+                return True
+
+        return False
+
+    def handle_key_press(self, event):
+        """
+        Handle key press events in edit mode.
+
+        Args:
+            event: The key event
+
+        Returns:
+            bool: True if the event was handled, False otherwise
+        """
+        if event.key() == Qt.Key_Escape:
+            # Handle special edit submodes
+            if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                # Cancel All-For-One connection mode and go back to connect mode
+                self.all_for_one_selected_nodes = []
+                self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                return True
+            elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                # Cancel Parallel connection mode and go back to connect mode
+                self.parallel_selected_nodes = []
+                self.parallel_edge_endpoints = []
+                self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                return True
+            elif self.edit_submode == self.EDIT_SUBMODE_BRIDGE:
+                # In Bridge mode, ESC clears selected groups or exits the mode
+                if self.bridge_selected_groups:
+                    # Clear selected groups
+                    self.bridge_selected_groups = []
+                    self.bridge_floating_menus = {}
+                    self.bridge_edge_nodes = {}
+                    self.bridge_preview_lines = {}
+                    return True
+                else:
+                    # Exit bridge mode if no groups are selected
+                    self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                    return True
+
+            # Only when deselection using the ESC key is enabled
+            if self.selection_model.is_deselect_method_enabled("escape"):
+                self.selection_model.clear_selection()
+                return True
+
+        elif event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+            # In All-For-One connection mode, confirm the connections and return to connect mode
+            if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                # Confirm connections by exiting All-For-One connection mode but keeping any changes
+                self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                return True
+            elif (
+                self.edit_submode == self.EDIT_SUBMODE_BRIDGE
+                and len(self.bridge_selected_groups) == 2
+            ):
+                # Open bridge connection window when Enter is pressed with 2 groups selected
+                # This will be handled by the canvas
+                return False
+
+        elif event.key() == Qt.Key_Delete:
+            # Delete key in edit mode: Delete selected edges
+            if self.selection_model.selected_edges:
+                for source_node, target_node in self.selection_model.selected_edges:
+                    edge_to_remove = None
+                    for edge in self.graph.edges:
+                        if edge[0] == source_node.id and edge[1] == target_node.id:
+                            edge_to_remove = edge
+                            break
+                    if edge_to_remove:
+                        self.graph.edges.remove(edge_to_remove)
+                self.selection_model.selected_edges = []
+                return True
+
+        elif event.key() == Qt.Key_A and event.modifiers() & Qt.ControlModifier:
+            if self.edit_submode in [
+                self.EDIT_SUBMODE_ALL_FOR_ONE,
+                self.EDIT_SUBMODE_PARALLEL,
+            ]:
+                # Handle Ctrl+A for both All-For-One and Parallel modes
+                eligible_nodes = []
+                for group in self.edit_target_groups:
+                    eligible_nodes.extend(group.get_nodes(self.graph.nodes))
+
+                # Check if all eligible nodes are already selected
+                eligible_node_ids = {node.id for node in eligible_nodes}
+
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    selected_node_ids = {
+                        node.id for node in self.all_for_one_selected_nodes
+                    }
+                    if eligible_node_ids == selected_node_ids:
+                        self.all_for_one_selected_nodes = []  # Deselect all
+                    else:
+                        self.all_for_one_selected_nodes = (
+                            eligible_nodes.copy()
+                        )  # Select all
+                else:  # EDIT_SUBMODE_PARALLEL
+                    selected_node_ids = {
+                        node.id for node in self.parallel_selected_nodes
+                    }
+                    if eligible_node_ids == selected_node_ids:
+                        self.parallel_selected_nodes = []  # Deselect all
+                    else:
+                        self.parallel_selected_nodes = (
+                            eligible_nodes.copy()
+                        )  # Select all
+                return True
+            else:
+                # Default behavior in other edit submodes: Select all edges
+                all_edges = []
+                for edge in self.graph.edges:
+                    try:
+                        # Get actual node objects
+                        source_node = next(
+                            n for n in self.graph.nodes if n.id == edge[0]
+                        )
+                        target_node = next(
+                            n for n in self.graph.nodes if n.id == edge[1]
+                        )
+
+                        source_group = self.graph.get_group_for_node(source_node)
+                        target_group = self.graph.get_group_for_node(target_node)
+
+                        if (
+                            source_group in self.edit_target_groups
+                            or target_group in self.edit_target_groups
+                        ):
+                            all_edges.append((source_node, target_node))
+                    except StopIteration:
+                        continue
+
+                self.selection_model.select_edges(all_edges)
+                return True
+
+        return False
+
+    # Helper methods that delegate to the helper classes
+
+    def _handle_connect_mode_press(self, event, graph_point):
+        """Delegate to ConnectModeHelper"""
+        return ConnectModeHelper.handle_press(self, event, graph_point)
+
+    def _handle_knife_mode_press(self, event, graph_point):
+        """Delegate to KnifeModeHelper"""
+        return KnifeModeHelper.handle_press(self, event, graph_point)
+
+    def _handle_all_for_one_mode_press(self, event, graph_point):
+        """Delegate to AllForOneModeHelper"""
+        return AllForOneModeHelper.handle_press(self, event, graph_point)
+
+    def _handle_parallel_mode_press(self, event, graph_point):
+        """Delegate to ParallelModeHelper"""
+        return ParallelModeHelper.handle_press(self, event, graph_point)
+
+    def _handle_bridge_mode_press(self, event, graph_point):
+        """Delegate to BridgeModeHelper"""
+        return BridgeModeHelper.handle_press(self, event, graph_point)
+
+    def _handle_dragging(self, graph_point):
+        """Delegate to DragHelper"""
+        DragHelper.handle_dragging(self, graph_point)
+
+    def _complete_edge_creation(self, graph_point):
+        """Delegate to ConnectModeHelper"""
+        ConnectModeHelper.complete_edge_creation(self, graph_point)
+
+    def _complete_all_for_one_edge_creation(self, graph_point):
+        """Delegate to AllForOneModeHelper"""
+        AllForOneModeHelper.complete_edge_creation(self, graph_point)
+
+    def _complete_parallel_connection(self, graph_point):
+        """Delegate to ParallelModeHelper"""
+        ParallelModeHelper.complete_connection(self, graph_point)
+
+    def _update_parallel_edge_endpoints(self, graph_point):
+        """Delegate to ParallelModeHelper"""
+        ParallelModeHelper.update_edge_endpoints(self, graph_point)
+
+    def _find_edge_at_position(self, point, tolerance=5):
+        """Delegate to EdgeHelper"""
+        return EdgeHelper.find_edge_at_position(self, point, tolerance)

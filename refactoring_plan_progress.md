@@ -34,11 +34,14 @@ This document outlines the progress made on the refactoring plan for the rect_gr
 - ✅ ModeController: Implemented base controller for mode-specific logic
 - ✅ Mode-specific controllers:
   - ✅ NormalModeController: Implemented for normal mode interactions
-  - ✅ EditModeController: Implemented for edit mode interactions
+  - ✅ EditModeController: Improved with better organization
+    - ✅ Consolidated split implementation into a single file
+    - ✅ Introduced helper classes for different submodes (Connect, Knife, All-For-One, Parallel, Bridge)
+    - ✅ Improved code organization with clear separation of responsibilities
 
 ## Current Status
 
-The refactoring is progressing well, with the model layer complete and the rendering system mostly implemented. The event handling system has been designed and implemented, but needs to be integrated with the CanvasView class.
+The refactoring is progressing well, with the model layer complete and the rendering system mostly implemented. The event handling system has been designed and implemented, with significant improvements to the EditModeController's structure. The next step is to integrate the input handling system with the CanvasView class.
 
 ## Next Steps
 
@@ -53,6 +56,36 @@ The refactoring is progressing well, with the model layer complete and the rende
 - ⬜ Simplify CanvasView to focus on rendering and delegating input
 
 ## Implementation Details
+
+### EditModeController Improvements
+
+The EditModeController has been significantly improved by:
+1. Consolidating the previously split implementation (edit_mode_controller.py and edit_mode_controller_part2.py) into a single file
+2. Introducing helper classes for different submodes:
+   - ConnectModeHelper: Handles connect mode operations
+   - KnifeModeHelper: Handles knife mode operations
+   - AllForOneModeHelper: Handles all-for-one mode operations
+   - ParallelModeHelper: Handles parallel mode operations
+   - BridgeModeHelper: Handles bridge mode operations
+   - DragHelper: Handles node dragging operations
+   - EdgeHelper: Handles edge-related operations
+
+This approach improves code organization, readability, and maintainability by:
+- Separating concerns into focused helper classes
+- Reducing the complexity of the main controller class
+- Making the code more modular and easier to extend
+
+```python
+# Example of the improved structure
+class EditModeController(ModeController):
+    # Main controller logic
+    
+    def _handle_connect_mode_press(self, event, graph_point):
+        """Delegate to ConnectModeHelper"""
+        return ConnectModeHelper.handle_press(self, event, graph_point)
+        
+    # Other delegated methods...
+```
 
 ### InputHandler
 
@@ -146,4 +179,4 @@ def wheelEvent(self, event):
 
 ## Conclusion
 
-The refactoring is making good progress, with the model layer complete and the rendering system mostly implemented. The event handling system has been designed and implemented, but needs to be integrated with the CanvasView class. The next steps are to complete the integration and test the new system.
+The refactoring is making good progress, with significant improvements to the code organization and structure. The EditModeController has been consolidated and improved with helper classes, making the code more maintainable and easier to understand. The next steps are to complete the integration of the input handling system with the CanvasView class and test the new system.
