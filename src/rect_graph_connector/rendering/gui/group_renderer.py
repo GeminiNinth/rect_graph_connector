@@ -2,8 +2,8 @@
 Group renderer for drawing node groups.
 """
 
-from PyQt5.QtCore import QPointF, QRectF, Qt
-from PyQt5.QtGui import QPainter
+from PyQt5.QtCore import QRectF, Qt
+from PyQt5.QtGui import QPainter, QPainterPath
 
 from ...models.graph import Graph
 from ...models.view_state_model import ViewStateModel
@@ -15,11 +15,11 @@ class GroupRenderer(BaseRenderer):
     """
     Renderer for drawing node groups.
 
-    This class handles rendering of node groups, including their backgrounds,
-    borders, and labels based on their state.
+    This class handles rendering of group containers that visually
+    organize related nodes with backgrounds, borders, and titles.
 
     Attributes:
-        graph (Graph): The graph model to render
+        graph (Graph): The graph model containing groups to render
     """
 
     def __init__(
@@ -30,7 +30,7 @@ class GroupRenderer(BaseRenderer):
 
         Args:
             view_state (ViewStateModel): The view state model
-            graph (Graph): The graph model to render
+            graph (Graph): The graph model containing groups
             style (GroupStyle, optional): The style object for this renderer
         """
         super().__init__(view_state, style or GroupStyle())
@@ -40,167 +40,113 @@ class GroupRenderer(BaseRenderer):
         self,
         painter: QPainter,
         selected_groups=None,
-        draw_only_backgrounds=False,
-        draw_only_borders=False,
+        hover_group=None,
         **kwargs,
     ):
         """
-        Draw node groups on the canvas.
+        Draw all groups on the canvas.
 
         Args:
             painter (QPainter): The painter to use for drawing
             selected_groups (list, optional): List of selected groups
-            draw_only_backgrounds (bool): If True, only draw group backgrounds
-            draw_only_borders (bool): If True, only draw group borders and labels
+            hover_group (Group, optional): Currently hovered group
             **kwargs: Additional drawing parameters
         """
-        # Use provided selected groups or get from graph
-        selected_groups = selected_groups or self.graph.selected_groups
-        selected_group_ids = [group.id for group in selected_groups]
+        selected_groups = selected_groups or []
 
-        # Sort groups by z-index (lowest to highest)
-        sorted_groups = sorted(self.graph.node_groups, key=lambda g: g.z_index)
+        # Draw groups in reverse order to ensure proper layering
+        for group in reversed(self.graph.groups):
+            self._draw_group(
+                painter,
+                group,
+                group in selected_groups,
+                group == hover_group,
+            )
 
-        if draw_only_backgrounds:
-            # Draw only group backgrounds
-            for group in sorted_groups:
-                self._draw_group_background(
-                    painter, group, group.id in selected_group_ids
-                )
-        elif draw_only_borders:
-            # Draw only group borders and labels
-            for group in sorted_groups:
-                self._draw_group_border_and_label(
-                    painter, group, group.id in selected_group_ids
-                )
-        else:
-            # Draw complete groups (backgrounds, borders, and labels)
-            for group in sorted_groups:
-                self._draw_group(painter, group, group.id in selected_group_ids)
-
-    def _draw_group(self, painter: QPainter, group, is_selected):
+    def _draw_group(
+        self,
+        painter: QPainter,
+        group,
+        is_selected: bool,
+        is_hovered: bool,
+    ):
         """
-        Draw a complete group including background, border, and label.
+        Draw a single group with its background, border, and title.
 
         Args:
             painter (QPainter): The painter to use for drawing
             group: The group to draw
             is_selected (bool): Whether the group is selected
+            is_hovered (bool): Whether the group is being hovered over
         """
-        self._draw_group_background(painter, group, is_selected)
-        self._draw_group_border_and_label(painter, group, is_selected)
+        # Calculate group bounds including padding
+        bounds = self._calculate_group_bounds(group)
 
-    def _draw_group_background(self, painter: QPainter, group, is_selected):
-        """
-        Draw the background for a node group.
+        # Save painter state
+        painter.save()
 
-        Args:
-            painter (QPainter): The painter to use for drawing
-            group: The group to draw the background for
-            is_selected (bool): Whether the group is selected
-        """
-        group_nodes = group.get_nodes(self.graph.nodes)
-        if not group_nodes:
-            return
+        # Create path for group shape
+        path = QPainterPath()
+        path.addRoundedRect(bounds, self.style.corner_radius, self.style.corner_radius)
 
-        # Calculate group boundary
-        border_margin = self.style.get_border_margin()
-        min_x = min(node.x - node.size / 2 for node in group_nodes) - border_margin
-        min_y = min(node.y - node.size / 2 for node in group_nodes) - border_margin
-        max_x = max(node.x + node.size / 2 for node in group_nodes) + border_margin
-        max_y = max(node.y + node.size / 2 for node in group_nodes) + border_margin
-        group_width = max_x - min_x
-        group_height = max_y - min_y
-
-        # Get background color based on selection state
-        bg_color = self.style.get_background_color(is_selected)
-
-        # Convert to integer positions as required
-        min_x_int = int(min_x)
-        min_y_int = int(min_y)
-        group_width_int = int(group_width)
-        group_height_int = int(group_height)
+        # Set colors based on state
+        background_color = self.style.get_background_color(
+            is_selected=is_selected, is_hovered=is_hovered
+        )
 
         # Draw group background
-        painter.fillRect(
-            min_x_int, min_y_int, group_width_int, group_height_int, bg_color
-        )
-
-    def _draw_group_border_and_label(self, painter: QPainter, group, is_selected):
-        """
-        Draw the border and label for a node group.
-
-        Args:
-            painter (QPainter): The painter to use for drawing
-            group: The group to draw the border and label for
-            is_selected (bool): Whether the group is selected
-        """
-        group_nodes = group.get_nodes(self.graph.nodes)
-        if not group_nodes:
-            return
-
-        # Calculate group boundary
-        border_margin = self.style.get_border_margin()
-        min_x = min(node.x - node.size / 2 for node in group_nodes) - border_margin
-        min_y = min(node.y - node.size / 2 for node in group_nodes) - border_margin
-        max_x = max(node.x + node.size / 2 for node in group_nodes) + border_margin
-        max_y = max(node.y + node.size / 2 for node in group_nodes) + border_margin
-        group_width = max_x - min_x
-        group_height = max_y - min_y
-
-        # Convert to integer positions
-        min_x_int = int(min_x)
-        min_y_int = int(min_y)
-        group_width_int = int(group_width)
-        group_height_int = int(group_height)
-
-        # Get border pen based on selection state
-        pen = self.style.get_border_pen(is_selected)
-        painter.setPen(pen)
+        painter.fillPath(path, background_color)
 
         # Draw group border
-        painter.drawRect(min_x_int, min_y_int, group_width_int, group_height_int)
+        painter.setPen(self.style.get_border_pen())
+        painter.drawPath(path)
 
-        # Draw group label
-        self._draw_group_label(
-            painter, group, is_selected, min_x_int, min_y_int, max_x, max_y
-        )
+        # Draw group title
+        if hasattr(group, "title") and group.title:
+            title_rect = QRectF(
+                bounds.x(), bounds.y(), bounds.width(), self.style.title_height
+            )
 
-    def _draw_group_label(
-        self, painter: QPainter, group, is_selected, min_x, min_y, max_x, max_y
-    ):
+            painter.setFont(self.style.title_font)
+            painter.setPen(self.style.title_color)
+            painter.drawText(
+                title_rect,
+                Qt.AlignLeft | Qt.AlignVCenter,
+                f" {group.title}",  # Add some left padding
+            )
+
+        # Restore painter state
+        painter.restore()
+
+    def _calculate_group_bounds(self, group) -> QRectF:
         """
-        Draw the label for a node group.
+        Calculate the bounding rectangle for a group including all its nodes
+        and padding.
 
         Args:
-            painter (QPainter): The painter to use for drawing
-            group: The group to draw the label for
-            is_selected (bool): Whether the group is selected
-            min_x, min_y: Top-left corner of the group
-            max_x, max_y: Bottom-right corner of the group
+            group: The group to calculate bounds for
+
+        Returns:
+            QRectF: The calculated bounds
         """
-        if not group.name:
-            return
+        if not group.nodes:
+            return QRectF()
 
-        # Get label dimensions
-        label_padding, label_height, label_max_width = self.style.get_label_dimensions()
+        # Find min/max coordinates of nodes in the group
+        min_x = min(node.x - node.size / 2 for node in group.nodes)
+        min_y = min(node.y - node.size / 2 for node in group.nodes)
+        max_x = max(node.x + node.size / 2 for node in group.nodes)
+        max_y = max(node.y + node.size / 2 for node in group.nodes)
 
-        # Calculate label position (centered at the top of the group)
-        label_width = min(label_max_width, max_x - min_x)
-        label_x = min_x + (max_x - min_x - label_width) / 2
-        label_y = min_y - label_height - label_padding
+        # Add padding
+        padding = self.style.padding
+        min_x -= padding
+        min_y -= padding
+        max_x += padding
+        max_y += padding
 
-        # Get label colors
-        label_bg_color = self.style.get_label_background_color(is_selected)
+        # Add extra height for title if present
+        if hasattr(group, "title") and group.title:
+            min_y -= self.style.title_height
 
-        # Draw label background
-        label_rect = QRectF(label_x, label_y, label_width, label_height)
-        painter.fillRect(label_rect, label_bg_color)
-
-        # Draw label border
-        painter.setPen(self.style.get_border_pen(is_selected))
-        painter.drawRect(label_rect)
-
-        # Draw label text
-        painter.setPen(self.style.get_label_text_pen())
-        painter.drawText(label_rect, Qt.AlignCenter, group.name)
+        return QRectF(min_x, min_y, max_x - min_x, max_y - min_y)

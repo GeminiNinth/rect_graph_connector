@@ -1,120 +1,72 @@
 """
-Group style class for node group rendering.
+Style configuration for group rendering.
 """
 
-from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtCore import Qt
-
+from PyQt5.QtGui import QFont, QPen
 from .base_style import BaseStyle
 
 
 class GroupStyle(BaseStyle):
     """
-    Style class for node group rendering.
+    Style configuration for groups.
 
-    This class provides styling properties for node groups, including background colors,
-    border colors, and label styles for different group states (normal, selected, etc.).
+    This class defines all visual properties for group rendering,
+    including background, border, and title styling.
     """
 
     def __init__(self):
-        """Initialize the group style."""
+        """Initialize group style with default values."""
         super().__init__()
 
-    def get_background_color(self, is_selected=False):
+        # Colors
+        self.background_color = self.get_color(
+            "group.background", "rgba(240,240,240,128)"
+        )
+        self.border_color = self.get_color("group.border", "rgba(180,180,180,255)")
+        self.title_color = self.get_color("group.title", "rgba(100,100,100,255)")
+        self.selected_color = self.get_color("group.selected", "rgba(200,220,240,128)")
+        self.hover_color = self.get_color("group.hover", "rgba(230,230,230,128)")
+
+        # Dimensions
+        self.border_width = self.get_dimension("group.border_width", 2.0)
+        self.title_height = self.get_dimension("group.title_height", 30.0)
+        self.padding = self.get_dimension("group.padding", 20.0)
+        self.corner_radius = self.get_dimension("group.corner_radius", 10.0)
+
+        # Font configuration
+        self.title_font = QFont()
+        self.title_font.setFamily(self.get_constant("group.font_family", "Arial"))
+        self.title_font.setPointSize(self.get_constant("group.font_size", 12))
+        self.title_font.setBold(True)
+
+        # Border style
+        self.border_style = Qt.DashLine
+
+    def get_background_color(self, is_selected: bool, is_hovered: bool):
         """
-        Get the background color for a node group based on its state.
+        Get the appropriate background color based on group state.
 
         Args:
             is_selected (bool): Whether the group is selected
+            is_hovered (bool): Whether the group is being hovered over
 
         Returns:
-            QColor: The background color
+            QColor: The appropriate background color
         """
         if is_selected:
-            return self.get_color(
-                "group.background.selected", "rgba(230, 230, 255, 40)"
-            )
-        else:
-            return self.get_color("group.background.normal", "rgba(245, 245, 245, 20)")
+            return self.selected_color
+        if is_hovered:
+            return self.hover_color
+        return self.background_color
 
-    def get_border_pen(self, is_selected=False):
+    def get_border_pen(self):
         """
-        Get the border pen for a node group based on its state.
-
-        Args:
-            is_selected (bool): Whether the group is selected
+        Get the pen for drawing group borders.
 
         Returns:
-            QPen: The border pen
+            QPen: Configured pen for group borders
         """
-        if is_selected:
-            color = self.get_color("group.border.selected", "#6464FF")
-            width = self.get_dimension("group.border_width.selected", 2)
-            style = Qt.SolidLine
-        else:
-            color = self.get_color("group.border.normal", "#C8C8C8")
-            width = self.get_dimension("group.border_width.normal", 1)
-            style = Qt.DashLine
-
-        pen = QPen(color)
-        pen.setWidth(int(width))
-        pen.setStyle(style)
+        pen = QPen(self.border_color, self.border_width)
+        pen.setStyle(self.border_style)
         return pen
-
-    def get_label_background_color(self, is_selected=False):
-        """
-        Get the background color for a group label based on its state.
-
-        Args:
-            is_selected (bool): Whether the group is selected
-
-        Returns:
-            QColor: The label background color
-        """
-        if is_selected:
-            return self.get_color(
-                "group.label.background.selected", "rgba(240, 240, 255, 200)"
-            )
-        else:
-            return self.get_color(
-                "group.label.background.normal", "rgba(240, 240, 240, 180)"
-            )
-
-    def get_label_text_color(self):
-        """
-        Get the text color for group labels.
-
-        Returns:
-            QColor: The label text color
-        """
-        return self.get_color("group.label.text", "#000000")
-
-    def get_label_text_pen(self):
-        """
-        Get the pen for group label text.
-
-        Returns:
-            QPen: The label text pen
-        """
-        return QPen(self.get_label_text_color(), 1)
-
-    def get_border_margin(self):
-        """
-        Get the margin between the group border and its nodes.
-
-        Returns:
-            float: The border margin
-        """
-        return self.get_dimension("group.border_margin", 5)
-
-    def get_label_dimensions(self):
-        """
-        Get the dimensions for group labels.
-
-        Returns:
-            tuple: (padding, height, max_width) for the label
-        """
-        padding = self.get_dimension("group.label_padding", 2)
-        height = self.get_dimension("group.label_height", 20)
-        max_width = self.get_dimension("group.label_max_width", 150)
-        return padding, height, max_width

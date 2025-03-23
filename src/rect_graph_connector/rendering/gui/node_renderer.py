@@ -3,7 +3,7 @@ Node renderer for drawing nodes.
 """
 
 from PyQt5.QtCore import QPointF, QRectF, Qt
-from PyQt5.QtGui import QPainter
+from PyQt5.QtGui import QPainter, QPainterPath
 
 from ...models.graph import Graph
 from ...models.view_state_model import ViewStateModel
@@ -16,7 +16,7 @@ class NodeRenderer(BaseRenderer):
     Renderer for drawing nodes.
 
     This class handles rendering of individual nodes with their shapes, colors,
-    and labels based on their state.
+    and labels based on their state and style configuration.
 
     Attributes:
         graph (Graph): The graph model to render
@@ -40,10 +40,7 @@ class NodeRenderer(BaseRenderer):
         self,
         painter: QPainter,
         selected_nodes=None,
-        all_for_one_selected_nodes=None,
-        parallel_selected_nodes=None,
-        bridge_highlighted_nodes=None,
-        hover_data=None,
+        hover_node=None,
         **kwargs,
     ):
         """
@@ -52,133 +49,80 @@ class NodeRenderer(BaseRenderer):
         Args:
             painter (QPainter): The painter to use for drawing
             selected_nodes (list, optional): List of selected nodes
-            all_for_one_selected_nodes (list, optional): List of nodes selected in All-For-One mode
-            parallel_selected_nodes (list, optional): List of nodes selected in Parallel mode
-            bridge_highlighted_nodes (dict, optional): Dict of nodes highlighted in Bridge mode
-            hover_data (dict, optional): Data about hover state
+            hover_node (Node, optional): Currently hovered node
             **kwargs: Additional drawing parameters
         """
-        # Use provided selected nodes or get from graph
-        selected_nodes = selected_nodes or self.graph.selected_nodes
-
-        # Default empty collections if not provided
-        all_for_one_selected_nodes = all_for_one_selected_nodes or []
-        parallel_selected_nodes = parallel_selected_nodes or []
-        bridge_highlighted_nodes = bridge_highlighted_nodes or {}
+        selected_nodes = selected_nodes or []
 
         # Draw all nodes
         for node in self.graph.nodes:
             self._draw_node(
                 painter,
                 node,
-                selected_nodes,
-                all_for_one_selected_nodes,
-                parallel_selected_nodes,
-                bridge_highlighted_nodes,
-                hover_data,
+                node in selected_nodes,
+                node == hover_node,
             )
 
     def _draw_node(
         self,
         painter: QPainter,
         node,
-        selected_nodes,
-        all_for_one_selected_nodes,
-        parallel_selected_nodes,
-        bridge_highlighted_nodes,
-        hover_data,
+        is_selected: bool,
+        is_hovered: bool,
     ):
         """
-        Draw a single node with its fill, border, and label.
+        Draw a single node with its background, border, and label.
 
         Args:
             painter (QPainter): The painter to use for drawing
             node: The node to draw
-            selected_nodes: List of selected nodes
-            all_for_one_selected_nodes: List of nodes selected in All-For-One mode
-            parallel_selected_nodes: List of nodes selected in Parallel mode
-            bridge_highlighted_nodes: Dict of nodes highlighted in Bridge mode
-            hover_data: Data about hover state
+            is_selected (bool): Whether the node is selected
+            is_hovered (bool): Whether the node is being hovered over
         """
-        rect = QRectF(
-            node.x - node.size / 2, node.y - node.size / 2, node.size, node.size
-        )
+        # Calculate node dimensions
+        width = max(self.style.min_width, node.size)
+        height = max(self.style.min_height, node.size)
 
-        # Save painter state before drawing
+        # Create node rectangle
+        rect = QRectF(node.x - width / 2, node.y - height / 2, width, height)
+
+        # Save painter state
         painter.save()
 
-        # Check if node should be highlighted based on hover state
-        is_highlighted = False
-        if hover_data:
-            # Check if this is the hovered node
-            if hover_data.get("node") and node.id == hover_data["node"].id:
-                is_highlighted = True
-            else:
-                # Check if node is in the connected_nodes list
-                for connected_node in hover_data.get("connected_nodes", []):
-                    if node.id == connected_node.id:
-                        is_highlighted = True
-                        break
-
-                # If not already highlighted, check edges
-                if not is_highlighted:
-                    for edge in hover_data.get("edges", []):
-                        if (
-                            edge[0].id == hover_data.get("node", {}).id
-                            and edge[1].id == node.id
-                        ) or (
-                            edge[1].id == hover_data.get("node", {}).id
-                            and edge[0].id == node.id
-                        ):
-                            is_highlighted = True
-                            break
-
-        # Apply transparency for non-highlighted nodes in edit mode when hovering
-        if hover_data and not is_highlighted:
-            painter.setOpacity(self.style.get_hover_opacity())
-
-        # Determine node selection state
-        is_node_selected = node in selected_nodes
-        is_all_for_one_selected = node in all_for_one_selected_nodes
-        is_parallel_selected = node in parallel_selected_nodes
-        is_bridge_source = bridge_highlighted_nodes.get("source") == node
-        is_bridge_target = bridge_highlighted_nodes.get("target") == node
-
-        # Get fill color based on selection state
-        node_color = self.style.get_fill_color(
-            is_selected=is_node_selected,
-            is_all_for_one_selected=is_all_for_one_selected,
-            is_parallel_selected=is_parallel_selected,
-            is_bridge_source=is_bridge_source,
-            is_bridge_target=is_bridge_target,
-        )
-
-        # Get border pen based on selection state
-        pen = self.style.get_border_pen(
-            is_selected=is_node_selected,
-            is_all_for_one_selected=is_all_for_one_selected,
-            is_parallel_selected=is_parallel_selected,
-            is_bridge_source=is_bridge_source,
-            is_bridge_target=is_bridge_target,
-        )
-
-        # Draw the node based on its shape
-        shape = getattr(node, "shape", "rectangle")
-
-        if shape == "circle":
-            # Draw circular node
-            painter.setBrush(node_color)
-            painter.setPen(pen)
-            painter.drawEllipse(rect)
+        # Create path for node shape
+        path = QPainterPath()
+        if getattr(node, "shape", "rectangle") == "circle":
+            path.addEllipse(rect)
         else:
-            # Draw rectangular node (default)
-            painter.fillRect(rect, node_color)
-            painter.setPen(pen)
-            painter.drawRect(rect)
+            # Draw rounded rectangle
+            path.addRoundedRect(
+                rect, self.style.corner_radius, self.style.corner_radius
+            )
 
-        # Draw node ID
-        painter.setPen(self.style.get_text_pen())
-        painter.drawText(rect, Qt.AlignCenter, str(node.id))
+        # Set colors based on state
+        background_color = self.style.get_background_color(
+            is_selected=is_selected, is_hovered=is_hovered
+        )
+
+        # Draw node background
+        painter.fillPath(path, background_color)
+
+        # Draw node border
+        painter.setPen(QPen(self.style.border_color, self.style.border_width))
+        painter.drawPath(path)
+
+        # Draw node label
+        painter.setFont(self.style.font)
+        painter.setPen(self.style.text_color)
+
+        # Add padding to text rectangle
+        text_rect = rect.adjusted(
+            self.style.padding,
+            self.style.padding,
+            -self.style.padding,
+            -self.style.padding,
+        )
+        painter.drawText(text_rect, Qt.AlignCenter, str(node.id))
 
         # Restore painter state
         painter.restore()

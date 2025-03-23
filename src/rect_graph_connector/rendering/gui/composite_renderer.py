@@ -1,5 +1,5 @@
 """
-Composite renderer that coordinates all individual renderers.
+Composite renderer that combines multiple renderers.
 """
 
 from PyQt5.QtGui import QPainter
@@ -7,100 +7,149 @@ from PyQt5.QtGui import QPainter
 from ...models.graph import Graph
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
-from .styles.base_style import BaseStyle
+from .node_renderer import NodeRenderer
+from .edge_renderer import EdgeRenderer
+from .group_renderer import GroupRenderer
+from .grid_renderer import GridRenderer
+from .border_renderer import BorderRenderer
+from .selection_renderer import SelectionRenderer
+from .knife_renderer import KnifeRenderer
+from .bridge_renderer import BridgeRenderer
 
 
 class CompositeRenderer(BaseRenderer):
     """
-    Composite renderer that coordinates all individual renderers.
+    Composite renderer that manages and coordinates multiple renderers.
 
-    This class manages the rendering order and passes appropriate data to each renderer.
-    It implements the Composite pattern to treat a group of renderers as a single renderer.
+    This class combines all renderers to create the complete graph visualization.
+    It handles the proper drawing order and state management across all renderers.
 
-    Attributes:
-        graph (Graph): The graph model to render
-        renderers (list): List of renderers to coordinate
+    The drawing order is:
+    1. Border (background and border)
+    2. Grid (if visible)
+    3. Groups (bottom layer)
+    4. Edges
+    5. Nodes (top layer)
+    6. Selection rectangle (if selecting)
+    7. Knife path (if in knife mode)
+    8. Bridge connections (if in bridge mode)
     """
 
     def __init__(
-        self, view_state: ViewStateModel, graph: Graph, style: BaseStyle = None
+        self,
+        view_state: ViewStateModel,
+        graph: Graph,
+        grid_renderer: GridRenderer = None,
+        border_renderer: BorderRenderer = None,
+        group_renderer: GroupRenderer = None,
+        edge_renderer: EdgeRenderer = None,
+        node_renderer: NodeRenderer = None,
+        selection_renderer: SelectionRenderer = None,
+        knife_renderer: KnifeRenderer = None,
+        bridge_renderer: BridgeRenderer = None,
     ):
         """
-        Initialize the composite renderer with all individual renderers.
+        Initialize the composite renderer.
 
         Args:
             view_state (ViewStateModel): The view state model
             graph (Graph): The graph model to render
-            style (BaseStyle, optional): The style object for this renderer
+            grid_renderer (GridRenderer, optional): Custom grid renderer
+            border_renderer (BorderRenderer, optional): Custom border renderer
+            group_renderer (GroupRenderer, optional): Custom group renderer
+            edge_renderer (EdgeRenderer, optional): Custom edge renderer
+            node_renderer (NodeRenderer, optional): Custom node renderer
+            selection_renderer (SelectionRenderer, optional): Custom selection renderer
+            knife_renderer (KnifeRenderer, optional): Custom knife renderer
+            bridge_renderer (BridgeRenderer, optional): Custom bridge renderer
         """
-        super().__init__(view_state, style or BaseStyle())
+        super().__init__(view_state, None)  # Composite doesn't need its own style
         self.graph = graph
-        self.renderers = []
 
-    def add_renderer(self, renderer: BaseRenderer):
-        """
-        Add a renderer to the composite.
-
-        Args:
-            renderer (BaseRenderer): The renderer to add
-        """
-        self.renderers.append(renderer)
+        # Initialize renderers with defaults if not provided
+        self.border_renderer = border_renderer or BorderRenderer(view_state)
+        self.grid_renderer = grid_renderer or GridRenderer(view_state)
+        self.group_renderer = group_renderer or GroupRenderer(view_state, graph)
+        self.edge_renderer = edge_renderer or EdgeRenderer(view_state, graph)
+        self.node_renderer = node_renderer or NodeRenderer(view_state, graph)
+        self.selection_renderer = selection_renderer or SelectionRenderer(view_state)
+        self.knife_renderer = knife_renderer or KnifeRenderer(view_state)
+        self.bridge_renderer = bridge_renderer or BridgeRenderer(view_state)
 
     def draw(
         self,
         painter: QPainter,
-        mode: str = "normal",
-        temp_edge_data=None,
-        edit_target_groups=None,
-        knife_data=None,
+        selected_nodes=None,
         selected_edges=None,
-        all_for_one_selected_nodes=None,
+        selected_groups=None,
+        hover_node=None,
+        hover_edge=None,
+        hover_group=None,
         selection_rect_data=None,
-        parallel_data=None,
+        knife_data=None,
         bridge_data=None,
         **kwargs,
     ):
         """
-        Draw the complete graph on the canvas.
-
-        Coordinates all renderers in the correct order to maintain proper visual layering.
+        Draw all graph elements in the correct order.
 
         Args:
             painter (QPainter): The painter to use for drawing
-            mode (str): The current mode ("normal" or "edit")
-            temp_edge_data (tuple, optional): Temporary edge data (start_node, end_point)
-            edit_target_groups: List of groups being edited in edit mode
-            knife_data (dict, optional): Data for knife tool rendering
-            selected_edges (list, optional): List of edges that are selected
-            all_for_one_selected_nodes (list, optional): List of nodes selected in All-For-One mode
-            selection_rect_data (dict, optional): Data for the selection rectangle
-            parallel_data (dict, optional): Data for parallel connection mode
-            bridge_data (dict, optional): Data for bridge connection mode
+            selected_nodes (list, optional): List of selected nodes
+            selected_edges (list, optional): List of selected edges
+            selected_groups (list, optional): List of selected groups
+            hover_node (Node, optional): Currently hovered node
+            hover_edge (tuple, optional): Currently hovered edge
+            hover_group (Group, optional): Currently hovered group
+            selection_rect_data (dict, optional): Selection rectangle data
+            knife_data (dict, optional): Knife tool data
+            bridge_data (dict, optional): Bridge connection data
             **kwargs: Additional drawing parameters
         """
-        # Save the painter state and apply zoom scaling for graph elements
-        painter.save()
+        # Draw border and background first
+        self.border_renderer.draw(painter)
 
-        # Apply pan offset and zoom scaling
-        self.apply_transform(painter)
+        # Draw grid if visible
+        if self.view_state.grid_visible:
+            self.grid_renderer.draw(painter)
 
-        # Prepare common drawing parameters
-        draw_params = {
-            "mode": mode,
-            "temp_edge_data": temp_edge_data,
-            "edit_target_groups": edit_target_groups,
-            "knife_data": knife_data,
-            "selected_edges": selected_edges,
-            "all_for_one_selected_nodes": all_for_one_selected_nodes,
-            "selection_rect_data": selection_rect_data,
-            "parallel_data": parallel_data,
-            "bridge_data": bridge_data,
-            **kwargs,
-        }
+        # Draw groups (bottom layer)
+        self.group_renderer.draw(
+            painter, selected_groups=selected_groups, hover_group=hover_group
+        )
 
-        # Draw all renderers in order
-        for renderer in self.renderers:
-            renderer.draw(painter, **draw_params)
+        # Draw edges
+        self.edge_renderer.draw(
+            painter, selected_edges=selected_edges, hover_edge=hover_edge
+        )
 
-        # Restore painter state
-        painter.restore()
+        # Draw nodes (top layer)
+        self.node_renderer.draw(
+            painter, selected_nodes=selected_nodes, hover_node=hover_node
+        )
+
+        # Draw selection rectangle if selecting
+        if selection_rect_data:
+            self.selection_renderer.draw(
+                painter, selection_rect_data=selection_rect_data
+            )
+
+        # Draw knife path and highlights if in knife mode
+        if knife_data:
+            self.knife_renderer.draw(painter, knife_data=knife_data)
+
+        # Draw bridge connections if in bridge mode
+        if bridge_data:
+            self.bridge_renderer.draw(painter, bridge_data=bridge_data)
+
+    def update_graph(self, graph: Graph):
+        """
+        Update the graph model for all renderers.
+
+        Args:
+            graph (Graph): The new graph model
+        """
+        self.graph = graph
+        self.group_renderer.graph = graph
+        self.edge_renderer.graph = graph
+        self.node_renderer.graph = graph

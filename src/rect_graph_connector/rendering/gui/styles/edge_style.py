@@ -1,119 +1,75 @@
 """
-Edge style class for edge rendering.
+Style configuration for edge rendering.
 """
 
-from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtCore import Qt
-
+from PyQt5.QtGui import QPen
 from .base_style import BaseStyle
 
 
 class EdgeStyle(BaseStyle):
     """
-    Style class for edge rendering.
+    Style configuration for edges.
 
-    This class provides styling properties for edges, including colors and widths
-    for different edge states (normal, selected, hovered, etc.).
+    This class defines all visual properties for edge rendering,
+    including line styles, colors, and arrow configurations.
     """
 
     def __init__(self):
-        """Initialize the edge style."""
+        """Initialize edge style with default values."""
         super().__init__()
 
-    def get_edge_pen(
-        self,
-        is_selected=False,
-        is_highlighted=False,
-        is_temporary=False,
-        is_all_for_one=False,
-        is_parallel=False,
-        is_bridge=False,
-    ):
+        # Colors
+        self.line_color = self.get_color("edge.line", "rgba(100,100,100,255)")
+        self.selected_color = self.get_color("edge.selected", "rgba(0,120,215,255)")
+        self.hover_color = self.get_color("edge.hover", "rgba(150,150,150,255)")
+        self.arrow_color = self.get_color("edge.arrow", "rgba(100,100,100,255)")
+
+        # Dimensions
+        self.line_width = self.get_dimension("edge.line_width", 2.0)
+        self.selected_width = self.get_dimension("edge.selected_width", 3.0)
+        self.arrow_size = self.get_dimension("edge.arrow_size", 10.0)
+
+        # Line style configuration
+        self.line_style = Qt.SolidLine
+        self.cap_style = Qt.RoundCap
+        self.join_style = Qt.RoundJoin
+
+        # Animation parameters
+        self.animation_speed = self.get_constant("edge.animation_speed", 1.0)
+        self.dash_pattern = self.get_constant("edge.dash_pattern", [5, 5])
+
+    def get_pen(self, is_selected: bool, is_hovered: bool):
         """
-        Get the pen for an edge based on its state.
+        Get the appropriate pen based on edge state.
 
         Args:
             is_selected (bool): Whether the edge is selected
-            is_highlighted (bool): Whether the edge is highlighted (e.g., by knife tool)
-            is_temporary (bool): Whether the edge is a temporary preview
-            is_all_for_one (bool): Whether the edge is part of All-For-One mode
-            is_parallel (bool): Whether the edge is part of Parallel mode
-            is_bridge (bool): Whether the edge is part of Bridge mode
+            is_hovered (bool): Whether the edge is being hovered over
 
         Returns:
-            QPen: The edge pen
+            QPen: The configured pen for edge drawing
         """
-        if is_bridge:
-            color = self.get_color("edge.bridge", "#FF00FF")  # Magenta
-            width = self.get_dimension("edge.width.bridge", 2)
-            style = Qt.DashLine
-        elif is_parallel:
-            color = self.get_color("edge.parallel", "#008000")  # Green
-            width = self.get_dimension("edge.width.parallel", 2)
-            style = Qt.SolidLine
-        elif is_all_for_one:
-            color = self.get_color("edge.all_for_one", "#FFA500")  # Orange
-            width = self.get_dimension("edge.width.all_for_one", 2)
-            style = Qt.SolidLine
-        elif is_temporary:
-            color = self.get_color("edge.temporary", "#FF0000")  # Red
-            width = self.get_dimension("edge.width.temporary", 2)
-            style = Qt.DashLine
-        elif is_highlighted:
-            color = self.get_color("edge.highlighted", "#FF0000")  # Red
-            width = self.get_dimension("edge.width.highlighted", 2)
-            style = Qt.SolidLine
-        elif is_selected:
-            color = self.get_color("edge.selected", "#0000FF")  # Blue
-            width = self.get_dimension("edge.width.selected", 2)
-            style = Qt.SolidLine
+        if is_selected:
+            pen = QPen(self.selected_color, self.selected_width)
+        elif is_hovered:
+            pen = QPen(self.hover_color, self.line_width)
         else:
-            color = self.get_color("edge.normal", "#000000")  # Black
-            width = self.get_dimension("edge.width.normal", 1)
-            style = Qt.SolidLine
+            pen = QPen(self.line_color, self.line_width)
 
-        pen = QPen(color)
-        pen.setWidth(int(width))
-        pen.setStyle(style)
+        pen.setStyle(self.line_style)
+        pen.setCapStyle(self.cap_style)
+        pen.setJoinStyle(self.join_style)
         return pen
 
-    def get_hover_edge_pen(self):
+    def get_arrow_pen(self):
         """
-        Get the pen for a hovered edge.
+        Get the pen for drawing edge arrows.
 
         Returns:
-            QPen: The hover edge pen
+            QPen: The configured pen for arrow drawing
         """
-        color = self.get_color("edge.hover", "#FF6600")  # Orange
-        width = self.get_dimension("edge.width.hover", 2)
-
-        pen = QPen(color)
-        pen.setWidth(int(width))
+        pen = QPen(self.arrow_color, self.line_width)
+        pen.setCapStyle(self.cap_style)
+        pen.setJoinStyle(self.join_style)
         return pen
-
-    def get_arrow_size(self):
-        """
-        Get the size of edge arrows.
-
-        Returns:
-            float: The arrow size
-        """
-        return self.get_dimension("edge.arrow_size", 10)
-
-    def get_edge_hit_tolerance(self):
-        """
-        Get the tolerance for edge hit detection.
-
-        Returns:
-            float: The edge hit tolerance
-        """
-        return self.get_dimension("edge.hit_tolerance", 5)
-
-    def get_hover_opacity(self):
-        """
-        Get the opacity for non-highlighted edges when hovering.
-
-        Returns:
-            float: The opacity value (0.0-1.0)
-        """
-        return self.get_dimension("hover.opacity", 0.5)

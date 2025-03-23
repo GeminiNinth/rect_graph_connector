@@ -1,66 +1,80 @@
 """
-Border renderer for drawing the canvas border.
+Border renderer for drawing canvas border.
 """
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPainter, QPen, QColor
+from PyQt5.QtCore import QRectF
+from PyQt5.QtGui import QPainter, QBrush
 
 from ...models.view_state_model import ViewStateModel
-from ...config import config
 from .base_renderer import BaseRenderer
+from .styles.border_style import BorderStyle
 
 
 class BorderRenderer(BaseRenderer):
     """
-    Renderer for drawing the canvas border.
+    Renderer for drawing the canvas border and background.
 
-    This class handles rendering of the canvas border based on the current mode.
+    This class handles rendering of the canvas border and background,
+    providing visual boundaries for the drawing area.
     """
 
-    def __init__(self, view_state: ViewStateModel, style=None):
+    def __init__(self, view_state: ViewStateModel, style: BorderStyle = None):
         """
         Initialize the border renderer.
 
         Args:
             view_state (ViewStateModel): The view state model
-            style (BaseStyle, optional): The style object for this renderer
+            style (BorderStyle, optional): The style object for this renderer
         """
-        super().__init__(view_state, style)
+        super().__init__(view_state, style or BorderStyle())
 
-    def draw(self, painter: QPainter, mode="normal", **kwargs):
+    def draw(self, painter: QPainter, **kwargs):
         """
-        Draw the canvas border.
+        Draw the canvas border and background.
 
         Args:
             painter (QPainter): The painter to use for drawing
-            mode (str): The current mode ("normal" or "edit")
             **kwargs: Additional drawing parameters
         """
         # Save painter state
         painter.save()
 
-        # Get canvas size
-        canvas_width = painter.device().width()
-        canvas_height = painter.device().height()
+        # Get the viewport rectangle
+        viewport_rect = painter.viewport()
 
-        # Set up border pen based on mode
-        if mode == "edit":
-            border_color = config.get_color(
-                "canvas.border.edit", "#FF0000"
-            )  # Red for edit mode
-        else:
-            border_color = config.get_color(
-                "canvas.border.normal", "#000000"
-            )  # Black for normal mode
+        # Draw background
+        painter.fillRect(viewport_rect, QBrush(self.style.background_color))
 
-        border_width = config.get_dimension("canvas.border_width", 2)
+        # Calculate border rectangle with margin
+        margin = self.style.margin
+        border_rect = QRectF(
+            viewport_rect.x() + margin,
+            viewport_rect.y() + margin,
+            viewport_rect.width() - 2 * margin,
+            viewport_rect.height() - 2 * margin,
+        )
 
-        pen = QPen(QColor(border_color))
-        pen.setWidth(border_width)
-        painter.setPen(pen)
-
-        # Draw border rectangle
-        painter.drawRect(0, 0, canvas_width - 1, canvas_height - 1)
+        # Draw border
+        painter.setPen(self.style.get_border_pen())
+        painter.drawRect(border_rect)
 
         # Restore painter state
         painter.restore()
+
+    def get_content_rect(self, viewport_rect) -> QRectF:
+        """
+        Calculate the content rectangle inside the border.
+
+        Args:
+            viewport_rect: The viewport rectangle
+
+        Returns:
+            QRectF: The content rectangle
+        """
+        margin = self.style.margin
+        return QRectF(
+            viewport_rect.x() + margin,
+            viewport_rect.y() + margin,
+            viewport_rect.width() - 2 * margin,
+            viewport_rect.height() - 2 * margin,
+        )

@@ -1,127 +1,112 @@
 """
-Node style class for node rendering.
+Style configuration for node rendering.
 """
 
-from PyQt5.QtGui import QPen, QColor
-from PyQt5.QtCore import Qt
-
+from PyQt5.QtGui import QFont
 from .base_style import BaseStyle
+from .node_color_style import NodeColorStyle
+from .node_border_style import NodeBorderStyle
 
 
 class NodeStyle(BaseStyle):
     """
-    Style class for node rendering.
+    Style configuration for nodes.
 
-    This class provides styling properties for nodes, including fill colors,
-    border colors, and border widths for different node states (normal, selected,
-    hovered, etc.).
+    This class defines all visual properties for node rendering,
+    integrating color and border styles with size and text configurations.
     """
 
     def __init__(self):
-        """Initialize the node style."""
+        """Initialize node style with default values."""
         super().__init__()
 
-    def get_fill_color(
+        # Initialize sub-styles
+        self.color_style = NodeColorStyle()
+        self.border_style = NodeBorderStyle(self.color_style)
+
+        # Node dimensions
+        self.default_size = self.get_dimension("node.default_size", 30.0)
+
+        # Font configuration
+        self.font = QFont()
+        self.font.setFamily(self.get_constant("font.family", "Arial"))
+        self.font.setPointSize(self.get_constant("font.size", 10))
+
+        # Hover effect
+        self.hover_opacity = self.get_dimension("hover.opacity", 0.3)
+
+    def get_background_color(
         self,
-        is_selected=False,
-        is_all_for_one_selected=False,
-        is_parallel_selected=False,
-        is_bridge_source=False,
-        is_bridge_target=False,
+        is_selected: bool = False,
+        is_all_for_one_selected: bool = False,
+        is_parallel_selected: bool = False,
+        is_bridge_source: bool = False,
+        is_bridge_target: bool = False,
     ):
         """
-        Get the fill color for a node based on its state.
+        Get the appropriate background color based on node state.
 
         Args:
             is_selected (bool): Whether the node is selected
             is_all_for_one_selected (bool): Whether the node is selected in All-For-One mode
             is_parallel_selected (bool): Whether the node is selected in Parallel mode
-            is_bridge_source (bool): Whether the node is a source node in Bridge mode
-            is_bridge_target (bool): Whether the node is a target node in Bridge mode
+            is_bridge_source (bool): Whether the node is a bridge source
+            is_bridge_target (bool): Whether the node is a bridge target
 
         Returns:
-            QColor: The fill color
+            QColor: The appropriate background color
         """
-        if is_bridge_source:
-            return self.get_color("node.fill.bridge_source_highlighted", "#FFD0E0")
-        elif is_bridge_target:
-            return self.get_color("node.fill.bridge_target_highlighted", "#50FCC0")
-        elif is_parallel_selected:
-            return self.get_color("node.fill.parallel_selected", "#90EE90")
-        elif is_all_for_one_selected:
-            return self.get_color("node.fill.all_for_one_selected", "#FFA500")
-        elif is_selected:
-            return self.get_color("node.fill.selected", "#ADD8E6")
-        else:
-            return self.get_color("node.fill.normal", "skyblue")
+        return self.color_style.get_fill_color(
+            is_selected,
+            is_all_for_one_selected,
+            is_parallel_selected,
+            is_bridge_source,
+            is_bridge_target,
+        )
 
     def get_border_pen(
         self,
-        is_selected=False,
-        is_all_for_one_selected=False,
-        is_parallel_selected=False,
-        is_bridge_source=False,
-        is_bridge_target=False,
+        is_selected: bool = False,
+        is_all_for_one_selected: bool = False,
+        is_parallel_selected: bool = False,
+        is_bridge_source: bool = False,
+        is_bridge_target: bool = False,
     ):
         """
-        Get the border pen for a node based on its state.
+        Get the appropriate border pen based on node state.
 
         Args:
             is_selected (bool): Whether the node is selected
             is_all_for_one_selected (bool): Whether the node is selected in All-For-One mode
             is_parallel_selected (bool): Whether the node is selected in Parallel mode
-            is_bridge_source (bool): Whether the node is a source node in Bridge mode
-            is_bridge_target (bool): Whether the node is a target node in Bridge mode
+            is_bridge_source (bool): Whether the node is a bridge source
+            is_bridge_target (bool): Whether the node is a bridge target
 
         Returns:
-            QPen: The border pen
+            QPen: The configured pen for node border
         """
-        if is_bridge_source:
-            color = self.get_color("node.border.bridge_source_highlighted", "#FF80A0")
-            width = self.get_dimension("node.border_width.bridge_highlighted", 2)
-        elif is_bridge_target:
-            color = self.get_color("node.border.bridge_target_highlighted", "#10DDFF")
-            width = self.get_dimension("node.border_width.bridge_highlighted", 2)
-        elif is_parallel_selected:
-            color = self.get_color("node.border.parallel_selected", "#006400")
-            width = self.get_dimension("node.border_width.parallel_selected", 3)
-        elif is_all_for_one_selected:
-            color = self.get_color("node.border.all_for_one_selected", "#FF6600")
-            width = self.get_dimension("node.border_width.all_for_one_selected", 3)
-        elif is_selected:
-            color = self.get_color("node.border.selected", "blue")
-            width = self.get_dimension("node.border_width.selected", 2)
-        else:
-            color = self.get_color("node.border.normal", "gray")
-            width = self.get_dimension("node.border_width.normal", 1)
-
-        pen = QPen(color)
-        pen.setWidth(int(width))
-        return pen
+        return self.border_style.get_pen(
+            is_selected,
+            is_all_for_one_selected,
+            is_parallel_selected,
+            is_bridge_source,
+            is_bridge_target,
+        )
 
     def get_text_color(self):
         """
-        Get the text color for node labels.
+        Get the color for node text.
 
         Returns:
             QColor: The text color
         """
-        return self.get_color("node.text", "#000000")
-
-    def get_text_pen(self):
-        """
-        Get the pen for node label text.
-
-        Returns:
-            QPen: The text pen
-        """
-        return QPen(self.get_text_color(), 1)
+        return self.color_style.text_color
 
     def get_hover_opacity(self):
         """
-        Get the opacity for non-highlighted nodes when hovering.
+        Get the opacity value for hover effect.
 
         Returns:
-            float: The opacity value (0.0-1.0)
+            float: The opacity value
         """
-        return self.get_dimension("hover.opacity", 0.5)
+        return self.hover_opacity
