@@ -2,7 +2,7 @@
 
 # Hover effect settings
 hover:
-  opacity: 0.3 # Opacity for non-highlighted elements when hovering
+  opacity: 0.1 # Opacity for non-highlighted elements when hovering
 
 canvas:
   min_height: 500
