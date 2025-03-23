@@ -37,6 +37,7 @@ from ...config import config
 from ...models.graph import Graph, NodeGroup
 from ...models.node import BaseNode
 from ...models.special.bridge_connection import BridgeConnector, BridgeConnectionParams
+from ...rendering.gui.styles.bridge_window_style import BridgeWindowStyle
 from ...utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -63,7 +64,6 @@ class NodeView(QWidget):
         self.node_size = 15  # Size of nodes in the view
         self.source_highlight_position = BridgeConnector.POS_ROW_FIRST
         self.target_highlight_position = BridgeConnector.POS_ROW_LAST
-        self.theme = "light"  # Current theme
         self.source_group_name = ""  # Name of the source group
         self.target_group_name = ""  # Name of the target group
 
@@ -73,36 +73,8 @@ class NodeView(QWidget):
         # Set minimum size
         self.setMinimumSize(200, 300)
 
-        # Colors
-        self._update_colors()
-
-    def _update_colors(self):
-        """Update colors based on the current theme."""
-        self.node_fill_color = QColor(config.get_color("node.fill.normal", "skyblue"))
-        self.node_border_color = QColor(config.get_color("node.border.normal", "gray"))
-        self.highlight_fill_color = QColor(
-            config.get_color("node.fill.bridge_target_highlighted", "#50FCC0")
-        )
-        self.highlight_border_color = QColor(
-            config.get_color("node.border.bridge_target_highlighted", "#10DDFF")
-        )
-        self.connection_color = QColor(
-            config.get_color("bridge.window.node_area.connection_line", "#6495ED")
-        )
-        self.bg_color = QColor(
-            config.get_color("bridge.window.node_area.background", "#F5F5F5")
-        )
-
-    def set_theme(self, theme: str):
-        """
-        Set the color theme for the node view.
-
-        Args:
-            theme: The theme to use ('light' or 'dark')
-        """
-        self.theme = theme
-        self._update_colors()
-        self.update()
+        # Initialize style
+        self.style = BridgeWindowStyle()
 
     def set_source_nodes(self, nodes: List[BaseNode], group_name: str):
         """
@@ -177,7 +149,7 @@ class NodeView(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
 
         # Fill background
-        painter.fillRect(self.rect(), self.bg_color)
+        painter.fillRect(self.rect(), self.style.get_background_color())
 
         # Draw group headers
         self._draw_group_headers(painter)
@@ -201,9 +173,8 @@ class NodeView(QWidget):
         font.setBold(True)
         painter.setFont(font)
 
-        # Get text color based on theme
-        text_color = Qt.black if self.theme == "light" else Qt.white
-        painter.setPen(QPen(text_color, 1))
+        # Get text pen from style
+        painter.setPen(self.style.get_text_pen())
 
         # Draw source group header
         source_header_text = f"Source Nodes\n{self.source_group_name}"
@@ -247,9 +218,8 @@ class NodeView(QWidget):
         if not source_positions or not target_positions:
             return
 
-        # Set up pen for connections
-        pen = QPen(self.connection_color, 2, Qt.SolidLine)
-        painter.setPen(pen)
+        # Set up pen for connections from style
+        painter.setPen(self.style.get_connection_pen())
 
         # Draw connections directly from self.connections
         # which is set in _update_preview
@@ -329,30 +299,22 @@ class NodeView(QWidget):
         for i, node in enumerate(nodes):
             is_edge_node = node in edge_nodes
 
-            # Set colors based on whether it's an edge node
-            fill_color = (
-                self.highlight_fill_color if is_edge_node else self.node_fill_color
-            )
-            border_color = (
-                self.highlight_border_color if is_edge_node else self.node_border_color
-            )
-
             # Draw the node
             center = positions[i]
             radius = self.node_size / 2
 
             # Fill circle
-            painter.setBrush(QBrush(fill_color))
+            painter.setBrush(self.style.get_node_fill_brush(is_edge_node))
             painter.setPen(Qt.NoPen)
             painter.drawEllipse(center, radius, radius)
 
             # Draw border
             painter.setBrush(Qt.NoBrush)
-            painter.setPen(QPen(border_color, 1.5))
+            painter.setPen(self.style.get_node_border_pen(is_edge_node))
             painter.drawEllipse(center, radius, radius)
 
             # Draw node ID
-            painter.setPen(QPen(Qt.black if self.theme == "light" else Qt.white, 1))
+            painter.setPen(self.style.get_text_pen())
             font = painter.font()
             font.setPointSize(8)
             painter.setFont(font)
@@ -484,9 +446,203 @@ class BridgeConnectionWindow(QDialog):
         self.setWindowTitle(title)
         self.setMinimumSize(700, 500)
 
-        # Set theme based on system
-        self.theme = "light"
-        self._update_theme()
+    def handle_bridge_event(self, event: dict) -> None:
+        """
+        Handle bridge connection events.
+
+        Args:
+            event: Dictionary containing event data.
+        """
+        if not self.validate_event(event):
+            self.log_error("Invalid event")
+            return
+
+        if event.get("type") == "click":
+            self.process_click_event(event)
+            return
+
+        if event.get("type") == "keypress":
+            self.process_key_event(event)
+            return
+
+        self.log_error("Unhandled event type")
+
+    def validate_event(self, event: dict) -> bool:
+        """
+        Validate the event structure.
+
+        Args:
+            event: Dictionary containing event data.
+        Returns:
+            True if valid, False otherwise.
+        """
+        return isinstance(event, dict) and "type" in event and "data" in event
+
+    def process_click_event(self, event: dict) -> None:
+        """
+        Process click events.
+
+        Args:
+            event: Dictionary containing event data.
+        """
+        data = event.get("data", {})
+        position = data.get("position")
+
+        if not position:
+            self.log_error("Click event missing position data")
+            return
+
+        # Handle click based on position
+        # This would typically check if a node was clicked and update the UI accordingly
+        self._update_preview()
+
+    def process_key_event(self, event: dict) -> None:
+        """
+        Process key press events.
+
+        Args:
+            event: Dictionary containing event data.
+        """
+        data = event.get("data", {})
+        key = data.get("key")
+
+        if not key:
+            self.log_error("Key event missing key data")
+            return
+
+        # Handle key press based on the key
+        # This would typically handle keyboard shortcuts or navigation
+        if key == "Escape":
+            self.reject()
+        elif key == "Enter" or key == "Return":
+            self._apply_connections()
+
+    def log_error(self, message: str) -> None:
+        """
+        Log an error message.
+
+        Args:
+            message: Error message to log.
+        """
+        logger.error(message)
+
+    def update_bridge_display(self, raw_data: any) -> None:
+        """
+        Update the bridge connection display based on raw data.
+
+        Args:
+            raw_data: Unprocessed input data.
+        """
+        display_data = self.extract_display_data(raw_data)
+        self.render_display(display_data)
+
+    def extract_display_data(self, raw_data: any) -> dict:
+        """
+        Extract and normalize display data from raw input.
+
+        Args:
+            raw_data: Unprocessed input data.
+        Returns:
+            A dictionary with normalized data for display.
+        """
+        # Default values
+        result = {
+            "title": "Untitled",
+            "source_group": "Unknown",
+            "target_group": "Unknown",
+            "connection_count": 1,
+            "flip_direction": False,
+            "source_nodes": [],
+            "target_nodes": [],
+            "connections": [],
+        }
+
+        # Extract data if available
+        if isinstance(raw_data, dict):
+            result["title"] = raw_data.get("title", result["title"])
+            result["source_group"] = raw_data.get(
+                "source_group", result["source_group"]
+            )
+            result["target_group"] = raw_data.get(
+                "target_group", result["target_group"]
+            )
+            result["connection_count"] = raw_data.get(
+                "connection_count", result["connection_count"]
+            )
+            result["flip_direction"] = raw_data.get(
+                "flip_direction", result["flip_direction"]
+            )
+            result["source_nodes"] = raw_data.get(
+                "source_nodes", result["source_nodes"]
+            )
+            result["target_nodes"] = raw_data.get(
+                "target_nodes", result["target_nodes"]
+            )
+            result["connections"] = raw_data.get("connections", result["connections"])
+
+        return result
+
+    def render_display(self, display_data: dict) -> None:
+        """
+        Render UI elements based on processed display data.
+
+        Args:
+            display_data: A dictionary containing display information.
+        """
+        # Update window title if provided
+        if "title" in display_data:
+            self.setWindowTitle(display_data["title"])
+
+        # Update group labels
+        if "source_group" in display_data:
+            source_label_text = config.get_string(
+                "bridge_connection.window.source_group", "Source Group:"
+            )
+            self.source_label.setText(
+                f"{source_label_text} {display_data['source_group']}"
+            )
+
+        if "target_group" in display_data:
+            target_label_text = config.get_string(
+                "bridge_connection.window.target_group", "Target Group:"
+            )
+            self.target_label.setText(
+                f"{target_label_text} {display_data['target_group']}"
+            )
+
+        # Update connection count
+        if "connection_count" in display_data:
+            self.connection_count = display_data["connection_count"]
+            self.connection_value_label.setText(str(self.connection_count))
+
+            # Update button states
+            self.decrease_button.setEnabled(self.connection_count > 1)
+            self.increase_button.setEnabled(
+                self.connection_count < self.max_connection_count
+            )
+
+        # Update flip direction
+        if "flip_direction" in display_data:
+            self.flip_direction = display_data["flip_direction"]
+            self.flip_button.setChecked(self.flip_direction)
+
+        # Update node views if provided
+        if "source_nodes" in display_data and display_data["source_nodes"]:
+            self.unified_view.set_source_nodes(
+                display_data["source_nodes"], display_data.get("source_group", "Source")
+            )
+
+        if "target_nodes" in display_data and display_data["target_nodes"]:
+            self.unified_view.set_target_nodes(
+                display_data["target_nodes"], display_data.get("target_group", "Target")
+            )
+
+        # Update connections if provided
+        if "connections" in display_data:
+            self.unified_view.set_connections(display_data["connections"])
+
+        # Force a redraw
+        self.update()
 
     def _setup_ui(self):
         """Set up the user interface."""
@@ -607,61 +763,6 @@ class BridgeConnectionWindow(QDialog):
         button_layout.addWidget(self.cancel_button)
 
         main_layout.addLayout(button_layout)
-
-    def _update_theme(self):
-        """Update UI elements based on current theme."""
-        # Update unified node view
-        self.unified_view.set_theme(self.theme)
-
-        # Update labels and backgrounds based on theme
-        if self.theme == "dark":
-            bg_color = QColor(
-                config.get_color(
-                    "bridge.window.background", "rgba(40, 40, 40, 240)", theme="dark"
-                )
-            )
-            text_color = Qt.white
-
-            # Set window background
-            self.setAutoFillBackground(True)
-            palette = self.palette()
-            palette.setColor(QPalette.Window, bg_color)
-            palette.setColor(QPalette.WindowText, text_color)
-            palette.setColor(QPalette.Text, text_color)
-            self.setPalette(palette)
-
-            # Update button and label styles for dark theme
-            button_bg = QColor(
-                config.get_color(
-                    "bridge.window.controls.button.background", "#555555", theme="dark"
-                )
-            )
-            button_text = QColor(
-                config.get_color(
-                    "bridge.window.controls.button.text", "#FFFFFF", theme="dark"
-                )
-            )
-
-            # Update the buttons and label
-            for button in [self.decrease_button, self.increase_button]:
-                button_palette = button.palette()
-                button_palette.setColor(QPalette.Button, button_bg)
-                button_palette.setColor(QPalette.ButtonText, button_text)
-                button.setPalette(button_palette)
-
-            # Update connection value label
-            label_palette = self.connection_value_label.palette()
-            label_palette.setColor(QPalette.WindowText, text_color)
-            self.connection_value_label.setPalette(label_palette)
-        else:
-            # Light theme (default)
-            bg_color = QColor(
-                config.get_color("bridge.window.background", "rgba(255, 255, 255, 240)")
-            )
-            text_color = Qt.black
-
-            # Reset to default palette
-            self.setPalette(QApplication.style().standardPalette())
 
     def _increase_connection_count(self):
         """Increase the connection count and update the UI."""
@@ -871,9 +972,60 @@ class BridgeConnectionWindow(QDialog):
 
     def _apply_connections(self):
         """Apply the configured bridge connections to the graph."""
-        if not self.source_group or not self.target_group:
+        if not self.validate_connection_data():
             return
 
+        # Extract the necessary data for connections
+        connection_data = self.extract_connection_data()
+
+        # Process the connections
+        success = self.process_connections(connection_data)
+
+        if success:
+            # Accept the dialog (will close it)
+            self.accept()
+        else:
+            # Log error but keep dialog open
+            logger.error("Failed to create bridge connection")
+
+    def validate_connection_data(self) -> bool:
+        """
+        Validate that we have all necessary data for creating connections.
+
+        Returns:
+            bool: True if data is valid, False otherwise
+        """
+        if not self.source_group or not self.target_group:
+            logger.error("Source or target group is missing")
+            return False
+
+        # Get the edge nodes (selected nodes) from the unified view
+        source_edge_nodes = self.unified_view.source_edge_nodes
+        target_edge_nodes = self.unified_view.target_edge_nodes
+
+        # Get the displayed nodes from the unified view as fallback
+        source_displayed_nodes = self.unified_view.source_nodes
+        target_displayed_nodes = self.unified_view.target_nodes
+
+        # If no edge nodes are selected, use all displayed nodes
+        if not source_edge_nodes:
+            source_edge_nodes = source_displayed_nodes
+        if not target_edge_nodes:
+            target_edge_nodes = target_displayed_nodes
+
+        if not source_edge_nodes or not target_edge_nodes:
+            logger.error("No nodes available for connection")
+            return False
+
+        return True
+
+    def extract_connection_data(self) -> dict:
+        """
+        Extract and normalize connection data from the current state.
+
+        Returns:
+            dict: A dictionary containing all data needed for connections
+        """
         # Update parameters with the consolidated connection count and flip direction
         self.params.source_to_target_count = self.connection_count
         self.params.target_to_source_count = self.connection_count
@@ -893,18 +1045,55 @@ class BridgeConnectionWindow(QDialog):
         if not target_edge_nodes:
             target_edge_nodes = target_displayed_nodes
 
-        if not source_edge_nodes or not target_edge_nodes:
-            logger.error("No nodes available for connection")
-            return
+        return {
+            "source_edge_nodes": source_edge_nodes,
+            "target_edge_nodes": target_edge_nodes,
+            "connection_count": self.connection_count,
+            "flip_direction": self.flip_direction,
+        }
 
-        success = True
+    def process_connections(self, connection_data: dict) -> bool:
+        """
+        Process the connections based on the provided data.
 
-        # Instead of trying to recreate the connections from the preview lines,
-        # use the same algorithm that generated the preview to create the actual connections
-        # This ensures the preview and actual connections match exactly
+        Args:
+            connection_data: Dictionary containing connection data
 
-        # Clear any existing connections between the two groups first
-        # to avoid duplicate connections
+        Returns:
+            bool: True if connections were successfully created, False otherwise
+        """
+        source_edge_nodes = connection_data["source_edge_nodes"]
+        target_edge_nodes = connection_data["target_edge_nodes"]
+        connection_count = connection_data["connection_count"]
+        flip_direction = connection_data["flip_direction"]
+
+        try:
+            # Clear any existing connections between the two groups first
+            # to avoid duplicate connections
+            self.clear_existing_connections(source_edge_nodes, target_edge_nodes)
+
+            # Generate source to target connections using the same mapping function
+            # that was used for the preview
+            unique_edges = self.generate_unique_edges(
+                source_edge_nodes, target_edge_nodes, connection_count, flip_direction
+            )
+
+            # Create the actual connections
+            self.create_connections(source_edge_nodes, target_edge_nodes, unique_edges)
+
+            return True
+        except Exception as e:
+            logger.error(f"Error creating connections: {e}")
+            return False
+
+    def clear_existing_connections(self, source_edge_nodes, target_edge_nodes):
+        """
+        Clear existing connections between the specified nodes.
+
+        Args:
+            source_edge_nodes: List of source nodes
+            target_edge_nodes: List of target nodes
+        """
         for source_node in source_edge_nodes:
             for target_node in target_edge_nodes:
                 # Find and remove any existing edges between these nodes
@@ -916,30 +1105,47 @@ class BridgeConnectionWindow(QDialog):
                     ):
                         self.graph.edges.remove(edge)
 
-        # Generate source to target connections using the same mapping function
-        # that was used for the preview
+    def generate_unique_edges(
+        self, source_edge_nodes, target_edge_nodes, connection_count, flip_direction
+    ):
+        """
+        Generate unique edges between source and target nodes.
+
+        Args:
+            source_edge_nodes: List of source nodes
+            target_edge_nodes: List of target nodes
+            connection_count: Number of connections to create
+            flip_direction: Whether to flip the connection direction
+
+        Returns:
+            set: Set of unique edge pairs (source_index, target_index)
+        """
         unique_edges = set()
         s2t = self.bridge_connection._generate_bipartite_mapping(
             source_edge_nodes,
             target_edge_nodes,
-            self.connection_count,
-            self.flip_direction,
+            connection_count,
+            flip_direction,
         )
         for src_idx, tgt_set in s2t.items():
             for tgt_idx in tgt_set:
                 unique_edges.add((src_idx, tgt_idx))
 
+        return unique_edges
+
+    def create_connections(self, source_edge_nodes, target_edge_nodes, unique_edges):
+        """
+        Create connections between nodes based on the unique edges.
+
+        Args:
+            source_edge_nodes: List of source nodes
+            target_edge_nodes: List of target nodes
+            unique_edges: Set of unique edge pairs (source_index, target_index)
+        """
         for src_idx, tgt_idx in unique_edges:
             source_node = source_edge_nodes[src_idx]
             target_node = target_edge_nodes[tgt_idx]
             self.graph.add_edge(source_node, target_node)
-
-        if success:
-            # Accept the dialog (will close it)
-            self.accept()
-        else:
-            # Log error but keep dialog open
-            logger.error("Failed to create bridge connection")
 
     @classmethod
     def show_dialog(

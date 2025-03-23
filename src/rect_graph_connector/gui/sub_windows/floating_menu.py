@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QApplication
 from ...config import config
 from ...models.graph import NodeGroup
 from ...models.special.bridge_connection import BridgeConnector
+from ...rendering.gui.styles.floating_menu_style import FloatingMenuStyle
 from ...utils.logging_utils import get_logger
 from ..rendering.base_renderer import parse_rgba
 
@@ -40,8 +41,10 @@ class FloatingMenu:
             group_type: The type of group ("source" or "target")
         """
         self.node_group = node_group
-        self.theme = theme
         self.group_type = group_type
+
+        # Initialize style
+        self.style = FloatingMenuStyle(group_type)
         self.visible = True
         self.highlight_position = config.get_constant(
             "bridge_connection.highlight_positions.default", "row_first"
@@ -216,32 +219,13 @@ class FloatingMenu:
         if not self.visible:
             return
 
-        # Get colors from config
-        bg_color_text = config.get_color(
-            "bridge.floating_menu.background",
-            "rgba(60, 60, 60, 220)",
-        )
-        bg_color = parse_rgba(bg_color_text)
-        text_color = QColor(config.get_color("bridge.floating_menu.text", "#FFFFFF"))
-        button_bg = QColor(
-            config.get_color("bridge.floating_menu.button.background", "#505050")
-        )
-        button_hover_bg = QColor(
-            config.get_color("bridge.floating_menu.button.hover", "#606060")
-        )
-        button_text = QColor(
-            config.get_color("bridge.floating_menu.button.text", "#FFFFFF")
-        )
-
-        # Get border color based on group type
-        if hasattr(self, "group_type") and self.group_type == "source":
-            button_border = QColor(
-                config.get_color("bridge.floating_menu.source_border", "#FF5080")
-            )
-        else:  # target or default
-            button_border = QColor(
-                config.get_color("bridge.floating_menu.target_border", "#FFA500")
-            )
+        # Get colors from style
+        bg_color = self.style.get_background_color()
+        text_color = self.style.get_text_color()
+        button_bg = self.style.get_button_background_color()
+        button_hover_bg = self.style.get_button_background_color(is_hover=True)
+        button_text = self.style.get_button_text_color()
+        button_border = self.style.get_border_color()
 
         # Save current painter state
         painter.save()
@@ -250,19 +234,18 @@ class FloatingMenu:
         menu_rect = QRectF(position.x(), position.y(), self.width, self.height)
 
         # Create a path for rounded rectangle
-        path = QPainterPath()
-        path.addRoundedRect(menu_rect, 8, 8)
+        path = self.style.create_rounded_rect_path(menu_rect, 8)
 
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.fillPath(path, bg_color)
 
         # Draw menu border
-        painter.setPen(QPen(button_border, 1))
+        painter.setPen(self.style.get_border_pen())
         painter.drawPath(path)
 
         # Set font for text
         painter.setFont(self.font)
-        painter.setPen(text_color)
+        painter.setPen(self.style.get_text_pen())
 
         # Draw title
         title_y = position.y() + self.padding + self.font_metrics.height()
@@ -296,14 +279,13 @@ class FloatingMenu:
         )
 
         # Draw button background
-        button_path = QPainterPath()
-        button_path.addRoundedRect(self.prev_button_rect, 4, 4)
+        button_path = self.style.create_rounded_rect_path(self.prev_button_rect, 4)
         painter.fillPath(button_path, button_bg)
-        painter.setPen(QPen(button_border, 1))
+        painter.setPen(self.style.get_border_pen())
         painter.drawPath(button_path)
 
         # Draw button text
-        painter.setPen(button_text)
+        painter.setPen(self.style.get_button_text_color())
         painter.drawText(self.prev_button_rect, Qt.AlignCenter, self.prev_button_text)
 
         # Draw next button
@@ -313,14 +295,13 @@ class FloatingMenu:
         )
 
         # Draw button background
-        button_path = QPainterPath()
-        button_path.addRoundedRect(self.next_button_rect, 4, 4)
+        button_path = self.style.create_rounded_rect_path(self.next_button_rect, 4)
         painter.fillPath(button_path, button_bg)
-        painter.setPen(QPen(button_border, 1))
+        painter.setPen(self.style.get_border_pen())
         painter.drawPath(button_path)
 
         # Draw button text
-        painter.setPen(button_text)
+        painter.setPen(self.style.get_button_text_color())
         painter.drawText(self.next_button_rect, Qt.AlignCenter, self.next_button_text)
 
         # Restore painter state
