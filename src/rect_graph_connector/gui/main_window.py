@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (
 from ..config import config
 from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
-from .canvas import Canvas
+from ..rendering.canvas_view import CanvasView
 from .sub_windows.import_dialog import ImportModeDialog
 
 logger = get_logger(__name__)
@@ -105,7 +105,7 @@ class MainWindow(QMainWindow):
     def _create_widgets(self):
         # Main widget and canvas
         self.main_widget = QWidget()
-        self.canvas = Canvas()
+        self.canvas = CanvasView()
 
         # Get the width of the input field
         row_col_width = config.get_dimension("input.row_col_width", 50)
