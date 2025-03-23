@@ -55,7 +55,7 @@ class GroupRenderer(BaseRenderer):
         selected_groups = selected_groups or []
 
         # Draw groups in reverse order to ensure proper layering
-        for group in reversed(self.graph.groups):
+        for group in reversed(self.graph.node_groups):
             self._draw_group(
                 painter,
                 group,
@@ -90,9 +90,7 @@ class GroupRenderer(BaseRenderer):
         path.addRoundedRect(bounds, self.style.corner_radius, self.style.corner_radius)
 
         # Set colors based on state
-        background_color = self.style.get_background_color(
-            is_selected=is_selected, is_hovered=is_hovered
-        )
+        background_color = self.style.get_background_color(is_selected=is_selected)
 
         # Draw group background
         painter.fillPath(path, background_color)

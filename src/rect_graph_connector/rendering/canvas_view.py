@@ -220,9 +220,9 @@ class CanvasView(QWidget):
             selected_nodes=self.selection_model.selected_nodes,
             selected_edges=self.selection_model.selected_edges,
             selected_groups=self.selection_model.selected_groups,
-            hover_node=self.hover_state.hover_node,
-            hover_edge=self.hover_state.hover_edge,
-            hover_group=self.hover_state.hover_group,
+            hover_node=self.hover_state.hovered_node,
+            hover_edge=self.hover_state.hovered_edges,
+            hover_group=None,
         )
 
     # Property getters and setters
