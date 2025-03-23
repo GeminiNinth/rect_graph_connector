@@ -76,12 +76,13 @@ class CanvasView(QWidget):
     # Signal to notify grid visibility and snap state changes
     grid_state_changed = pyqtSignal(bool, bool)  # grid_visible, snap_enabled
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, input_handler=None):
         """
         Initialize the canvas widget.
 
         Args:
             parent: Parent widget
+            input_handler: Optional InputHandler instance for dependency injection
         """
         super().__init__(parent)
 
@@ -113,50 +114,16 @@ class CanvasView(QWidget):
             node_renderer=self.node_renderer,
         )
 
-        # Interaction state
-        self.dragging = False
-        self._pending_parallel_drag = False
-        self._drag_start_node = None
-        self.drag_start = None
-        self.current_edge_start = None
-        self.temp_edge_end = None
-        self._pending_deselect = False
-        self._pending_parallel_drag = False
-        self._press_pos = None
-        self._drag_start_node = None
+        # Initialize input handler (dependency injection)
+        if input_handler:
+            self.input_handler = input_handler
+        else:
+            # Import here to avoid circular imports
+            from ..controllers.input_handler import InputHandler
 
-        # Edge selection state
-        self._pending_edge_deselect = False
-        self._edge_press_pos = None
-
-        # Knife mode state
-        self.knife_path = []
-        self.highlighted_edges = []
-        self.is_cutting = False
-
-        # All-For-One connection mode state
-        self.all_for_one_selected_nodes = []
-
-        # Parallel connection mode state
-        self.parallel_selected_nodes = []
-        self.parallel_edge_endpoints = []
-
-        # Bridge connection mode state
-        self.bridge_selected_groups = []
-        self.bridge_floating_menus = {}
-        self.bridge_connection_params = None
-        self.bridge_preview_lines = []
-        self.bridge_edge_nodes = {}
-
-        # Rectangle selection state
-        self.selection_rect_start = None
-        self.selection_rect_end = None
-        self.is_selecting = False
-
-        # Mode management
-        self.current_mode = self.NORMAL_MODE
-        self.edit_target_groups = []
-        self.edit_submode = self.EDIT_SUBMODE_CONNECT
+            self.input_handler = InputHandler(
+                self.view_state, self.selection_model, self.hover_state, self.graph
+            )
 
         # Context menus
         from ..gui.context_menus.edit_menu import EditContextMenu
@@ -275,3 +242,78 @@ class CanvasView(QWidget):
     def selected_edges(self, value):
         """Set the selected edges."""
         self.selection_model.selected_edges = value
+
+    def mousePressEvent(self, event):
+        """
+        Handle mouse press events by delegating to the input handler.
+
+        Args:
+            event: Mouse event
+        """
+        try:
+            # Delegate to input handler
+            self.input_handler.handle_mouse_press(event, event.pos())
+            # Update the view
+            self.update()
+        except Exception as e:
+            self.logger.error(f"Error in mousePressEvent: {e}")
+
+    def mouseMoveEvent(self, event):
+        """
+        Handle mouse move events by delegating to the input handler.
+
+        Args:
+            event: Mouse event
+        """
+        try:
+            # Delegate to input handler
+            self.input_handler.handle_mouse_move(event, event.pos())
+            # Update the view
+            self.update()
+        except Exception as e:
+            self.logger.error(f"Error in mouseMoveEvent: {e}")
+
+    def mouseReleaseEvent(self, event):
+        """
+        Handle mouse release events by delegating to the input handler.
+
+        Args:
+            event: Mouse event
+        """
+        try:
+            # Delegate to input handler
+            self.input_handler.handle_mouse_release(event, event.pos())
+            # Update the view
+            self.update()
+        except Exception as e:
+            self.logger.error(f"Error in mouseReleaseEvent: {e}")
+
+    def keyPressEvent(self, event):
+        """
+        Handle key press events by delegating to the input handler.
+
+        Args:
+            event: Key event
+        """
+        try:
+            # Delegate to input handler
+            self.input_handler.handle_key_press(event)
+            # Update the view
+            self.update()
+        except Exception as e:
+            self.logger.error(f"Error in keyPressEvent: {e}")
+
+    def wheelEvent(self, event):
+        """
+        Handle mouse wheel events by delegating to the input handler.
+
+        Args:
+            event: Wheel event
+        """
+        try:
+            # Delegate to input handler
+            self.input_handler.handle_wheel(event, event.pos())
+            # Update the view
+            self.update()
+        except Exception as e:
+            self.logger.error(f"Error in wheelEvent: {e}")

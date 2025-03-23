@@ -96,7 +96,7 @@ class GroupRenderer(BaseRenderer):
         painter.fillPath(path, background_color)
 
         # Draw group border
-        painter.setPen(self.style.get_border_pen())
+        painter.setPen(self.style.get_border_pen(is_selected=is_selected))
         painter.drawPath(path)
 
         # Draw group title
@@ -106,7 +106,8 @@ class GroupRenderer(BaseRenderer):
             )
 
             painter.setFont(self.style.title_font)
-            painter.setPen(self.style.title_color)
+            text_color, _ = self.style.get_label_colors(is_selected=is_selected)
+            painter.setPen(text_color)
             painter.drawText(
                 title_rect,
                 Qt.AlignLeft | Qt.AlignVCenter,
