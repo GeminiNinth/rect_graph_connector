@@ -25,6 +25,7 @@ from .sub_windows.floating_menu import FloatingMenu
 from .sub_windows.import_dialog import ImportModeDialog
 from .rendering import CompositeRenderer
 from ..models.special.bridge_connection import BridgeConnector, BridgeConnectionParams
+from .hover_helpers import update_hover_state, add_direct_connections_to_hover_state
 
 logger = get_logger(__name__)
 
@@ -384,32 +385,16 @@ class Canvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Prepare hover data
+        # Prepare hover data using the helper function
         hover_data = None
         if self.current_mode == self.EDIT_MODE:
-            # Create hover data when node is hovered or when creating an edge
-            if self.hovered_node or self.current_edge_start:
-                # If creating an edge, we want to maintain the original hover state
-                if self.current_edge_start:
-                    # Use the edge start node as the primary hover node if no other node is hovered
-                    hover_node = self.hovered_node or self.current_edge_start
-                else:
-                    hover_node = self.hovered_node
+            # Import and use get_hover_data from hover_helpers
+            from .hover_helpers import get_hover_data
 
-                hover_data = {
-                    "node": hover_node,
-                    "connected_nodes": self.hovered_connected_nodes.copy(),
-                    "edges": self.hovered_edges.copy(),
-                }
+            hover_data = get_hover_data(self)
 
-                # Add potential target node to the connected nodes if it exists
-                if (
-                    self.potential_target_node
-                    and self.potential_target_node not in hover_data["connected_nodes"]
-                ):
-                    hover_data["connected_nodes"].append(self.potential_target_node)
-
-                # Log the hover data for debugging
+            # Log hover data if available
+            if hover_data:
                 node_ids = (
                     [n.id for n in hover_data["connected_nodes"]]
                     if hover_data["connected_nodes"]
@@ -420,7 +405,6 @@ class Canvas(QWidget):
                     if hover_data["edges"]
                     else []
                 )
-
                 logger.debug(
                     f"Hover data prepared: node={hover_data['node'].id}, connected_nodes={node_ids}, edges={edge_ids}, potential_target={(self.potential_target_node.id if self.potential_target_node else None)}"
                 )
@@ -1316,6 +1300,79 @@ class Canvas(QWidget):
                     # Show context menu
                     self.edit_context_menu.popup(self.mapToGlobal(widget_point))
 
+    def _update_hover_state(self, new_hovered_node):
+        """
+        Update the hover state for a new hovered node, considering all connection types.
+        This method handles regular connections, All-For-One, and Parallel connections.
+
+        Args:
+            new_hovered_node: The newly hovered node, or None if no node is hovered
+        """
+        if new_hovered_node != self.hovered_node:
+            # Normal hover behavior when not creating an edge
+            logger.debug(
+                f"Hover state changed: {self.hovered_node} -> {new_hovered_node}"
+            )
+            self.hovered_node = new_hovered_node
+            self.hovered_connected_nodes.clear()
+            self.hovered_edges.clear()
+            self.potential_target_node = None
+
+            if self.hovered_node:
+                logger.debug(f"Finding connections for node: {self.hovered_node.id}")
+                # Find direct connected nodes and edges (regular connections)
+                self._add_direct_connections_to_hover_state(self.hovered_node)
+
+                # Handle All-For-One connections when in that mode
+                if (
+                    self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
+                    and self.hovered_node in self.all_for_one_selected_nodes
+                ):
+                    # All selected nodes should be highlighted
+                    for node in self.all_for_one_selected_nodes:
+                        if (
+                            node != self.hovered_node
+                            and node not in self.hovered_connected_nodes
+                        ):
+                            self.hovered_connected_nodes.append(node)
+
+                # Handle Parallel connections when in that mode
+                if (
+                    self.edit_submode == self.EDIT_SUBMODE_PARALLEL
+                    and self.hovered_node in self.parallel_selected_nodes
+                ):
+                    # All selected nodes should be highlighted
+                    for node in self.parallel_selected_nodes:
+                        if (
+                            node != self.hovered_node
+                            and node not in self.hovered_connected_nodes
+                        ):
+                            self.hovered_connected_nodes.append(node)
+
+    def _add_direct_connections_to_hover_state(self, node):
+        """
+        Add all direct connections (nodes and edges) for the given node to the hover state.
+
+        Args:
+            node: The node to find connections for
+        """
+        # Find only direct connected nodes and edges
+        for edge in self.graph.edges:
+            if edge[0] == node.id:
+                target_node = next(
+                    (n for n in self.graph.nodes if n.id == edge[1]), None
+                )
+                if target_node:
+                    self.hovered_connected_nodes.append(target_node)
+                    self.hovered_edges.append((node, target_node))
+            elif edge[1] == node.id:
+                source_node = next(
+                    (n for n in self.graph.nodes if n.id == edge[0]), None
+                )
+                if source_node:
+                    self.hovered_connected_nodes.append(source_node)
+                    self.hovered_edges.append((source_node, node))
+
     def mouseMoveEvent(self, event):
         """
         Handle mouse move events for node dragging, edge preview, and hover effects.
@@ -1333,47 +1390,41 @@ class Canvas(QWidget):
 
             # When creating an edge, we're interested in potential target nodes
             if self.current_edge_start:
+                # Store the previous potential target to check if it changed
+                previous_target = self.potential_target_node
+
                 # Save potential target node but don't change the main hover state
                 self.potential_target_node = (
                     new_hovered_node
                     if new_hovered_node != self.current_edge_start
                     else None
                 )
+
+                # If this is the first selection or the potential target changed,
+                # ensure proper highlighting of all related nodes
+                if previous_target != self.potential_target_node:
+                    # For All-For-One mode, ensure all selected nodes are highlighted
+                    if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                        for node in self.all_for_one_selected_nodes:
+                            if (
+                                node != self.current_edge_start
+                                and node not in self.hovered_connected_nodes
+                            ):
+                                self.hovered_connected_nodes.append(node)
+
+                    # For Parallel mode, ensure all selected nodes are highlighted
+                    elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                        for node in self.parallel_selected_nodes:
+                            if (
+                                node != self.current_edge_start
+                                and node not in self.hovered_connected_nodes
+                            ):
+                                self.hovered_connected_nodes.append(node)
+
                 self.update()  # Update display to show highlighting
             elif new_hovered_node != self.hovered_node:
-                # Normal hover behavior when not creating an edge
-                logger.debug(
-                    f"Hover state changed: {self.hovered_node} -> {new_hovered_node}"
-                )
-                self.hovered_node = new_hovered_node
-                self.hovered_connected_nodes.clear()
-                self.hovered_edges.clear()
-                self.potential_target_node = None
-
-                if self.hovered_node:
-                    logger.debug(
-                        f"Finding connections for node: {self.hovered_node.id}"
-                    )
-                    # Find only direct connected nodes and edges
-                    for edge in self.graph.edges:
-                        if edge[0] == self.hovered_node.id:
-                            target_node = next(
-                                (n for n in self.graph.nodes if n.id == edge[1]), None
-                            )
-                            if target_node:
-                                self.hovered_connected_nodes.append(target_node)
-                                self.hovered_edges.append(
-                                    (self.hovered_node, target_node)
-                                )
-                        elif edge[1] == self.hovered_node.id:
-                            source_node = next(
-                                (n for n in self.graph.nodes if n.id == edge[0]), None
-                            )
-                            if source_node:
-                                self.hovered_connected_nodes.append(source_node)
-                                self.hovered_edges.append(
-                                    (source_node, self.hovered_node)
-                                )
+                # Update hover state considering all connection types
+                self._update_hover_state(new_hovered_node)
                 self.update()
 
         # Pan operation is applied regardless of mode (when pressing the center button)
