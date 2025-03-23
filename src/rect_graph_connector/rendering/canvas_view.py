@@ -189,6 +189,7 @@ class CanvasView(QWidget):
             selected_groups=self.selection_model.selected_groups,
             hover_node=self.hover_state.hovered_node,
             hover_edge=self.hover_state.hovered_edges,
+            hover_connected_nodes=self.hover_state.hovered_connected_nodes,
             hover_group=None,
         )
 

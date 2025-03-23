@@ -12,6 +12,8 @@ canvas:
 
 node:
   default_size: 30.0 # Default size of the node
+  padding: 5 # Padding for node text
+  corner_radius: 3 # Corner radius for rectangular nodes
   border_width:
     normal: 1
     selected: 2

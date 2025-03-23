@@ -57,6 +57,7 @@ class NodeColorStyle(BaseStyle):
         is_parallel_selected: bool = False,
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
+        is_hovered: bool = False,
     ) -> QColor:
         """
         Get the appropriate fill color based on node state.
@@ -67,6 +68,7 @@ class NodeColorStyle(BaseStyle):
             is_parallel_selected (bool): Whether the node is selected in Parallel mode
             is_bridge_source (bool): Whether the node is a bridge source
             is_bridge_target (bool): Whether the node is a bridge target
+            is_hovered (bool): Whether the node is being hovered over
 
         Returns:
             QColor: The appropriate fill color
@@ -90,6 +92,7 @@ class NodeColorStyle(BaseStyle):
         is_parallel_selected: bool = False,
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
+        is_hovered: bool = False,
     ) -> QColor:
         """
         Get the appropriate border color based on node state.
@@ -100,6 +103,7 @@ class NodeColorStyle(BaseStyle):
             is_parallel_selected (bool): Whether the node is selected in Parallel mode
             is_bridge_source (bool): Whether the node is a bridge source
             is_bridge_target (bool): Whether the node is a bridge target
+            is_hovered (bool): Whether the node is being hovered over
 
         Returns:
             QColor: The appropriate border color

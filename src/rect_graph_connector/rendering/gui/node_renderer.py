@@ -6,6 +6,7 @@ from PyQt5.QtCore import QPointF, QRectF, Qt
 from PyQt5.QtGui import QPainter, QPainterPath, QPen
 
 from ...models.graph import Graph
+from ...models.base_node import BaseNode
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
 from .styles.node_style import NodeStyle
@@ -54,21 +55,38 @@ class NodeRenderer(BaseRenderer):
         """
         selected_nodes = selected_nodes or []
 
+        # Get connected nodes and edges if a node is hovered
+        hovered_connected_nodes = kwargs.get("hover_connected_nodes", [])
+        if hover_node and not hovered_connected_nodes:
+            # If connected nodes not provided but we have a hover node,
+            # we can get connected nodes from the graph
+            hovered_connected_nodes = self.graph.get_connected_nodes(hover_node)
+
         # Draw all nodes
         for node in self.graph.nodes:
+            is_highlighted = node == hover_node or node in hovered_connected_nodes
+
+            # Apply opacity based on hover state
+            opacity = 1.0
+            if hover_node and not is_highlighted:
+                # Apply reduced opacity to non-highlighted nodes when hovering
+                opacity = self.style.get_hover_opacity()
+
             self._draw_node(
                 painter,
                 node,
                 node in selected_nodes,
                 node == hover_node,
+                opacity=opacity,
             )
 
     def _draw_node(
         self,
         painter: QPainter,
-        node,
+        node: BaseNode,
         is_selected: bool,
         is_hovered: bool,
+        opacity: float = 1.0,
     ):
         """
         Draw a single node with its background, border, and label.
@@ -78,10 +96,11 @@ class NodeRenderer(BaseRenderer):
             node: The node to draw
             is_selected (bool): Whether the node is selected
             is_hovered (bool): Whether the node is being hovered over
+            opacity (float): Opacity level for the node (0.0-1.0)
         """
         # Calculate node dimensions
-        width = max(self.style.min_width, node.size)
-        height = max(self.style.min_height, node.size)
+        width = node.size
+        height = node.size
 
         # Create node rectangle
         rect = QRectF(node.x - width / 2, node.y - height / 2, width, height)
@@ -104,16 +123,37 @@ class NodeRenderer(BaseRenderer):
             is_selected=is_selected, is_hovered=is_hovered
         )
 
+        # Apply opacity if needed
+        if opacity < 1.0:
+            # Apply opacity to the background color
+            background_color.setAlphaF(background_color.alphaF() * opacity)
+
         # Draw node background
         painter.fillPath(path, background_color)
 
         # Draw node border
-        painter.setPen(QPen(self.style.border_color, self.style.border_width))
+        border_pen = self.style.get_border_pen(
+            is_selected=is_selected, is_hovered=is_hovered
+        )
+
+        # Apply opacity to the border pen if needed
+        if opacity < 1.0:
+            border_color = border_pen.color()
+            border_color.setAlphaF(border_color.alphaF() * opacity)
+            border_pen.setColor(border_color)
+
+        painter.setPen(border_pen)
         painter.drawPath(path)
 
         # Draw node label
         painter.setFont(self.style.font)
-        painter.setPen(self.style.text_color)
+        text_color = self.style.get_text_color()
+
+        # Apply opacity to text if needed
+        if opacity < 1.0:
+            text_color.setAlphaF(text_color.alphaF() * opacity)
+
+        painter.setPen(text_color)
 
         # Add padding to text rectangle
         text_rect = rect.adjusted(

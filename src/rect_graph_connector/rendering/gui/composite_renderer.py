@@ -120,12 +120,18 @@ class CompositeRenderer(BaseRenderer):
 
         # Draw edges
         self.edge_renderer.draw(
-            painter, selected_edges=selected_edges, hover_edge=hover_edge
+            painter,
+            selected_edges=selected_edges,
+            hover_edge=hover_edge,
+            hover_node=hover_node,
         )
 
         # Draw nodes (top layer)
         self.node_renderer.draw(
-            painter, selected_nodes=selected_nodes, hover_node=hover_node
+            painter,
+            selected_nodes=selected_nodes,
+            hover_node=hover_node,
+            hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
         )
 
         # Draw selection rectangle if selecting

@@ -50,19 +50,30 @@ class EdgeRenderer(BaseRenderer):
         Args:
             painter (QPainter): The painter to use for drawing
             selected_edges (list, optional): List of selected edges
-            hover_edge (tuple, optional): Currently hovered edge as (source, target)
+            hover_edge (list, optional): Currently hovered edges
             **kwargs: Additional drawing parameters
         """
         selected_edges = selected_edges or []
+        hover_node = kwargs.get("hover_node", None)
+        hovered_edges = hover_edge or []
+
+        # If we have a hover node but no hovered edges, we can get connected edges
+        if hover_node and not hovered_edges:
+            # This is a fallback if hover_edge is not provided
+            hovered_edges = self.graph.get_connected_edges(hover_node)
 
         # Draw all edges
         for edge in self.graph.edges:
             is_selected = edge in selected_edges
-            is_hovered = hover_edge and (
-                (edge.source == hover_edge[0] and edge.target == hover_edge[1])
-                or (edge.source == hover_edge[1] and edge.target == hover_edge[0])
-            )
-            self._draw_edge(painter, edge, is_selected, is_hovered)
+            is_hovered = edge in hovered_edges
+
+            # Apply opacity based on hover state
+            opacity = 1.0
+            if hover_node and not is_hovered:
+                # Apply reduced opacity to non-highlighted edges when hovering
+                opacity = self.style.hover_opacity
+
+            self._draw_edge(painter, edge, is_selected, is_hovered, opacity)
 
     def _draw_edge(
         self,
@@ -70,6 +81,7 @@ class EdgeRenderer(BaseRenderer):
         edge,
         is_selected: bool,
         is_hovered: bool,
+        opacity: float = 1.0,
     ):
         """
         Draw a single edge with its line and optional arrow.
@@ -79,6 +91,7 @@ class EdgeRenderer(BaseRenderer):
             edge: The edge to draw
             is_selected (bool): Whether the edge is selected
             is_hovered (bool): Whether the edge is being hovered over
+            opacity (float): Opacity level for the edge (0.0-1.0)
         """
         # Calculate edge endpoints considering node sizes
         start_point, end_point = self.calculate_edge_endpoints(edge.source, edge.target)
@@ -87,13 +100,28 @@ class EdgeRenderer(BaseRenderer):
         painter.save()
 
         # Set edge pen based on state
-        painter.setPen(self.style.get_pen(is_selected, is_hovered))
+        pen = self.style.get_pen(is_selected, is_hovered)
+
+        # Apply opacity if needed
+        if opacity < 1.0:
+            pen_color = pen.color()
+            pen_color.setAlphaF(pen_color.alphaF() * opacity)
+            pen.setColor(pen_color)
+
+        painter.setPen(pen)
 
         # Draw the edge line
         painter.drawLine(start_point, end_point)
 
         # Draw arrow if edge is directed
         if getattr(edge, "directed", True):
+            # For arrow, we need to use a potentially modified pen
+            arrow_pen = self.style.get_arrow_pen()
+            if opacity < 1.0:
+                arrow_color = arrow_pen.color()
+                arrow_color.setAlphaF(arrow_color.alphaF() * opacity)
+                arrow_pen.setColor(arrow_color)
+            painter.setPen(arrow_pen)
             self._draw_arrow(painter, start_point, end_point)
 
         # Restore painter state

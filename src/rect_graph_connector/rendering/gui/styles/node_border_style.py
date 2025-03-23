@@ -44,6 +44,7 @@ class NodeBorderStyle(BaseStyle):
         is_parallel_selected: bool = False,
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
+        is_hovered: bool = False,
     ) -> QPen:
         """
         Get the appropriate pen for node border based on state.
@@ -54,6 +55,7 @@ class NodeBorderStyle(BaseStyle):
             is_parallel_selected (bool): Whether the node is selected in Parallel mode
             is_bridge_source (bool): Whether the node is a bridge source
             is_bridge_target (bool): Whether the node is a bridge target
+            is_hovered (bool): Whether the node is being hovered over
 
         Returns:
             QPen: The configured pen for node border
@@ -65,6 +67,7 @@ class NodeBorderStyle(BaseStyle):
             is_parallel_selected,
             is_bridge_source,
             is_bridge_target,
+            is_hovered,
         )
 
         # Get appropriate border width

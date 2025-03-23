@@ -39,6 +39,9 @@ class EdgeStyle(BaseStyle):
         self.animation_speed = self.get_constant("edge.animation_speed", 1.0)
         self.dash_pattern = self.get_constant("edge.dash_pattern", [5, 5])
 
+        # Hover effect
+        self.hover_opacity = self.get_dimension("hover.opacity", 0.3)
+
     def get_pen(self, is_selected: bool, is_hovered: bool):
         """
         Get the appropriate pen based on edge state.

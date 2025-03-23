@@ -26,6 +26,8 @@ class NodeStyle(BaseStyle):
 
         # Node dimensions
         self.default_size = self.get_dimension("node.default_size", 30.0)
+        self.padding = self.get_dimension("node.padding", 5)
+        self.corner_radius = self.get_dimension("node.corner_radius", 3)
 
         # Font configuration
         self.font = QFont()
@@ -42,6 +44,7 @@ class NodeStyle(BaseStyle):
         is_parallel_selected: bool = False,
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
+        is_hovered: bool = False,
     ):
         """
         Get the appropriate background color based on node state.
@@ -52,17 +55,22 @@ class NodeStyle(BaseStyle):
             is_parallel_selected (bool): Whether the node is selected in Parallel mode
             is_bridge_source (bool): Whether the node is a bridge source
             is_bridge_target (bool): Whether the node is a bridge target
+            is_hovered (bool): Whether the node is being hovered over
 
         Returns:
             QColor: The appropriate background color
         """
-        return self.color_style.get_fill_color(
+        color = self.color_style.get_fill_color(
             is_selected,
             is_all_for_one_selected,
             is_parallel_selected,
             is_bridge_source,
             is_bridge_target,
+            is_hovered,
         )
+
+        # No opacity adjustment needed for hovered nodes
+        return color
 
     def get_border_pen(
         self,
@@ -71,6 +79,7 @@ class NodeStyle(BaseStyle):
         is_parallel_selected: bool = False,
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
+        is_hovered: bool = False,
     ):
         """
         Get the appropriate border pen based on node state.
@@ -81,6 +90,7 @@ class NodeStyle(BaseStyle):
             is_parallel_selected (bool): Whether the node is selected in Parallel mode
             is_bridge_source (bool): Whether the node is a bridge source
             is_bridge_target (bool): Whether the node is a bridge target
+            is_hovered (bool): Whether the node is being hovered over
 
         Returns:
             QPen: The configured pen for node border
