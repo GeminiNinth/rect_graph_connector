@@ -7,36 +7,36 @@ This document outlines the progress made on the refactoring plan for the rect_gr
 ## Completed Work
 
 ### Phase 1: Model Layer Implementation (Completed)
-- ✅ ViewStateModel: Implemented with zoom, pan_offset, grid state management
-- ✅ SelectionModel: Implemented with selection state management
-- ✅ HoverStateModel: Implemented with hover state management
+- ✅ ViewStateModel(src\rect_graph_connector\models\view_state_model.py): Implemented with zoom, pan_offset, grid state management
+- ✅ SelectionModel(src\rect_graph_connector\models\selection_model.py): Implemented with selection state management
+- ✅ HoverStateModel(src\rect_graph_connector\models\hover_state_model.py): Implemented with hover state management
 
 ### Phase 2: Rendering System Improvement (Partially Completed)
-- ✅ BaseRenderer: Improved with ViewStateModel integration
+- ✅ BaseRenderer(src\rect_graph_connector\rendering\gui\base_renderer.py): Improved with ViewStateModel integration
 - ✅ Style system: Implemented base style classes
-  - ✅ BaseStyle
-  - ✅ NodeStyle, NodeBorderStyle, NodeColorStyle
-  - ✅ GroupStyle
-  - ✅ EdgeStyle
+  - ✅ BaseStyle(src\rect_graph_connector\rendering\gui\styles\base_style.py)
+  - ✅ NodeStyle(src\rect_graph_connector\rendering\gui\styles\node_style.py), NodeBorderStyle(src\rect_graph_connector\rendering\gui\styles\node_border_style.py), NodeColorStyle(src\rect_graph_connector\rendering\gui\styles\node_color_style.py)
+  - ✅ GroupStyle(src\rect_graph_connector\rendering\gui\styles\group_style.py)
+  - ✅ EdgeStyle(src\rect_graph_connector\rendering\gui\styles\edge_style.py)
 - ✅ Renderer components:
-  - ✅ NodeRenderer
-  - ✅ GroupRenderer
-  - ✅ EdgeRenderer
-  - ✅ CompositeRenderer
-  - ✅ GridRenderer
-  - ✅ BorderRenderer
-  - ✅ SelectionRenderer
-  - ✅ KnifeRenderer
-  - ✅ BridgeRenderer
+  - ✅ NodeRenderer(src\rect_graph_connector\rendering\gui\node_renderer.py)
+  - ✅ GroupRenderer(src\rect_graph_connector\rendering\gui\group_renderer.py)
+  - ✅ EdgeRenderer(src\rect_graph_connector\rendering\gui\edge_renderer.py)
+  - ✅ CompositeRenderer(src\rect_graph_connector\rendering\gui\composite_renderer.py)
+  - ✅ GridRenderer(src\rect_graph_connector\rendering\gui\grid_renderer.py)
+  - ✅ BorderRenderer(src\rect_graph_connector\rendering\gui\border_renderer.py)
+  - ✅ SelectionRenderer(src\rect_graph_connector\rendering\gui\selection_renderer.py)
+  - ✅ KnifeRenderer(src\rect_graph_connector\rendering\gui\knife_renderer.py)
+  - ✅ BridgeRenderer(src\rect_graph_connector\rendering\gui\bridge_renderer.py)
 
 ### Phase 3: Event Handling Separation (In Progress)
-- ✅ InputHandler: Implemented centralized input handling
-- ✅ ModeController: Implemented base controller for mode-specific logic
+- ✅ InputHandler(src\rect_graph_connector\controllers\input_handler.py): Implemented centralized input handling
+- ✅ ModeController(src\rect_graph_connector\controllers\mode_controller.py): Implemented base controller for mode-specific logic
 - ✅ Mode-specific controllers:
-  - ✅ NormalModeController: Implemented for normal mode interactions
-  - ✅ EditModeController: Improved with better organization
+  - ✅ NormalModeController(src\rect_graph_connector\controllers\modes\normal_mode_controller.py): Implemented for normal mode interactions
+  - ✅ EditModeController(src\rect_graph_connector\controllers\modes\edit_mode_controller.py): Improved with better organization
     - ✅ Consolidated split implementation into a single file
-    - ✅ Introduced helper classes for different submodes (Connect, Knife, All-For-One, Parallel, Bridge)
+    - ✅ Introduced helper classes(src\rect_graph_connector\controllers\modes\edit_mode_helpers.py) for different submodes (Connect, Knife, All-For-One, Parallel, Bridge)
     - ✅ Improved code organization with clear separation of responsibilities
 
 ## Current Status
