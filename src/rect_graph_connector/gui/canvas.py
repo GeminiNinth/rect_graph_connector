@@ -97,6 +97,9 @@ class Canvas(QWidget):
         self.hovered_connected_nodes = []  # Nodes connected to hovered nodes
         self.hovered_edges = []  # Edges connected to hovered nodes
 
+        # Target node state for edge creation
+        self.potential_target_node = None  # Potential target node when creating an edge
+
         # Initialize zoom parameters for zoom functionality
         self.zoom = config.get_constant("zoom.default", 1.0)
         self.min_zoom = config.get_dimension("canvas.min_zoom", 0.1)
@@ -383,15 +386,44 @@ class Canvas(QWidget):
 
         # Prepare hover data
         hover_data = None
-        if self.current_mode == self.EDIT_MODE and self.hovered_node:
-            hover_data = {
-                "node": self.hovered_node,
-                "connected_nodes": self.hovered_connected_nodes,
-                "edges": self.hovered_edges,
-            }
-            logger.debug(
-                f"Hover data prepared: node={self.hovered_node.id}, connected_nodes={[n.id for n in self.hovered_connected_nodes]}, edges={[(e[0].id, e[1].id) for e in self.hovered_edges]}"
-            )
+        if self.current_mode == self.EDIT_MODE:
+            # Create hover data when node is hovered or when creating an edge
+            if self.hovered_node or self.current_edge_start:
+                # If creating an edge, we want to maintain the original hover state
+                if self.current_edge_start:
+                    # Use the edge start node as the primary hover node if no other node is hovered
+                    hover_node = self.hovered_node or self.current_edge_start
+                else:
+                    hover_node = self.hovered_node
+
+                hover_data = {
+                    "node": hover_node,
+                    "connected_nodes": self.hovered_connected_nodes.copy(),
+                    "edges": self.hovered_edges.copy(),
+                }
+
+                # Add potential target node to the connected nodes if it exists
+                if (
+                    self.potential_target_node
+                    and self.potential_target_node not in hover_data["connected_nodes"]
+                ):
+                    hover_data["connected_nodes"].append(self.potential_target_node)
+
+                # Log the hover data for debugging
+                node_ids = (
+                    [n.id for n in hover_data["connected_nodes"]]
+                    if hover_data["connected_nodes"]
+                    else []
+                )
+                edge_ids = (
+                    [(e[0].id, e[1].id) for e in hover_data["edges"]]
+                    if hover_data["edges"]
+                    else []
+                )
+
+                logger.debug(
+                    f"Hover data prepared: node={hover_data['node'].id}, connected_nodes={node_ids}, edges={edge_ids}, potential_target={(self.potential_target_node.id if self.potential_target_node else None)}"
+                )
 
         # Prepare temporary edge data
         temp_edge_data = None
@@ -1296,16 +1328,27 @@ class Canvas(QWidget):
 
         # Update hover state in edit mode
         if self.current_mode == self.EDIT_MODE:
-            # Find node under cursor
+            # Find node under cursor - could be a potential target when creating an edge
             new_hovered_node = self.graph.find_node_at_position(graph_point)
 
-            if new_hovered_node != self.hovered_node:
+            # When creating an edge, we're interested in potential target nodes
+            if self.current_edge_start:
+                # Save potential target node but don't change the main hover state
+                self.potential_target_node = (
+                    new_hovered_node
+                    if new_hovered_node != self.current_edge_start
+                    else None
+                )
+                self.update()  # Update display to show highlighting
+            elif new_hovered_node != self.hovered_node:
+                # Normal hover behavior when not creating an edge
                 logger.debug(
                     f"Hover state changed: {self.hovered_node} -> {new_hovered_node}"
                 )
                 self.hovered_node = new_hovered_node
                 self.hovered_connected_nodes.clear()
                 self.hovered_edges.clear()
+                self.potential_target_node = None
 
                 if self.hovered_node:
                     logger.debug(
@@ -1775,6 +1818,7 @@ class Canvas(QWidget):
         # Reset
         self.current_edge_start = None
         self.temp_edge_end = None
+        self.potential_target_node = None
         self.update()
 
     def _complete_all_for_one_edge_creation(self, point):
@@ -1803,6 +1847,7 @@ class Canvas(QWidget):
         # Reset
         self.current_edge_start = None
         self.temp_edge_end = None
+        self.potential_target_node = None
         self.update()
 
     def _complete_parallel_connection(self, point):
@@ -1869,6 +1914,7 @@ class Canvas(QWidget):
         self.current_edge_start = None
         self.temp_edge_end = None
         self.parallel_edge_endpoints = []
+        self.potential_target_node = None
         self.update()
 
     def _complete_rectangle_selection(self):

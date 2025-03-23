@@ -282,20 +282,34 @@ class NodeRenderer(BaseRenderer):
         # Check if node should be highlighted based on hover state
         is_highlighted = False
         if hover_data:
-            # Highlights only the nodes that are hovered or directly connected to that node
-            is_highlighted = False
+            # Highlights nodes that are:
+            # 1. The primary hovered node itself
+            # 2. In the connected_nodes list (includes potential target nodes)
+            # 3. Connected through edges to the hovered node
+
+            # Check if this is the hovered node
             if node.id == hover_data["node"].id:
                 is_highlighted = True
             else:
-                # Check for directly connected edges from the hovered node
-                for edge in hover_data["edges"]:
-                    if (
-                        edge[0].id == hover_data["node"].id and edge[1].id == node.id
-                    ) or (
-                        edge[1].id == hover_data["node"].id and edge[0].id == node.id
-                    ):
+                # Check if node is in the connected_nodes list
+                for connected_node in hover_data["connected_nodes"]:
+                    if node.id == connected_node.id:
                         is_highlighted = True
                         break
+
+                # If not already highlighted, check edges
+                if not is_highlighted:
+                    for edge in hover_data["edges"]:
+                        if (
+                            edge[0].id == hover_data["node"].id
+                            and edge[1].id == node.id
+                        ) or (
+                            edge[1].id == hover_data["node"].id
+                            and edge[0].id == node.id
+                        ):
+                            is_highlighted = True
+                            break
+
             logger.debug(f"Node {node.id}: highlighted={is_highlighted}")
 
         # Apply transparency for non-highlighted nodes in edit mode when hovering
