@@ -3,7 +3,7 @@ Style configuration for group rendering.
 """
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QPen
+from PyQt5.QtGui import QFont, QPen, QColor
 from .base_style import BaseStyle
 
 
@@ -19,14 +19,22 @@ class GroupStyle(BaseStyle):
         """Initialize group style with default values."""
         super().__init__()
 
-        # Colors
+        # Colors - using specific state keys from config
         self.background_color = self.get_color(
-            "group.background", "rgba(240,240,240,128)"
+            "group.background.normal", "rgba(245, 245, 245, 100)"
         )
-        self.border_color = self.get_color("group.border", "rgba(180,180,180,255)")
-        self.title_color = self.get_color("group.title", "rgba(100,100,100,255)")
-        self.selected_color = self.get_color("group.selected", "rgba(200,220,240,128)")
-        self.hover_color = self.get_color("group.hover", "rgba(230,230,230,128)")
+        self.selected_background_color = self.get_color(
+            "group.background.selected", "rgba(230, 230, 255, 120)"
+        )
+        self.border_color = self.get_color("group.border.normal", "#C8C8C8")
+        self.selected_border_color = self.get_color("group.border.selected", "#6464FF")
+        self.label_text_color = self.get_color("group.label.text", "#000000")
+        self.label_background_color = self.get_color(
+            "group.label.background.normal", "rgba(240, 240, 240, 180)"
+        )
+        self.label_background_selected_color = self.get_color(
+            "group.label.background.selected", "rgba(240, 240, 255, 200)"
+        )
 
         # Dimensions
         self.border_width = self.get_dimension("group.border_width", 2.0)
@@ -43,30 +51,46 @@ class GroupStyle(BaseStyle):
         # Border style
         self.border_style = Qt.DashLine
 
-    def get_background_color(self, is_selected: bool, is_hovered: bool):
+    def get_background_color(self, is_selected: bool) -> QColor:
         """
         Get the appropriate background color based on group state.
 
         Args:
             is_selected (bool): Whether the group is selected
-            is_hovered (bool): Whether the group is being hovered over
 
         Returns:
             QColor: The appropriate background color
         """
-        if is_selected:
-            return self.selected_color
-        if is_hovered:
-            return self.hover_color
-        return self.background_color
+        return self.selected_background_color if is_selected else self.background_color
 
-    def get_border_pen(self):
+    def get_border_pen(self, is_selected: bool) -> QPen:
         """
         Get the pen for drawing group borders.
+
+        Args:
+            is_selected (bool): Whether the group is selected
 
         Returns:
             QPen: Configured pen for group borders
         """
-        pen = QPen(self.border_color, self.border_width)
+        color = self.selected_border_color if is_selected else self.border_color
+        pen = QPen(color, self.border_width)
         pen.setStyle(self.border_style)
         return pen
+
+    def get_label_colors(self, is_selected: bool) -> tuple[QColor, QColor]:
+        """
+        Get the appropriate label colors based on group state.
+
+        Args:
+            is_selected (bool): Whether the group is selected
+
+        Returns:
+            tuple[QColor, QColor]: A tuple of (text_color, background_color)
+        """
+        bg_color = (
+            self.label_background_selected_color
+            if is_selected
+            else self.label_background_color
+        )
+        return self.label_text_color, bg_color
