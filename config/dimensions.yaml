@@ -1,5 +1,9 @@
 # Dimensions for UI Components (settings such as size, margin, and thickness)
 
+# Hover effect settings
+hover:
+  opacity: 0.3 # Opacity for non-highlighted elements when hovering
+
 canvas:
   min_height: 500
   min_zoom: 0.1

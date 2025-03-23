@@ -94,6 +94,7 @@ class CompositeRenderer(BaseRenderer):
             painter,
             all_for_one_selected_nodes=all_for_one_selected_nodes,
             draw_only_backgrounds=True,
+            hover_data=kwargs.get("hover_data"),
         )
 
         # Draw all types of edges
@@ -104,6 +105,7 @@ class CompositeRenderer(BaseRenderer):
             knife_data=knife_data,
             all_for_one_selected_nodes=all_for_one_selected_nodes,
             parallel_data=parallel_data,
+            hover_data=kwargs.get("hover_data"),
         )
 
         # Draw node groups and nodes (without backgrounds)
@@ -111,6 +113,7 @@ class CompositeRenderer(BaseRenderer):
             painter,
             all_for_one_selected_nodes=all_for_one_selected_nodes,
             draw_only_nodes=True,
+            hover_data=kwargs.get("hover_data"),
         )
 
         # Draw selection rectangle if active

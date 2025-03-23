@@ -7,6 +7,9 @@ from PyQt5.QtGui import QColor, QPainter, QPen
 
 from ...config import config
 from .base_renderer import BaseRenderer, parse_rgba
+from ...utils.logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class NodeRenderer(BaseRenderer):
@@ -22,6 +25,7 @@ class NodeRenderer(BaseRenderer):
         draw_only_backgrounds=False,
         draw_only_nodes=False,
         test_mode=False,
+        hover_data=None,
         **kwargs,
     ):
         """
@@ -78,6 +82,7 @@ class NodeRenderer(BaseRenderer):
                     all_for_one_selected_nodes,
                     parallel_selected_nodes,
                     skip_background=True,
+                    hover_data=hover_data,
                 )
 
             # Draw standalone nodes
@@ -88,6 +93,7 @@ class NodeRenderer(BaseRenderer):
                     all_for_one_selected_nodes,
                     parallel_selected_nodes,
                     is_bridge_highlighted=False,
+                    hover_data=hover_data,
                 )
         else:
             # Draw everything (backwards compatibility)
@@ -100,6 +106,7 @@ class NodeRenderer(BaseRenderer):
                     selected_group_ids,
                     all_for_one_selected_nodes,
                     parallel_selected_nodes,
+                    hover_data=hover_data,
                 )
 
             # Draw standalone nodes
@@ -110,6 +117,7 @@ class NodeRenderer(BaseRenderer):
                     all_for_one_selected_nodes,
                     parallel_selected_nodes,
                     is_bridge_highlighted=False,
+                    hover_data=hover_data,
                 )
 
     def _draw_node_group_backgrounds(self, painter: QPainter):
@@ -165,6 +173,7 @@ class NodeRenderer(BaseRenderer):
         all_for_one_selected_nodes,
         parallel_selected_nodes,
         skip_background=False,
+        hover_data=None,
     ):
         """
         Draw a single group including its nodes, border, and label.
@@ -207,6 +216,7 @@ class NodeRenderer(BaseRenderer):
                 all_for_one_selected_nodes,
                 parallel_selected_nodes,
                 is_bridge_highlighted=False,
+                hover_data=hover_data,
             )
 
         # Draw group border
@@ -249,6 +259,7 @@ class NodeRenderer(BaseRenderer):
         parallel_selected_nodes=None,
         is_bridge_highlighted=False,
         is_bridge_source_highlighted=False,
+        hover_data=None,
     ):
         """
         Draw a single node with its fill, border, and label.
@@ -267,6 +278,31 @@ class NodeRenderer(BaseRenderer):
 
         # Save painter state before drawing
         painter.save()
+
+        # Check if node should be highlighted based on hover state
+        is_highlighted = False
+        if hover_data:
+            # Highlights only the nodes that are hovered or directly connected to that node
+            is_highlighted = False
+            if node.id == hover_data["node"].id:
+                is_highlighted = True
+            else:
+                # Check for directly connected edges from the hovered node
+                for edge in hover_data["edges"]:
+                    if (
+                        edge[0].id == hover_data["node"].id and edge[1].id == node.id
+                    ) or (
+                        edge[1].id == hover_data["node"].id and edge[0].id == node.id
+                    ):
+                        is_highlighted = True
+                        break
+            logger.debug(f"Node {node.id}: highlighted={is_highlighted}")
+
+        # Apply transparency for non-highlighted nodes in edit mode when hovering
+        if hover_data and not is_highlighted:
+            opacity = config.get_dimension("hover.opacity", 0.5)
+            logger.debug(f"Node {node.id}: applying opacity={opacity}")
+            painter.setOpacity(opacity)
 
         # Determine node selection state
         is_node_selected = node in self.graph.selected_nodes

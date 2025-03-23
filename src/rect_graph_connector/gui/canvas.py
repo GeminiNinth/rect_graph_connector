@@ -26,6 +26,8 @@ from .sub_windows.import_dialog import ImportModeDialog
 from .rendering import CompositeRenderer
 from ..models.special.bridge_connection import BridgeConnector, BridgeConnectionParams
 
+logger = get_logger(__name__)
+
 
 class Canvas(QWidget):
     """
@@ -89,6 +91,11 @@ class Canvas(QWidget):
 
         # Initialize renderer
         self.renderer = CompositeRenderer(self, self.graph)
+
+        # Hover state
+        self.hovered_node = None
+        self.hovered_connected_nodes = []  # Nodes connected to hovered nodes
+        self.hovered_edges = []  # Edges connected to hovered nodes
 
         # Initialize zoom parameters for zoom functionality
         self.zoom = config.get_constant("zoom.default", 1.0)
@@ -224,12 +231,30 @@ class Canvas(QWidget):
         else:
             self.setCursor(Qt.ArrowCursor)
 
+        # Reset hover state when changing modes
+        self.hovered_node = None
+        self.hovered_connected_nodes.clear()
+        self.hovered_edges.clear()
+
         # Mode change notification
         if old_mode != mode:
             self.mode_changed.emit(mode)
 
         # Draw again
         self.update()
+
+    def leaveEvent(self, event):
+        """
+        Handle mouse leave events to reset hover state.
+
+        Args:
+            event: Leave event
+        """
+        if self.current_mode == self.EDIT_MODE:
+            self.hovered_node = None
+            self.hovered_connected_nodes.clear()
+            self.hovered_edges.clear()
+            self.update()
 
     def toggle_edit_mode(self, target_group=None):
         """
@@ -356,6 +381,18 @@ class Canvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
+        # Prepare hover data
+        hover_data = None
+        if self.current_mode == self.EDIT_MODE and self.hovered_node:
+            hover_data = {
+                "node": self.hovered_node,
+                "connected_nodes": self.hovered_connected_nodes,
+                "edges": self.hovered_edges,
+            }
+            logger.debug(
+                f"Hover data prepared: node={self.hovered_node.id}, connected_nodes={[n.id for n in self.hovered_connected_nodes]}, edges={[(e[0].id, e[1].id) for e in self.hovered_edges]}"
+            )
+
         # Prepare temporary edge data
         temp_edge_data = None
         if self.current_edge_start and self.temp_edge_end:
@@ -425,6 +462,7 @@ class Canvas(QWidget):
             selection_rect_data=selection_rect_data,
             parallel_data=parallel_data,
             bridge_data=bridge_data,
+            hover_data=hover_data,
         )
 
     def find_edge_at_position(self, point, tolerance=5):
@@ -1248,13 +1286,52 @@ class Canvas(QWidget):
 
     def mouseMoveEvent(self, event):
         """
-        Handle mouse move events for node dragging and edge preview.
+        Handle mouse move events for node dragging, edge preview, and hover effects.
 
         Args:
             event: Mouse event
         """
         widget_point = event.pos()
         graph_point = (widget_point - self.pan_offset) / self.zoom
+
+        # Update hover state in edit mode
+        if self.current_mode == self.EDIT_MODE:
+            # Find node under cursor
+            new_hovered_node = self.graph.find_node_at_position(graph_point)
+
+            if new_hovered_node != self.hovered_node:
+                logger.debug(
+                    f"Hover state changed: {self.hovered_node} -> {new_hovered_node}"
+                )
+                self.hovered_node = new_hovered_node
+                self.hovered_connected_nodes.clear()
+                self.hovered_edges.clear()
+
+                if self.hovered_node:
+                    logger.debug(
+                        f"Finding connections for node: {self.hovered_node.id}"
+                    )
+                    # Find only direct connected nodes and edges
+                    for edge in self.graph.edges:
+                        if edge[0] == self.hovered_node.id:
+                            target_node = next(
+                                (n for n in self.graph.nodes if n.id == edge[1]), None
+                            )
+                            if target_node:
+                                self.hovered_connected_nodes.append(target_node)
+                                self.hovered_edges.append(
+                                    (self.hovered_node, target_node)
+                                )
+                        elif edge[1] == self.hovered_node.id:
+                            source_node = next(
+                                (n for n in self.graph.nodes if n.id == edge[0]), None
+                            )
+                            if source_node:
+                                self.hovered_connected_nodes.append(source_node)
+                                self.hovered_edges.append(
+                                    (source_node, self.hovered_node)
+                                )
+                self.update()
 
         # Pan operation is applied regardless of mode (when pressing the center button)
         if self.panning:

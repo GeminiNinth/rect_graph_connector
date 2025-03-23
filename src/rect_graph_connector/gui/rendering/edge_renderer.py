@@ -7,6 +7,9 @@ from PyQt5.QtCore import Qt, QPointF
 
 from .base_renderer import BaseRenderer
 from ...config import config
+from ...utils.logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class EdgeRenderer(BaseRenderer):
@@ -23,6 +26,7 @@ class EdgeRenderer(BaseRenderer):
         knife_data=None,
         all_for_one_selected_nodes=None,
         parallel_data=None,
+        hover_data=None,
         **kwargs,
     ):
         """
@@ -38,10 +42,10 @@ class EdgeRenderer(BaseRenderer):
             **kwargs: Additional drawing parameters
         """
         # Draw standalone edges first (backmost)
-        self._draw_standalone_edges(painter, selected_edges)
+        self._draw_standalone_edges(painter, selected_edges, hover_data)
 
         # Draw edges within groups
-        self._draw_group_edges(painter, selected_edges)
+        self._draw_group_edges(painter, selected_edges, hover_data)
 
         # Draw selected edges
         if selected_edges:
@@ -69,8 +73,13 @@ class EdgeRenderer(BaseRenderer):
         ):
             self._draw_parallel_edges(painter, parallel_data)
 
-    def _draw_standalone_edges(self, painter: QPainter, selected_edges=None):
+    def _draw_standalone_edges(
+        self, painter: QPainter, selected_edges=None, hover_data=None
+    ):
         """Draw edges between nodes that don't belong to any NodeGroup."""
+        # Save painter state
+        painter.save()
+
         # Set up pen for normal edges
         edge_color = config.get_color("edge.normal", "#000000")
         pen = QPen(QColor(edge_color))
@@ -82,50 +91,8 @@ class EdgeRenderer(BaseRenderer):
         for group in self.graph.node_groups:
             group_node_ids.update(group.node_ids)
 
-        # Draw edges that connect nodes not in the same group
-        for source_id, target_id in self.graph.edges:
-            # Skip if edge is selected
-            if selected_edges and (source_id, target_id) in [
-                (e[0].id, e[1].id) for e in selected_edges
-            ]:
-                continue
-
-            # Find which groups the nodes belong to
-            source_group = next(
-                (g for g in self.graph.node_groups if source_id in g.node_ids), None
-            )
-            target_group = next(
-                (g for g in self.graph.node_groups if target_id in g.node_ids), None
-            )
-
-            # Only draw if nodes are in different groups or at least one is not in any group
-            if source_group != target_group:
-                try:
-                    source_node = next(n for n in self.graph.nodes if n.id == source_id)
-                    target_node = next(n for n in self.graph.nodes if n.id == target_id)
-
-                    # Calculate and draw edge
-                    start_point, end_point = self.calculate_edge_endpoints(
-                        source_node, target_node
-                    )
-                    painter.drawLine(
-                        int(start_point.x()),
-                        int(start_point.y()),
-                        int(end_point.x()),
-                        int(end_point.y()),
-                    )
-                except StopIteration:
-                    continue
-
-    def _draw_group_edges(self, painter: QPainter, selected_edges=None):
-        """Draw edges between nodes within the same group."""
-        edge_color = config.get_color("edge.normal", "#000000")
-        pen = QPen(QColor(edge_color))
-        pen.setWidth(config.get_dimension("edge.width.normal", 1))
-        painter.setPen(pen)
-
-        # Draw edges for each group in z-index order
-        for group in sorted(self.graph.node_groups, key=lambda g: g.z_index):
+        try:
+            # Draw edges that connect nodes not in the same group
             for source_id, target_id in self.graph.edges:
                 # Skip if edge is selected
                 if selected_edges and (source_id, target_id) in [
@@ -133,8 +100,16 @@ class EdgeRenderer(BaseRenderer):
                 ]:
                     continue
 
-                # Only draw edges where both nodes belong to this group
-                if source_id in group.node_ids and target_id in group.node_ids:
+                # Find which groups the nodes belong to
+                source_group = next(
+                    (g for g in self.graph.node_groups if source_id in g.node_ids), None
+                )
+                target_group = next(
+                    (g for g in self.graph.node_groups if target_id in g.node_ids), None
+                )
+
+                # Only draw if nodes are in different groups or at least one is not in any group
+                if source_group != target_group:
                     try:
                         source_node = next(
                             n for n in self.graph.nodes if n.id == source_id
@@ -142,6 +117,21 @@ class EdgeRenderer(BaseRenderer):
                         target_node = next(
                             n for n in self.graph.nodes if n.id == target_id
                         )
+
+                        # Always set opacity
+                        opacity = 1.0
+                        if hover_data:
+                            # Highlights only if the edge is connected directly to the hovered node
+                            is_highlighted = (
+                                source_node.id == hover_data["node"].id
+                                or target_node.id == hover_data["node"].id
+                            )
+                            if not is_highlighted:
+                                opacity = config.get_dimension("hover.opacity", 0.5)
+                        logger.debug(
+                            f"Standalone edge {source_node.id}->{target_node.id}: opacity={opacity}, highlighted={is_highlighted if hover_data else 'no hover'}"
+                        )
+                        painter.setOpacity(opacity)
 
                         # Calculate and draw edge
                         start_point, end_point = self.calculate_edge_endpoints(
@@ -155,6 +145,73 @@ class EdgeRenderer(BaseRenderer):
                         )
                     except StopIteration:
                         continue
+        finally:
+            # Restore painter state
+            painter.restore()
+
+    def _draw_group_edges(
+        self, painter: QPainter, selected_edges=None, hover_data=None
+    ):
+        """Draw edges between nodes within the same group."""
+        # Save painter state
+        painter.save()
+
+        try:
+            # Set up pen for normal edges
+            edge_color = config.get_color("edge.normal", "#000000")
+            pen = QPen(QColor(edge_color))
+            pen.setWidth(config.get_dimension("edge.width.normal", 1))
+            painter.setPen(pen)
+
+            # Draw edges for each group in z-index order
+            for group in sorted(self.graph.node_groups, key=lambda g: g.z_index):
+                for source_id, target_id in self.graph.edges:
+                    # Skip if edge is selected
+                    if selected_edges and (source_id, target_id) in [
+                        (e[0].id, e[1].id) for e in selected_edges
+                    ]:
+                        continue
+
+                    # Only draw edges where both nodes belong to this group
+                    if source_id in group.node_ids and target_id in group.node_ids:
+                        try:
+                            source_node = next(
+                                n for n in self.graph.nodes if n.id == source_id
+                            )
+                            target_node = next(
+                                n for n in self.graph.nodes if n.id == target_id
+                            )
+
+                            # Always set opacity
+                            opacity = 1.0
+                            if hover_data:
+                                # Highlights only if the edge is connected directly to the hovered node
+                                is_highlighted = (
+                                    source_node.id == hover_data["node"].id
+                                    or target_node.id == hover_data["node"].id
+                                )
+                                if not is_highlighted:
+                                    opacity = config.get_dimension("hover.opacity", 0.3)
+                            logger.debug(
+                                f"Group edge {source_node.id}->{target_node.id}: opacity={opacity}, highlighted={is_highlighted if hover_data else 'no hover'}"
+                            )
+                            painter.setOpacity(opacity)
+
+                            # Calculate and draw edge
+                            start_point, end_point = self.calculate_edge_endpoints(
+                                source_node, target_node
+                            )
+                            painter.drawLine(
+                                int(start_point.x()),
+                                int(start_point.y()),
+                                int(end_point.x()),
+                                int(end_point.y()),
+                            )
+                        except StopIteration:
+                            continue
+        finally:
+            # Restore painter state
+            painter.restore()
 
     def _draw_selected_edges(self, painter: QPainter, selected_edges):
         """Draw selected edges with a highlighted style."""
