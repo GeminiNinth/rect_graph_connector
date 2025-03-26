@@ -80,13 +80,28 @@ class FileHandler:
         group_dicts = []
         for group in groups:
             if hasattr(group, "id") and hasattr(group, "node_ids"):
+                # Check if the group has nodes and if we can access them from the graph
+                row_col = None
+                if hasattr(group, "get_nodes") and hasattr(graph_or_nodes, "nodes"):
+                    group_nodes = group.get_nodes(graph_or_nodes.nodes)
+                    if group_nodes:
+                        # Calculate the maximum row and column to represent dimensions
+                        max_row = max(node.row for node in group_nodes)
+                        max_col = max(node.col for node in group_nodes)
+                        # Use these as dimensions (adding 1 since index starts at 0)
+                        row_col = [max_row + 1, max_col + 1]
+
                 group_dict = {
                     "id": group.id,
                     "node_ids": group.node_ids,
                     "name": getattr(group, "name", f"Group {group.id}"),
+                    "row_col": row_col,  # Add row_col information
                 }
                 group_dicts.append(group_dict)
             else:
+                # If row_col doesn't exist in the group dictionary, add it
+                if isinstance(group, dict) and "row_col" not in group:
+                    group["row_col"] = None
                 group_dicts.append(group)
 
         groups = group_dicts

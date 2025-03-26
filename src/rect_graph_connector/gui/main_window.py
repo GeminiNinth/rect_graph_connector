@@ -344,11 +344,22 @@ class MainWindow(QMainWindow):
             for group in self.canvas.graph.node_groups:
                 # Get nodes for each group
                 group_nodes = group.get_nodes(self.canvas.graph.nodes)
+
+                # Calculate row_col for the group (representing dimensions)
+                row_col = None
+                if group_nodes:
+                    # Calculate the maximum row and column to represent dimensions
+                    max_row = max(node.row for node in group_nodes)
+                    max_col = max(node.col for node in group_nodes)
+                    # Use these as dimensions (adding 1 since index starts at 0)
+                    row_col = [max_row + 1, max_col + 1]
+
                 group_data = {
                     "id": group.id,  # Store unique group ID
                     "name": group.name,
                     "node_ids": [node.id for node in group_nodes],
                     "label_position": group.label_position,
+                    "row_col": row_col,  # Add row_col information
                 }
                 groups.append(group_data)
 
