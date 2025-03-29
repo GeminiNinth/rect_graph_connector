@@ -7,14 +7,14 @@ from PyQt5.QtGui import QPainter
 from ...models.graph import Graph
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
-from .node_renderer import NodeRenderer
-from .edge_renderer import EdgeRenderer
-from .group_renderer import GroupRenderer
-from .grid_renderer import GridRenderer
 from .border_renderer import BorderRenderer
-from .selection_renderer import SelectionRenderer
-from .knife_renderer import KnifeRenderer
 from .bridge_renderer import BridgeRenderer
+from .edge_renderer import EdgeRenderer
+from .grid_renderer import GridRenderer
+from .group_renderer import GroupRenderer
+from .knife_renderer import KnifeRenderer
+from .node_renderer import NodeRenderer
+from .selection_renderer import SelectionRenderer
 
 
 class CompositeRenderer(BaseRenderer):
@@ -126,13 +126,35 @@ class CompositeRenderer(BaseRenderer):
             hover_node=hover_node,
         )
 
-        # Draw nodes (top layer)
-        self.node_renderer.draw(
-            painter,
-            selected_nodes=selected_nodes,
-            hover_node=hover_node,
-            hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
-        )
+        # Draw nodes respecting group z-order
+        drawn_node_ids = set()
+        sorted_groups = sorted(self.graph.node_groups, key=lambda g: g.z_index)
+
+        for group in sorted_groups:
+            group_nodes = group.get_nodes(self.graph.nodes)
+            if group_nodes:
+                # Draw nodes belonging to this group
+                self.node_renderer.draw(
+                    painter,
+                    nodes_to_draw=group_nodes,  # Pass specific nodes
+                    selected_nodes=selected_nodes,
+                    hover_node=hover_node,
+                    hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
+                )
+                drawn_node_ids.update(node.id for node in group_nodes)
+
+        # Draw standalone nodes (nodes not in any group)
+        standalone_nodes = [
+            node for node in self.graph.nodes if node.id not in drawn_node_ids
+        ]
+        if standalone_nodes:
+            self.node_renderer.draw(
+                painter,
+                nodes_to_draw=standalone_nodes,  # Pass standalone nodes
+                selected_nodes=selected_nodes,
+                hover_node=hover_node,
+                hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
+            )
 
         # Draw selection rectangle if selecting
         if selection_rect_data:

@@ -5,8 +5,8 @@ Node renderer for drawing nodes.
 from PyQt5.QtCore import QPointF, QRectF, Qt
 from PyQt5.QtGui import QPainter, QPainterPath, QPen
 
-from ...models.graph import Graph
 from ...models.base_node import BaseNode
+from ...models.graph import Graph
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
 from .styles.node_style import NodeStyle
@@ -42,10 +42,11 @@ class NodeRenderer(BaseRenderer):
         painter: QPainter,
         selected_nodes=None,
         hover_node=None,
+        nodes_to_draw=None,  # Add parameter to specify which nodes to draw
         **kwargs,
     ):
         """
-        Draw nodes on the canvas.
+        Draw specified nodes on the canvas. If nodes_to_draw is None, draw all nodes.
 
         Args:
             painter (QPainter): The painter to use for drawing
@@ -62,8 +63,11 @@ class NodeRenderer(BaseRenderer):
             # we can get connected nodes from the graph
             hovered_connected_nodes = self.graph.get_connected_nodes(hover_node)
 
-        # Draw all nodes
-        for node in self.graph.nodes:
+        # Determine which nodes to draw
+        target_nodes = nodes_to_draw if nodes_to_draw is not None else self.graph.nodes
+
+        # Draw the target nodes
+        for node in target_nodes:
             is_highlighted = node == hover_node or node in hovered_connected_nodes
 
             # Apply opacity based on hover state

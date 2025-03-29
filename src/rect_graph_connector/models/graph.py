@@ -1389,3 +1389,33 @@ class Graph:
                     connected_edges.append((source_node, target_node))
 
         return connected_edges
+
+    def get_connected_nodes(self, node: BaseNode) -> List[BaseNode]:
+        """
+        Get all nodes directly connected to a given node by an edge.
+
+        Args:
+            node (BaseNode): The node to find connected neighbors for.
+
+        Returns:
+            List[BaseNode]: A list of nodes directly connected to the given node.
+        """
+        connected_nodes = []
+        if not node:
+            return connected_nodes
+
+        node_map = {n.id: n for n in self.nodes}  # Map node IDs to node objects
+        connected_node_ids = set()
+
+        for src_id, tgt_id in self.edges:
+            if src_id == node.id:
+                connected_node_ids.add(tgt_id)
+            elif tgt_id == node.id:
+                connected_node_ids.add(src_id)
+
+        for node_id in connected_node_ids:
+            connected_node = node_map.get(node_id)
+            if connected_node:
+                connected_nodes.append(connected_node)
+
+        return connected_nodes

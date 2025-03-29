@@ -812,8 +812,8 @@ class MainWindow(QMainWindow):
         # Clear current selection in the side panel
         self.group_list.clearSelection()
 
-        # Get all selected groups from the canvas
-        selected_groups = self.canvas.graph.selected_groups
+        # Get all selected groups from the SelectionModel
+        selected_groups = self.canvas.selection_model.selected_groups
 
         # Select each corresponding item in the side panel
         for group in selected_groups:
