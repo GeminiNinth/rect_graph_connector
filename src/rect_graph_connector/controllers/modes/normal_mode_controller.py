@@ -6,10 +6,11 @@ user interactions in the normal mode of the canvas.
 """
 
 from PyQt5.QtCore import QPointF, QRectF, Qt
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QWidget
 
-from ..mode_controller import ModeController
 from ...config import config
+from ...gui.context_menus.normal_menu import NormalContextMenu
+from ..mode_controller import ModeController
 
 
 class NormalModeController(ModeController):
@@ -21,7 +22,22 @@ class NormalModeController(ModeController):
 
     Attributes:
         Inherits all attributes from ModeController
+        canvas (QWidget): The canvas widget this controller interacts with.
     """
+
+    def __init__(
+        self,
+        view_state,
+        selection_model,
+        hover_state,
+        graph,
+        canvas: QWidget,  # Add canvas parameter
+    ):
+        """Initialize the normal mode controller."""
+        super().__init__(view_state, selection_model, hover_state, graph)
+        self.canvas = canvas  # Store canvas reference
+        # Initialize the context menu specific to this mode
+        self.context_menu = NormalContextMenu(self.canvas)
 
     def handle_mouse_press(self, event, graph_point, widget_point):
         """
@@ -397,3 +413,18 @@ class NormalModeController(ModeController):
 
         # Return frontmost group if any
         return overlapping_groups[0] if overlapping_groups else None
+
+    def handle_context_menu(self, event, widget_point):
+        """
+        Handle context menu requests in normal mode.
+
+        Args:
+            event: The mouse event that triggered the context menu
+            widget_point: The point in widget coordinates where the menu should appear
+
+        Returns:
+            bool: True if the event was handled, False otherwise
+        """
+        # Show the normal mode context menu at the clicked position
+        self.context_menu.show_menu(widget_point)
+        return True

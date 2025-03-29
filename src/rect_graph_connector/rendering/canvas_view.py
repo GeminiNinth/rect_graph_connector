@@ -14,19 +14,19 @@ from PyQt5.QtWidgets import (
 )
 
 from ..config import config
-from ..models.graph import Graph
-from ..models.view_state_model import ViewStateModel
-from ..models.selection_model import SelectionModel
-from ..models.hover_state_model import HoverStateModel
 from ..models.connectivity import delete_edge_at_position, find_intersecting_edges
+from ..models.graph import Graph
+from ..models.hover_state_model import HoverStateModel
+from ..models.selection_model import SelectionModel
+from ..models.view_state_model import ViewStateModel
 from ..utils.logging_utils import get_logger
 from .gui.composite_renderer import CompositeRenderer
-from .gui.node_renderer import NodeRenderer
-from .gui.group_renderer import GroupRenderer
 from .gui.edge_renderer import EdgeRenderer
-from .gui.styles.node_style import NodeStyle
-from .gui.styles.group_style import GroupStyle
+from .gui.group_renderer import GroupRenderer
+from .gui.node_renderer import NodeRenderer
 from .gui.styles.edge_style import EdgeStyle
+from .gui.styles.group_style import GroupStyle
+from .gui.styles.node_style import NodeStyle
 
 logger = get_logger(__name__)
 
@@ -122,9 +122,12 @@ class CanvasView(QWidget):
             from ..controllers.input_handler import InputHandler
 
             self.input_handler = InputHandler(
-                self.view_state, self.selection_model, self.hover_state, self.graph
+                self.view_state,
+                self.selection_model,
+                self.hover_state,
+                self.graph,
+                self,  # Pass self (CanvasView instance) as canvas
             )
-
         # Context menus
         from ..gui.context_menus.edit_menu import EditContextMenu
         from ..gui.context_menus.normal_menu import NormalContextMenu
@@ -181,7 +184,14 @@ class CanvasView(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw the graph using the composite renderer
+        # Save painter state
+        painter.save()
+
+        # Apply view transformations (pan and zoom)
+        painter.translate(self.view_state.pan_offset)
+        painter.scale(self.view_state.zoom, self.view_state.zoom)
+
+        # Draw the graph using the composite renderer (now with transformed painter)
         self.renderer.draw(
             painter,
             selected_nodes=self.selection_model.selected_nodes,
@@ -192,6 +202,9 @@ class CanvasView(QWidget):
             hover_connected_nodes=self.hover_state.hovered_connected_nodes,
             hover_group=None,
         )
+
+        # Restore painter state
+        painter.restore()
 
     # Property getters and setters
     @property

@@ -6,19 +6,20 @@ user interactions in the edit mode of the canvas.
 """
 
 from PyQt5.QtCore import QPointF, QRectF, Qt
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QWidget
 
-from ..mode_controller import ModeController
 from ...config import config
+from ...gui.context_menus.edit_menu import EditContextMenu  # Moved and removed '+'
 from ...models.connectivity import find_intersecting_edges
+from ..mode_controller import ModeController
 from .edit_mode_helpers import (
-    ConnectModeHelper,
-    KnifeModeHelper,
     AllForOneModeHelper,
-    ParallelModeHelper,
     BridgeModeHelper,
+    ConnectModeHelper,
     DragHelper,
     EdgeHelper,
+    KnifeModeHelper,
+    ParallelModeHelper,
 )
 
 
@@ -42,9 +43,17 @@ class EditModeController(ModeController):
         parallel_selected_nodes (list): Nodes selected in Parallel mode
         parallel_edge_endpoints (list): Endpoints for parallel edges
         bridge_selected_groups (list): Groups selected for bridge connection
+        canvas (QWidget): The canvas widget this controller interacts with.
     """
 
-    def __init__(self, view_state, selection_model, hover_state, graph):
+    def __init__(
+        self,
+        view_state,
+        selection_model,
+        hover_state,
+        graph,
+        canvas: QWidget,  # Add canvas parameter
+    ):
         """
         Initialize the edit mode controller.
 
@@ -98,6 +107,10 @@ class EditModeController(ModeController):
         self.bridge_preview_lines = []
         self.bridge_edge_nodes = {}
         self.bridge_connection_params = None
+
+        self.canvas = canvas  # Store canvas reference
+        # Initialize the context menu specific to this mode
+        self.context_menu = EditContextMenu(self.canvas)
 
     def set_edit_submode(self, submode):
         """
@@ -553,3 +566,18 @@ class EditModeController(ModeController):
     def _find_edge_at_position(self, point, tolerance=5):
         """Delegate to EdgeHelper"""
         return EdgeHelper.find_edge_at_position(self, point, tolerance)
+
+    def handle_context_menu(self, event, widget_point):
+        """
+        Handle context menu requests in edit mode.
+
+        Args:
+            event: The mouse event that triggered the context menu
+            widget_point: The point in widget coordinates where the menu should appear
+
+        Returns:
+            bool: True if the event was handled, False otherwise
+        """
+        # Show the edit mode context menu at the clicked position
+        self.context_menu.show_menu(widget_point)
+        return True

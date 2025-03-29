@@ -6,12 +6,13 @@ the interface for all mode controllers.
 """
 
 from abc import ABC, abstractmethod
+
 from PyQt5.QtCore import QPointF
 
-from ..models.view_state_model import ViewStateModel
-from ..models.selection_model import SelectionModel
-from ..models.hover_state_model import HoverStateModel
 from ..models.graph import Graph
+from ..models.hover_state_model import HoverStateModel
+from ..models.selection_model import SelectionModel
+from ..models.view_state_model import ViewStateModel
 
 
 class ModeController(ABC):
@@ -114,6 +115,20 @@ class ModeController(ABC):
 
         Args:
             event: The key event
+
+        Returns:
+            bool: True if the event was handled, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def handle_context_menu(self, event, widget_point):
+        """
+        Handle context menu requests (e.g., right-click).
+
+        Args:
+            event: The mouse event that triggered the context menu
+            widget_point: The point in widget coordinates where the menu should appear
 
         Returns:
             bool: True if the event was handled, False otherwise

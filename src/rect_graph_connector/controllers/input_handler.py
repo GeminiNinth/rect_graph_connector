@@ -6,12 +6,13 @@ and delegates to appropriate mode controllers based on the current mode.
 """
 
 from PyQt5.QtCore import QPointF, Qt
+from PyQt5.QtWidgets import QWidget
 
-from ..models.view_state_model import ViewStateModel
-from ..models.selection_model import SelectionModel
-from ..models.hover_state_model import HoverStateModel
-from ..models.graph import Graph
 from ..config import config
+from ..models.graph import Graph
+from ..models.hover_state_model import HoverStateModel
+from ..models.selection_model import SelectionModel
+from ..models.view_state_model import ViewStateModel
 
 
 class InputHandler:
@@ -37,6 +38,7 @@ class InputHandler:
         selection_model: SelectionModel,
         hover_state: HoverStateModel,
         graph: Graph,
+        canvas: QWidget,  # Add canvas parameter
     ):
         """
         Initialize the input handler.
@@ -46,11 +48,13 @@ class InputHandler:
             selection_model (SelectionModel): The selection model
             hover_state (HoverStateModel): The hover state model
             graph (Graph): The graph model
+            canvas (QWidget): The canvas widget
         """
         self.view_state = view_state
         self.selection_model = selection_model
         self.hover_state = hover_state
         self.graph = graph
+        self.canvas = canvas  # Store canvas reference
 
         # Mode constants
         self.NORMAL_MODE = config.get_constant("canvas_modes.normal", "normal")
@@ -83,15 +87,23 @@ class InputHandler:
     def _init_mode_controllers(self):
         """Initialize the mode controllers."""
         # Import here to avoid circular imports
-        from .modes.normal_mode_controller import NormalModeController
         from .modes.edit_mode_controller import EditModeController
+        from .modes.normal_mode_controller import NormalModeController
 
         self.mode_controllers = {
             self.NORMAL_MODE: NormalModeController(
-                self.view_state, self.selection_model, self.hover_state, self.graph
+                self.view_state,
+                self.selection_model,
+                self.hover_state,
+                self.graph,
+                self.canvas,  # Pass canvas
             ),
             self.EDIT_MODE: EditModeController(
-                self.view_state, self.selection_model, self.hover_state, self.graph
+                self.view_state,
+                self.selection_model,
+                self.hover_state,
+                self.graph,
+                self.canvas,  # Pass canvas
             ),
         }
 
@@ -132,7 +144,11 @@ class InputHandler:
             self._start_panning(widget_point)
             return True
 
-        # Delegate to current mode controller
+        # Handle right button for context menu
+        if event.button() == Qt.RightButton:
+            return self.current_mode_controller.handle_context_menu(event, widget_point)
+
+        # Delegate other mouse presses to current mode controller
         return self.current_mode_controller.handle_mouse_press(
             event, graph_point, widget_point
         )
