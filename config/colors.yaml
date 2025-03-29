@@ -14,6 +14,7 @@ light:
 
   knife:
     path: "#C80000" # Knife Pass Color
+    highlight: "rgba(255,165,0,200)" # Highlight color for edges to be cut
 
   grid:
     line: "#DDDDDD" # Light gray for grid lines

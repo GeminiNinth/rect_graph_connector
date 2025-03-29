@@ -74,7 +74,10 @@ class CompositeRenderer(BaseRenderer):
         self.edge_renderer = edge_renderer or EdgeRenderer(view_state, graph)
         self.node_renderer = node_renderer or NodeRenderer(view_state, graph)
         self.selection_renderer = selection_renderer or SelectionRenderer(view_state)
-        self.knife_renderer = knife_renderer or KnifeRenderer(view_state)
+        # Pass edge_renderer to KnifeRenderer
+        self.knife_renderer = knife_renderer or KnifeRenderer(
+            view_state, self.edge_renderer
+        )
         self.bridge_renderer = bridge_renderer or BridgeRenderer(view_state)
 
     def draw(

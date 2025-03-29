@@ -2,7 +2,14 @@
 Canvas view for graph visualization.
 """
 
-from PyQt5.QtCore import QMimeData, QPointF, QRect, QRectF, Qt, pyqtSignal
+from PyQt5.QtCore import (
+    QMimeData,
+    QPointF,  # Ensure QPointF is imported
+    QRect,
+    QRectF,
+    Qt,
+    pyqtSignal,
+)
 from PyQt5.QtGui import QColor, QCursor, QPainter, QPen
 from PyQt5.QtWidgets import (
     QAction,
@@ -205,6 +212,21 @@ class CanvasView(QWidget):
                 self.input_handler.current_mode_controller.edit_target_groups
             )
 
+        # Prepare knife data if in knife submode
+        knife_data_dict = None
+        if (
+            self.input_handler.current_mode == self.input_handler.EDIT_MODE
+            and self.input_handler.current_mode_controller.edit_submode
+            == self.input_handler.current_mode_controller.EDIT_SUBMODE_KNIFE
+        ):
+            controller = self.input_handler.current_mode_controller
+            knife_data_dict = {
+                "path": [
+                    QPointF(p[0], p[1]) for p in controller.knife_path
+                ],  # Convert tuples to QPointF
+                "highlighted_edges": controller.highlighted_edges,
+            }
+
         # Draw the graph using the composite renderer (now with transformed painter)
         self.renderer.draw(
             painter,
@@ -217,6 +239,7 @@ class CanvasView(QWidget):
             hover_group=None,  # TODO: Implement group hover if needed
             temp_edge_data=temp_edge_data_tuple,  # Pass the prepared tuple
             edit_target_groups=edit_target_groups_list,  # Pass edit target groups
+            knife_data=knife_data_dict,  # Pass knife data
         )
 
         # Restore painter state

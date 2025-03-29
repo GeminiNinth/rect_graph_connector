@@ -66,6 +66,7 @@ mode_indicator:
 # Knife Tool Settings
 knife:
   path_width: 1 # Knife Pass Line Width
+  highlight_width: 3.0 # Highlighted edge width when cutting
 
 grid:
   spacing: 40.0

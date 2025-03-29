@@ -114,6 +114,9 @@ class NodeRenderer(BaseRenderer):
         # Save painter state
         painter.save()
 
+        # Apply overall opacity for hover effect
+        painter.setOpacity(opacity)
+
         # Create path for node shape
         path = QPainterPath()
         if getattr(node, "shape", "rectangle") == "circle":
@@ -140,13 +143,10 @@ class NodeRenderer(BaseRenderer):
             is_edit_target=is_edit_target_node,  # Pass edit target status
         )
 
-        # Apply opacity if needed
-        if opacity < 1.0:
-            # Apply opacity to the background color
-            background_color.setAlphaF(background_color.alphaF() * opacity)
+        # Opacity is now handled by painter.setOpacity()
 
         # Draw node background
-        painter.fillPath(path, background_color)
+        painter.fillPath(path, background_color)  # Use original color
 
         # Draw node border
         border_pen = self.style.get_border_pen(
@@ -155,26 +155,20 @@ class NodeRenderer(BaseRenderer):
             is_edit_target=is_edit_target_node,  # Pass edit target status
         )
 
-        # Apply opacity to the border pen if needed
-        if opacity < 1.0:
-            border_color = border_pen.color()
-            border_color.setAlphaF(border_color.alphaF() * opacity)
-            border_pen.setColor(border_color)
+        # Opacity is now handled by painter.setOpacity()
 
-        painter.setPen(border_pen)
+        painter.setPen(border_pen)  # Use original pen
         painter.drawPath(path)
 
         # Draw node label
         painter.setFont(self.style.font)
         text_color = self.style.get_text_color()
 
-        # Opacity is applied to background and border, but text should remain fully opaque
-        # if opacity < 1.0:
-        #     text_color.setAlphaF(text_color.alphaF() * opacity)
+        # Apply opacity to text color if needed
+        if opacity < 1.0:
+            text_color.setAlphaF(text_color.alphaF() * opacity)
 
-        painter.setPen(
-            text_color
-        )  # Use original text color without opacity modification
+        painter.setPen(text_color)  # Use potentially modified text color
 
         # Add padding to text rectangle
         text_rect = rect.adjusted(
@@ -185,5 +179,5 @@ class NodeRenderer(BaseRenderer):
         )
         painter.drawText(text_rect, Qt.AlignCenter, str(node.id))
 
-        # Restore painter state
+        # Restore painter state (opacity is automatically restored by painter.restore())
         painter.restore()

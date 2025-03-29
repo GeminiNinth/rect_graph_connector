@@ -3,11 +3,13 @@ Knife renderer for drawing knife tool path and highlights.
 """
 
 from typing import List, Tuple
+
 from PyQt5.QtCore import QPointF
 from PyQt5.QtGui import QPainter, QPainterPath
 
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
+from .edge_renderer import EdgeRenderer  # Import EdgeRenderer
 from .styles.knife_style import KnifeStyle
 
 
@@ -19,15 +21,22 @@ class KnifeRenderer(BaseRenderer):
     and highlighting of edges that will be cut.
     """
 
-    def __init__(self, view_state: ViewStateModel, style: KnifeStyle = None):
+    def __init__(
+        self,
+        view_state: ViewStateModel,
+        edge_renderer: EdgeRenderer,
+        style: KnifeStyle = None,
+    ):
         """
         Initialize the knife renderer.
 
         Args:
             view_state (ViewStateModel): The view state model
+            edge_renderer (EdgeRenderer): The edge renderer instance for calculations
             style (KnifeStyle, optional): The style object for this renderer
         """
         super().__init__(view_state, style or KnifeStyle())
+        self.edge_renderer = edge_renderer  # Store edge renderer
 
     def draw(self, painter: QPainter, knife_data=None, **kwargs):
         """
@@ -45,8 +54,7 @@ class KnifeRenderer(BaseRenderer):
         # Save painter state
         painter.save()
 
-        # Apply view transformations
-        self.apply_transform(painter)
+        # Transformations are handled by CanvasView
 
         # Draw highlighted edges first
         self._draw_highlighted_edges(painter, knife_data.get("highlighted_edges", []))
@@ -96,8 +104,8 @@ class KnifeRenderer(BaseRenderer):
         # Draw each highlighted edge
         for edge in edges:
             source_node, target_node = edge
-            # Calculate actual endpoints considering node sizes
-            start_point, end_point = self.calculate_edge_endpoints(
+            # Calculate actual endpoints considering node sizes using EdgeRenderer
+            start_point, end_point = self.edge_renderer.calculate_edge_endpoints(
                 source_node, target_node
             )
             painter.drawLine(start_point, end_point)
