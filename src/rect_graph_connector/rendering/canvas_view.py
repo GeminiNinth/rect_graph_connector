@@ -63,9 +63,6 @@ class CanvasView(QWidget):
     # Signal to notify mode changes
     mode_changed = pyqtSignal(str)
 
-    # Signal to notify when a NodeGroup is selected in the canvas
-    group_selected = pyqtSignal(object)  # Emits the selected NodeGroup
-
     # NodeGroup selection deselection methods flags
     DESELECT_BY_ESCAPE = config.get_constant("deselect_methods.escape", "escape")
     DESELECT_BY_RECLICK = config.get_constant("deselect_methods.reclick", "reclick")

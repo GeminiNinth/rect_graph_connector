@@ -5,7 +5,8 @@ Group renderer for drawing node groups.
 from PyQt5.QtCore import QRectF, Qt
 from PyQt5.QtGui import QPainter, QPainterPath
 
-from ...models.graph import Graph
+from ...config import config  # Import config
+from ...models.graph import Graph, NodeGroup  # Import NodeGroup for constants
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
 from .styles.group_style import GroupStyle
@@ -54,8 +55,11 @@ class GroupRenderer(BaseRenderer):
         """
         selected_groups = selected_groups or []
 
-        # Draw groups in reverse order to ensure proper layering
-        for group in reversed(self.graph.node_groups):
+        # Sort groups by z-index (lowest first) to draw back-to-front
+        sorted_groups = sorted(self.graph.node_groups, key=lambda g: g.z_index)
+
+        # Draw groups
+        for group in sorted_groups:
             self._draw_group(
                 painter,
                 group,
@@ -99,21 +103,55 @@ class GroupRenderer(BaseRenderer):
         painter.setPen(self.style.get_border_pen(is_selected=is_selected))
         painter.drawPath(path)
 
-        # Draw group title
-        if hasattr(group, "title") and group.title:
-            title_rect = QRectF(
-                bounds.x(), bounds.y(), bounds.width(), self.style.title_height
-            )
+        # Draw group name (title)
+        if hasattr(group, "name") and group.name:  # Check for 'name' attribute
+            # Get label dimensions from config
+            label_height = config.get_dimension("group.label.height", 20)
+            label_width = config.get_dimension(
+                "group.label.fixed_width", 100
+            )  # Use fixed width for now
+            position_margin = config.get_dimension(
+                "group.label.position_margin", 5
+            )  # Margin from group edge
+            text_margin = config.get_dimension(
+                "group.label.text_margin", 5
+            )  # Padding inside label rect
+
+            # Calculate label position based on group.label_position
+            label_x = 0
+            label_y = 0
+            alignment = Qt.AlignCenter  # Default alignment
+
+            if group.label_position == NodeGroup.POSITION_TOP:
+                label_x = bounds.x() + (bounds.width() - label_width) / 2
+                label_y = bounds.y() - label_height - position_margin
+                alignment = Qt.AlignCenter
+            elif group.label_position == NodeGroup.POSITION_BOTTOM:
+                label_x = bounds.x() + (bounds.width() - label_width) / 2
+                label_y = bounds.y() + bounds.height() + position_margin
+                alignment = Qt.AlignCenter
+            elif group.label_position == NodeGroup.POSITION_RIGHT:
+                label_x = bounds.x() + bounds.width() + position_margin
+                label_y = bounds.y() + (bounds.height() - label_height) / 2
+                alignment = Qt.AlignLeft | Qt.AlignVCenter
+            # Add more positions like 'left', 'top-left' etc. if needed
+
+            title_rect = QRectF(label_x, label_y, label_width, label_height)
+            text_rect = title_rect.adjusted(
+                text_margin, 0, -text_margin, 0
+            )  # Adjust for text padding
+
+            # Draw label background (optional, can be styled)
+            # painter.fillRect(title_rect, QColor(240, 240, 240, 180))
 
             painter.setFont(self.style.title_font)
             text_color, _ = self.style.get_label_colors(is_selected=is_selected)
             painter.setPen(text_color)
             painter.drawText(
-                title_rect,
-                Qt.AlignLeft | Qt.AlignVCenter,
-                f" {group.title}",  # Add some left padding
+                text_rect,  # Use adjusted rect for text drawing
+                alignment,
+                group.name,
             )
-
         # Restore painter state
         painter.restore()
 

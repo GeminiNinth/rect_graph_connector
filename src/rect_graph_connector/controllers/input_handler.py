@@ -96,7 +96,8 @@ class InputHandler:
                 self.selection_model,
                 self.hover_state,
                 self.graph,
-                self.canvas,  # Pass canvas
+                self.canvas,
+                self,  # Pass input_handler (self)
             ),
             self.EDIT_MODE: EditModeController(
                 self.view_state,
@@ -124,6 +125,36 @@ class InputHandler:
 
         # Reset interaction state
         self.hover_state.clear()
+
+    def request_mode_switch(self, requested_mode):
+        """
+        Request to switch the interaction mode.
+
+        Args:
+            requested_mode (str): The mode to switch to.
+        """
+        # Basic validation, could be expanded
+        if requested_mode in self.mode_controllers:
+            # TODO: Add logic here if specific conditions must be met before switching
+            # e.g., ensure no ongoing operation like dragging
+
+            # Set the new mode
+            self.set_mode(requested_mode)
+
+            # Optionally, update the edit target groups if switching to edit mode
+            if requested_mode == self.EDIT_MODE:
+                edit_controller = self.mode_controllers[self.EDIT_MODE]
+                # Use currently selected groups as target for edit mode
+                edit_controller.set_edit_target_groups(
+                    self.selection_model.selected_groups.copy()
+                )
+            elif requested_mode == self.NORMAL_MODE:
+                # Clear edit targets when switching back to normal
+                edit_controller = self.mode_controllers[self.EDIT_MODE]
+                edit_controller.set_edit_target_groups([])
+
+            # TODO: Emit a signal if UI needs to update based on mode switch
+            # self.canvas.mode_changed.emit(requested_mode) # Example if canvas had signal
 
     def handle_mouse_press(self, event, widget_point):
         """

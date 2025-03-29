@@ -31,11 +31,13 @@ class NormalModeController(ModeController):
         selection_model,
         hover_state,
         graph,
-        canvas: QWidget,  # Add canvas parameter
+        canvas: QWidget,
+        input_handler,  # Add input_handler parameter
     ):
         """Initialize the normal mode controller."""
         super().__init__(view_state, selection_model, hover_state, graph)
-        self.canvas = canvas  # Store canvas reference
+        self.canvas = canvas
+        self.input_handler = input_handler  # Store input_handler reference
         # Initialize the context menu specific to this mode
         self.context_menu = NormalContextMenu(self.canvas)
 
@@ -304,6 +306,26 @@ class NormalModeController(ModeController):
                 self._update_selected_nodes_from_groups()
                 return True
 
+        # Handle E key for switching to Edit mode
+        elif event.key() == Qt.Key_E and self.selection_model.selected_groups:
+            # Request mode switch via InputHandler
+            self.input_handler.request_mode_switch(self.input_handler.EDIT_MODE)
+            return True
+
+        # Handle R key for rotation
+        elif event.key() == Qt.Key_R:
+            if self.selection_model.selected_groups:
+                shift_pressed = event.modifiers() & Qt.ShiftModifier
+                if shift_pressed and len(self.selection_model.selected_groups) > 1:
+                    # Rotate multiple groups around common center
+                    self.graph.rotate_groups_around_center(
+                        self.selection_model.selected_groups
+                    )
+                else:
+                    # Rotate each group individually
+                    self.graph.rotate_node_groups(self.selection_model.selected_groups)
+                return True
+
         return False
 
     def _handle_dragging(self, graph_point):
@@ -425,6 +447,8 @@ class NormalModeController(ModeController):
         Returns:
             bool: True if the event was handled, False otherwise
         """
-        # Show the normal mode context menu at the clicked position
-        self.context_menu.show_menu(widget_point)
+        # Map the widget point to global coordinates for the menu
+        global_point = self.canvas.mapToGlobal(widget_point)
+        # Show the normal mode context menu at the global position
+        self.context_menu.exec_(global_point)
         return True

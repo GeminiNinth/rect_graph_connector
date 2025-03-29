@@ -24,9 +24,9 @@ from PyQt5.QtWidgets import (
 )
 
 from ..config import config
+from ..rendering.canvas_view import CanvasView
 from ..utils.file_handler import FileHandler
 from ..utils.logging_utils import get_logger
-from ..rendering.canvas_view import CanvasView
 from .sub_windows.import_dialog import ImportModeDialog
 
 logger = get_logger(__name__)
@@ -304,8 +304,10 @@ class MainWindow(QMainWindow):
         # Connecting mode change signal
         self.canvas.mode_changed.connect(self._update_mode_indicator)
 
-        # Connect group selection signal from canvas
-        self.canvas.group_selected.connect(self._handle_canvas_group_selected)
+        # Connect selection model changes to side panel sync
+        self.canvas.selection_model.selection_changed.subscribe(
+            self._sync_side_panel_selection
+        )
 
         # Connect grid signals
         self.canvas.grid_state_changed.connect(self._handle_grid_state_changed)
@@ -535,82 +537,34 @@ class MainWindow(QMainWindow):
                 self.canvas.update()
 
     def _handle_select_group(self, item):
-        """Handle the click event on a group item to select it."""
-        # Get all selected items in the list
-        selected_items = self.group_list.selectedItems()
+        """Handle the click event on a group item to select it using SelectionModel."""
+        # Get all currently selected items in the QListWidget
+        selected_list_items = self.group_list.selectedItems()
+        selected_indices = {self.group_list.row(it) for it in selected_list_items}
 
-        # Check if we're in multi-selection mode (Shift key pressed)
-        modifiers = QApplication.keyboardModifiers()
-        shift_pressed = modifiers & Qt.ShiftModifier
+        # Map indices to actual NodeGroup objects
+        groups_to_select = []
+        for index in selected_indices:
+            if 0 <= index < len(self.canvas.graph.node_groups):
+                groups_to_select.append(self.canvas.graph.node_groups[index])
 
-        # Get the index of the clicked item
-        current_index = self.group_list.row(item)
+        # Update the selection model
+        # The SelectionModel handles emitting the change event, which should trigger canvas update
+        # and potentially _sync_side_panel_selection if connected.
+        # We use add_to_selection=False to replace the current selection entirely,
+        # matching the behavior of QListWidget with ExtendedSelection.
+        self.canvas.selection_model.select_groups(
+            groups_to_select, add_to_selection=False
+        )
 
-        # If not in multi-selection mode and not pressing shift, clear previous selection
-        if not shift_pressed and len(selected_items) <= 1:
-            self.canvas.graph.selected_groups = []
-            self.canvas.graph.selected_nodes = []
+        # Update selected nodes based on the new group selection
+        # Note: This might be better handled by observing selection_model changes
+        selected_nodes = []
+        for group in self.canvas.selection_model.selected_groups:
+            selected_nodes.extend(group.get_nodes(self.canvas.graph.nodes))
+        self.canvas.selection_model.select_nodes(selected_nodes, add_to_selection=False)
 
-            # Process the clicked item
-            if 0 <= current_index < len(self.canvas.graph.node_groups):
-                group = self.canvas.graph.node_groups[current_index]
-
-                # Add this group to the selection
-                self.canvas.graph.selected_groups.append(group)
-                # Add the group's nodes to the selected nodes
-                self.canvas.graph.selected_nodes.extend(
-                    group.get_nodes(self.canvas.graph.nodes)
-                )
-        else:
-            # Handle Shift key continuous selection
-            if shift_pressed and len(selected_items) > 0:
-                # Find the index of the last selected item before this click
-                last_selected_index = -1
-                for i in range(self.group_list.count()):
-                    if i != current_index and self.group_list.item(i).isSelected():
-                        last_selected_index = i
-
-                # If we found a previously selected item, select all items between it and the current item
-                if last_selected_index != -1:
-                    # Determine the range of indices to select
-                    start_idx = min(last_selected_index, current_index)
-                    end_idx = max(last_selected_index, current_index)
-
-                    # Select all groups in the range
-                    for idx in range(start_idx, end_idx + 1):
-                        if 0 <= idx < len(self.canvas.graph.node_groups):
-                            group = self.canvas.graph.node_groups[idx]
-                            if group not in self.canvas.graph.selected_groups:
-                                self.canvas.graph.selected_groups.append(group)
-                                # Add the group's nodes to the selected nodes
-                                self.canvas.graph.selected_nodes.extend(
-                                    group.get_nodes(self.canvas.graph.nodes)
-                                )
-                                # Select the item in the list
-                                self.group_list.item(idx).setSelected(True)
-                else:
-                    # If no previous selection, just add the current group
-                    if 0 <= current_index < len(self.canvas.graph.node_groups):
-                        group = self.canvas.graph.node_groups[current_index]
-                        if group not in self.canvas.graph.selected_groups:
-                            self.canvas.graph.selected_groups.append(group)
-                            # Add the group's nodes to the selected nodes
-                            self.canvas.graph.selected_nodes.extend(
-                                group.get_nodes(self.canvas.graph.nodes)
-                            )
-            else:
-                # Regular multi-selection (Ctrl key)
-                if 0 <= current_index < len(self.canvas.graph.node_groups):
-                    group = self.canvas.graph.node_groups[current_index]
-                    if group not in self.canvas.graph.selected_groups:
-                        self.canvas.graph.selected_groups.append(group)
-                        # Add the group's nodes to the selected nodes
-                        self.canvas.graph.selected_nodes.extend(
-                            group.get_nodes(self.canvas.graph.nodes)
-                        )
-
-        # Update the canvas
-        self.canvas.update()
+        # No need to call self.canvas.update() directly if signals are connected properly
 
     def _handle_move_group_up(self):
         """Handle the move up button click event."""

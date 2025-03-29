@@ -578,6 +578,10 @@ class EditModeController(ModeController):
         Returns:
             bool: True if the event was handled, False otherwise
         """
-        # Show the edit mode context menu at the clicked position
-        self.context_menu.show_menu(widget_point)
+        # Prepare the menu (update action states)
+        self.context_menu.prepare_for_display()
+        # Map the widget point to global coordinates for the menu
+        global_point = self.canvas.mapToGlobal(widget_point)
+        # Show the edit mode context menu at the global position
+        self.context_menu.exec_(global_point)
         return True

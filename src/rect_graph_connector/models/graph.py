@@ -1358,3 +1358,34 @@ class Graph:
         # Add to group_map
         self.group_map[new_group.id] = new_group
         return new_group.id
+
+    def get_connected_edges(self, node: BaseNode) -> List[Tuple[BaseNode, BaseNode]]:
+        """
+        Get all edges connected to a given node.
+
+        Args:
+            node (BaseNode): The node to find connected edges for.
+
+        Returns:
+            List[Tuple[BaseNode, BaseNode]]: A list of tuples, where each tuple
+                                             represents an edge (source_node, target_node).
+        """
+        connected_edges = []
+        if not node:
+            return connected_edges
+
+        node_map = {
+            n.id: n for n in self.nodes
+        }  # Map node IDs to node objects for quick lookup
+
+        for src_id, tgt_id in self.edges:
+            source_node = node_map.get(src_id)
+            target_node = node_map.get(tgt_id)
+
+            if source_node and target_node:  # Ensure both nodes exist
+                if src_id == node.id:
+                    connected_edges.append((source_node, target_node))
+                elif tgt_id == node.id:
+                    connected_edges.append((source_node, target_node))
+
+        return connected_edges
