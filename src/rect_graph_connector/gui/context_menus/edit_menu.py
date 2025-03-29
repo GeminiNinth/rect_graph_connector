@@ -176,11 +176,13 @@ class EditContextMenu(QMenu):
         Args:
             checked (bool): Whether the knife mode is enabled
         """
-        if self.canvas:
+        # Use self.controller instead of self.canvas
+        if self.controller:
             if checked:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_KNIFE)
+                self.controller.set_edit_submode(self.controller.EDIT_SUBMODE_KNIFE)
             else:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
+                # Revert to default connect mode when unchecked
+                self.controller.set_edit_submode(self.controller.EDIT_SUBMODE_CONNECT)
 
     def _toggle_all_for_one_connection_mode(self):
         """
@@ -188,12 +190,15 @@ class EditContextMenu(QMenu):
 
         This mode allows selecting multiple nodes and drawing edges from all selected nodes at once.
         """
-        if self.canvas:
+        # Use self.controller instead of self.canvas
+        if self.controller:
             # Check if already in All-For-One connection mode, if so go back to connect mode
-            if self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_ALL_FOR_ONE:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
+            if self.controller.edit_submode == self.controller.EDIT_SUBMODE_ALL_FOR_ONE:
+                self.controller.set_edit_submode(self.controller.EDIT_SUBMODE_CONNECT)
             else:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_ALL_FOR_ONE)
+                self.controller.set_edit_submode(
+                    self.controller.EDIT_SUBMODE_ALL_FOR_ONE
+                )
 
     def _toggle_bridge_connection_mode(self):
         """
@@ -202,12 +207,13 @@ class EditContextMenu(QMenu):
         This mode allows selecting two node groups and creating bipartite graph connections
         between their edge nodes with customizable parameters.
         """
-        if self.canvas:
+        # Use self.controller instead of self.canvas
+        if self.controller:
             # Check if already in Bridge connection mode, if so go back to connect mode
-            if self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_BRIDGE:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
+            if self.controller.edit_submode == self.controller.EDIT_SUBMODE_BRIDGE:
+                self.controller.set_edit_submode(self.controller.EDIT_SUBMODE_CONNECT)
             else:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_BRIDGE)
+                self.controller.set_edit_submode(self.controller.EDIT_SUBMODE_BRIDGE)
 
     def _connect_nodes_in_8_directions(self):
         """
@@ -266,12 +272,13 @@ class EditContextMenu(QMenu):
         This mode allows selecting multiple nodes and drawing edges from all selected nodes
         in the same direction and distance simultaneously.
         """
-        if self.canvas:
+        # Use self.controller instead of self.canvas
+        if self.controller:
             # Check if already in Parallel connection mode, if so go back to connect mode
-            if self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_PARALLEL:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_CONNECT)
+            if self.controller.edit_submode == self.controller.EDIT_SUBMODE_PARALLEL:
+                self.controller.set_edit_submode(self.controller.EDIT_SUBMODE_CONNECT)
             else:
-                self.canvas.set_edit_submode(self.canvas.EDIT_SUBMODE_PARALLEL)
+                self.controller.set_edit_submode(self.controller.EDIT_SUBMODE_PARALLEL)
 
     def _delete_selected_edges(self):
         """

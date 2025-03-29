@@ -40,6 +40,9 @@ zoom:
   default: 1.0
   factor: 1200.0 # For adjusting the zoom sensitivity（delta / factor）
 
+edge:
+  draw_arrow: false # Whether to draw arrows on edges (true/false)
+
 # User Operation Settings
 interaction:
   drag_threshold: 5 # Threshold for travel distance considered drag

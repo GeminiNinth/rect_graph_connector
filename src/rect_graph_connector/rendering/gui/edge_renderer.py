@@ -7,6 +7,7 @@ from math import atan2, cos, pi, sin
 from PyQt5.QtCore import QPointF, Qt
 from PyQt5.QtGui import QPainter, QPainterPath
 
+from ...config import config  # Import config
 from ...models.graph import Graph
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
@@ -143,9 +144,8 @@ class EdgeRenderer(BaseRenderer):
         # Draw the edge line
         painter.drawLine(start_point, end_point)
 
-        # Draw arrow if edge is directed (assuming True as default)
-        # TODO: If edge directionality needs to be stored/checked, update graph model
-        if True:  # Assuming directed edge for now
+        # Draw arrow if configured to do so
+        if config.get_constant("edge.draw_arrow", False):
             # For arrow, we need to use a potentially modified pen
             arrow_pen = self.style.get_arrow_pen()
             if opacity < 1.0:
