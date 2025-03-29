@@ -590,19 +590,27 @@ class EdgeHelper:
                 source_node = next(n for n in controller.graph.nodes if n.id == edge[0])
                 target_node = next(n for n in controller.graph.nodes if n.id == edge[1])
 
-                # Calculate actual edge endpoints considering node sizes
-                start_pos = QPointF(source_node.x, source_node.y)
-                end_pos = QPointF(target_node.x, target_node.y)
+                # Calculate VISIBLE edge endpoints using the renderer's method
+                # We need access to the EdgeRenderer instance, assuming it's accessible via controller.input_handler.canvas.renderer.edge_renderer
+                # Or more directly if the controller stores it. Let's assume controller stores it for now.
+                # If not, this needs adjustment.
+                # Alternatively, import and use the function from connectivity.py if it's static enough.
+                # Let's use the BaseRenderer version accessible via the controller's canvas reference.
+                visible_start_pos, visible_end_pos = (
+                    controller.canvas.renderer.edge_renderer.calculate_edge_endpoints(
+                        source_node, target_node
+                    )
+                )
 
-                # Calculate distance from point to line segment
-                line_vec = end_pos - start_pos
-                point_vec = QPointF(point) - start_pos
+                # Calculate distance from point to VISIBLE line segment
+                line_vec = visible_end_pos - visible_start_pos
+                point_vec = QPointF(point) - visible_start_pos  # Use visible_start_pos
                 line_length = (line_vec.x() ** 2 + line_vec.y() ** 2) ** 0.5
 
                 if line_length == 0:
                     continue
 
-                # Calculate projection
+                # Calculate projection onto the VISIBLE segment
                 t = max(
                     0,
                     min(
@@ -611,7 +619,9 @@ class EdgeHelper:
                         / (line_length**2),
                     ),
                 )
-                projection = start_pos + t * line_vec
+                projection = (
+                    visible_start_pos + t * line_vec
+                )  # Project onto visible segment
 
                 # Calculate distance from point to projection
                 distance = (

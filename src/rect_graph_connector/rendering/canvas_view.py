@@ -2,14 +2,8 @@
 Canvas view for graph visualization.
 """
 
-from PyQt5.QtCore import (
-    QMimeData,
-    QPointF,  # Ensure QPointF is imported
-    QRect,
-    QRectF,
-    Qt,
-    pyqtSignal,
-)
+from PyQt5.QtCore import QPointF  # Ensure QPointF is imported
+from PyQt5.QtCore import QMimeData, QRect, QRectF, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QCursor, QPainter, QPen
 from PyQt5.QtWidgets import (
     QAction,
@@ -227,6 +221,16 @@ class CanvasView(QWidget):
                 "highlighted_edges": controller.highlighted_edges,
             }
 
+        # Prepare potential target node if creating edge
+        potential_target_node_obj = None
+        if (
+            self.input_handler.current_mode == self.input_handler.EDIT_MODE
+            and self.input_handler.current_mode_controller.current_edge_start
+        ):
+            potential_target_node_obj = (
+                self.input_handler.current_mode_controller.potential_target_node
+            )
+
         # Draw the graph using the composite renderer (now with transformed painter)
         self.renderer.draw(
             painter,
@@ -240,6 +244,7 @@ class CanvasView(QWidget):
             temp_edge_data=temp_edge_data_tuple,  # Pass the prepared tuple
             edit_target_groups=edit_target_groups_list,  # Pass edit target groups
             knife_data=knife_data_dict,  # Pass knife data
+            potential_target_node=potential_target_node_obj,  # Pass potential target
         )
 
         # Restore painter state

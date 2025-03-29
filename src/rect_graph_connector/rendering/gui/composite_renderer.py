@@ -74,9 +74,9 @@ class CompositeRenderer(BaseRenderer):
         self.edge_renderer = edge_renderer or EdgeRenderer(view_state, graph)
         self.node_renderer = node_renderer or NodeRenderer(view_state, graph)
         self.selection_renderer = selection_renderer or SelectionRenderer(view_state)
-        # Pass edge_renderer to KnifeRenderer
+        # Pass graph and edge_renderer to KnifeRenderer
         self.knife_renderer = knife_renderer or KnifeRenderer(
-            view_state, self.edge_renderer
+            view_state, graph, self.edge_renderer
         )
         self.bridge_renderer = bridge_renderer or BridgeRenderer(view_state)
 
@@ -93,7 +93,8 @@ class CompositeRenderer(BaseRenderer):
         knife_data=None,
         bridge_data=None,
         temp_edge_data=None,
-        edit_target_groups=None,  # Add edit_target_groups parameter
+        edit_target_groups=None,
+        potential_target_node=None,  # Add potential_target_node parameter
         **kwargs,
     ):
         """
@@ -133,6 +134,17 @@ class CompositeRenderer(BaseRenderer):
             temp_edge_data=temp_edge_data,  # Pass temp_edge_data
         )
 
+        # Draw temporary edge if creating one (before nodes)
+        if temp_edge_data:
+            start_node = temp_edge_data[0]
+            end_point = temp_edge_data[1]
+            if start_node and end_point:
+                start_pos = QPointF(start_node.x, start_node.y)
+                # Use the edge renderer's style for consistency
+                temp_pen = self.edge_renderer.style.get_temporary_edge_pen()
+                painter.setPen(temp_pen)
+                painter.drawLine(start_pos, end_point)
+
         # Draw nodes respecting group z-order
         drawn_node_ids = set()
         sorted_groups = sorted(self.graph.node_groups, key=lambda g: g.z_index)
@@ -147,7 +159,8 @@ class CompositeRenderer(BaseRenderer):
                     selected_nodes=selected_nodes,
                     hover_node=hover_node,
                     hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
-                    edit_target_groups=edit_target_groups,  # Pass edit_target_groups
+                    edit_target_groups=edit_target_groups,
+                    potential_target_node=potential_target_node,  # Pass potential target
                 )
                 drawn_node_ids.update(node.id for node in group_nodes)
 
@@ -162,19 +175,11 @@ class CompositeRenderer(BaseRenderer):
                 selected_nodes=selected_nodes,
                 hover_node=hover_node,
                 hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
-                edit_target_groups=edit_target_groups,  # Pass edit_target_groups
+                edit_target_groups=edit_target_groups,
+                potential_target_node=potential_target_node,  # Pass potential target
             )
 
-        # Draw temporary edge if creating one (after nodes, before selection rect)
-        if temp_edge_data:
-            start_node = temp_edge_data[0]
-            end_point = temp_edge_data[1]
-            if start_node and end_point:
-                start_pos = QPointF(start_node.x, start_node.y)
-                # Use the edge renderer's style for consistency
-                temp_pen = self.edge_renderer.style.get_temporary_edge_pen()
-                painter.setPen(temp_pen)
-                painter.drawLine(start_pos, end_point)
+        # Temporary edge drawing moved before nodes
 
         # Draw selection rectangle if selecting
         if selection_rect_data:

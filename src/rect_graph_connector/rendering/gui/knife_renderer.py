@@ -7,6 +7,7 @@ from typing import List, Tuple
 from PyQt5.QtCore import QPointF
 from PyQt5.QtGui import QPainter, QPainterPath
 
+from ...models.graph import Graph  # Import Graph
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
 from .edge_renderer import EdgeRenderer  # Import EdgeRenderer
@@ -24,6 +25,7 @@ class KnifeRenderer(BaseRenderer):
     def __init__(
         self,
         view_state: ViewStateModel,
+        graph: Graph,  # Add graph parameter
         edge_renderer: EdgeRenderer,
         style: KnifeStyle = None,
     ):
@@ -32,10 +34,12 @@ class KnifeRenderer(BaseRenderer):
 
         Args:
             view_state (ViewStateModel): The view state model
+            graph (Graph): The graph model
             edge_renderer (EdgeRenderer): The edge renderer instance for calculations
             style (KnifeStyle, optional): The style object for this renderer
         """
         super().__init__(view_state, style or KnifeStyle())
+        self.graph = graph  # Store graph model
         self.edge_renderer = edge_renderer  # Store edge renderer
 
     def draw(self, painter: QPainter, knife_data=None, **kwargs):
@@ -101,11 +105,19 @@ class KnifeRenderer(BaseRenderer):
         # Set highlight pen
         painter.setPen(self.style.get_highlight_pen())
 
+        # Create node map for quick lookup
+        node_map = {node.id: node for node in self.graph.nodes}
+
         # Draw each highlighted edge
-        for edge in edges:
-            source_node, target_node = edge
+        for src_id, tgt_id in edges:  # Edges are tuples of IDs
+            source_node = node_map.get(src_id)
+            target_node = node_map.get(tgt_id)
+
+            if not source_node or not target_node:
+                continue  # Skip if nodes not found
+
             # Calculate actual endpoints considering node sizes using EdgeRenderer
             start_point, end_point = self.edge_renderer.calculate_edge_endpoints(
-                source_node, target_node
+                source_node, target_node  # Pass node objects
             )
             painter.drawLine(start_point, end_point)

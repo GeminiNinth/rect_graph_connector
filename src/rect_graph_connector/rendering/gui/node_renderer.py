@@ -43,7 +43,8 @@ class NodeRenderer(BaseRenderer):
         selected_nodes=None,
         hover_node=None,
         nodes_to_draw=None,
-        edit_target_groups=None,  # Add edit_target_groups parameter
+        edit_target_groups=None,
+        potential_target_node=None,  # Add potential_target_node parameter
         **kwargs,
     ):
         """
@@ -70,12 +71,17 @@ class NodeRenderer(BaseRenderer):
         # Draw the target nodes
         for node in target_nodes:
             is_highlighted = node == hover_node or node in hovered_connected_nodes
+            is_potential_target = node == potential_target_node
 
-            # Apply opacity based on hover state
+            # Apply opacity based on hover state, unless it's the potential target
             opacity = 1.0
-            if hover_node and not is_highlighted:
+            if is_potential_target:
+                opacity = 1.0  # Force full opacity for potential target
+            elif hover_node and not is_highlighted:
                 # Apply reduced opacity to non-highlighted nodes when hovering
                 opacity = self.style.get_hover_opacity()
+
+            # print(f"Node {node.id}: hover={node==hover_node}, connected={node in hovered_connected_nodes}, potential={is_potential_target}, opacity={opacity}") # DEBUG
 
             self._draw_node(
                 painter,
@@ -115,6 +121,7 @@ class NodeRenderer(BaseRenderer):
         painter.save()
 
         # Apply overall opacity for hover effect
+        print(f"Node {node.id}: Setting painter opacity to {opacity}")  # DEBUG
         painter.setOpacity(opacity)
 
         # Create path for node shape
@@ -164,11 +171,9 @@ class NodeRenderer(BaseRenderer):
         painter.setFont(self.style.font)
         text_color = self.style.get_text_color()
 
-        # Apply opacity to text color if needed
-        if opacity < 1.0:
-            text_color.setAlphaF(text_color.alphaF() * opacity)
+        # Opacity is now handled by painter.setOpacity()
 
-        painter.setPen(text_color)  # Use potentially modified text color
+        painter.setPen(text_color)  # Use original text color
 
         # Add padding to text rectangle
         text_rect = rect.adjusted(
