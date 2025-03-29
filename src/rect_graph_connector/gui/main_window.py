@@ -301,8 +301,8 @@ class MainWindow(QMainWindow):
         self.move_up_button.clicked.connect(self._handle_move_group_up)
         self.move_down_button.clicked.connect(self._handle_move_group_down)
 
-        # Connecting mode change signal
-        self.canvas.mode_changed.connect(self._update_mode_indicator)
+        # Connecting mode change signal (from InputHandler via CanvasView)
+        self.canvas.input_handler.mode_changed.connect(self._update_mode_indicator)
 
         # Connect selection model changes to side panel sync
         self.canvas.selection_model.selection_changed.subscribe(
@@ -640,48 +640,75 @@ class MainWindow(QMainWindow):
         Update the mode display window.
 
         Args:
-            mode (str): Current mode ("normal" or "edit")
+            mode (str): Current mode string (e.g., "normal", "edit/connect", "edit/knife")
         """
-        # Update mode display text
-        if mode == self.canvas.EDIT_MODE:
-            # Edit mode display
-            if self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_ALL_FOR_ONE:
-                # All-For-One connection mode display
+        main_mode = mode
+        submode = None
+        if "/" in mode:
+            main_mode, submode = mode.split("/", 1)
+
+        # Update mode display text and background color
+        if main_mode == self.canvas.input_handler.EDIT_MODE:
+            # Determine text based on submode
+            if (
+                submode
+                == self.canvas.input_handler.mode_controllers[
+                    main_mode
+                ].EDIT_SUBMODE_KNIFE
+            ):
+                mode_text = config.get_string(
+                    "main_window.mode.edit_knife", "Mode: Edit - Knife"
+                )
+            elif (
+                submode
+                == self.canvas.input_handler.mode_controllers[
+                    main_mode
+                ].EDIT_SUBMODE_ALL_FOR_ONE
+            ):
                 mode_text = config.get_string(
                     "main_window.mode.edit_all_for_one", "Mode: Edit - All-For-One"
                 )
-                self.mode_label.setText(mode_text)
-            elif self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_PARALLEL:
-                # Parallel connection mode display
+            elif (
+                submode
+                == self.canvas.input_handler.mode_controllers[
+                    main_mode
+                ].EDIT_SUBMODE_PARALLEL
+            ):
                 mode_text = config.get_string(
                     "main_window.mode.edit_parallel", "Mode: Edit - Parallel"
                 )
-                self.mode_label.setText(mode_text)
-            else:
-                # Normal edit mode display
-                edit_target = ""
-                if self.canvas.edit_target_groups:
-                    group_names = [
-                        group.name for group in self.canvas.edit_target_groups
-                    ]
-                    edit_target = f" - {', '.join(group_names)}"
-                edit_mode_text = config.get_string(
-                    "main_window.mode.edit", "Mode: Edit"
+            elif (
+                submode
+                == self.canvas.input_handler.mode_controllers[
+                    main_mode
+                ].EDIT_SUBMODE_BRIDGE
+            ):
+                mode_text = config.get_string(
+                    "main_window.mode.edit_bridge", "Mode: Edit - Bridge"
                 )
-                self.mode_label.setText(f"{edit_mode_text}{edit_target}")
+            else:  # Default connect submode or unknown
+                # Add target group names if available
+                edit_target = ""
+                edit_controller = self.canvas.input_handler.mode_controllers[main_mode]
+                if edit_controller.edit_target_groups:
+                    group_names = [g.name for g in edit_controller.edit_target_groups]
+                    edit_target = f" - {', '.join(group_names)}"
+                mode_text = f'{config.get_string("main_window.mode.edit", "Mode: Edit")}{edit_target}'
 
-            # Visual feedback - set reddish color (no border)
+            self.mode_label.setText(mode_text)
+
+            # Visual feedback - set reddish color
             edit_bg_color = config.get_color(
                 "mode_indicator.edit", "rgba(255, 220, 220, 180)"
             )
             self.mode_indicator.setStyleSheet(f"background-color: {edit_bg_color};")
-        else:
+
+        else:  # Normal mode
             normal_mode_text = config.get_string(
                 "main_window.mode.normal", "Mode: Normal"
             )
-            # Normal mode display
             self.mode_label.setText(normal_mode_text)
-            # Visual feedback - return to normal color (no border)
+            # Visual feedback - return to normal color
             normal_bg_color = config.get_color(
                 "mode_indicator.normal", "rgba(240, 240, 240, 180)"
             )

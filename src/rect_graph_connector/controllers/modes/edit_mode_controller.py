@@ -52,7 +52,8 @@ class EditModeController(ModeController):
         selection_model,
         hover_state,
         graph,
-        canvas: QWidget,  # Add canvas parameter
+        canvas: QWidget,
+        input_handler,  # Add input_handler parameter
     ):
         """
         Initialize the edit mode controller.
@@ -109,8 +110,9 @@ class EditModeController(ModeController):
         self.bridge_connection_params = None
 
         self.canvas = canvas  # Store canvas reference
-        # Initialize the context menu specific to this mode
-        self.context_menu = EditContextMenu(self.canvas)
+        # Initialize the context menu specific to this mode, passing the controller
+        self.context_menu = EditContextMenu(self.canvas, self)
+        self.input_handler = input_handler  # Store input_handler reference
 
     def set_edit_submode(self, submode):
         """
@@ -149,6 +151,23 @@ class EditModeController(ModeController):
             self.bridge_floating_menus = {}
             self.bridge_preview_lines = []
             self.bridge_edge_nodes = {}
+
+        # Update cursor based on submode
+        if submode == self.EDIT_SUBMODE_KNIFE:
+            # TODO: Create a custom knife cursor image if desired
+            self.canvas.setCursor(Qt.CrossCursor)  # Use Cross for now
+        elif submode in [
+            self.EDIT_SUBMODE_ALL_FOR_ONE,
+            self.EDIT_SUBMODE_PARALLEL,
+            self.EDIT_SUBMODE_BRIDGE,
+        ]:
+            self.canvas.setCursor(Qt.ArrowCursor)
+        else:  # Default connect mode
+            self.canvas.setCursor(Qt.CrossCursor)
+
+        # Emit mode changed signal via input handler to update UI
+        mode_string = f"{self.input_handler.EDIT_MODE}/{submode}"
+        self.input_handler.mode_changed.emit(mode_string)
 
     def set_edit_target_groups(self, groups):
         """

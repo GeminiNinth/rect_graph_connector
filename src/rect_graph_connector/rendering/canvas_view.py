@@ -197,7 +197,12 @@ class CanvasView(QWidget):
             hover_node=self.hover_state.hovered_node,
             hover_edge=self.hover_state.hovered_edges,
             hover_connected_nodes=self.hover_state.hovered_connected_nodes,
-            hover_group=None,
+            hover_group=None,  # TODO: Implement group hover if needed
+            temp_edge_data=(
+                self.input_handler.current_mode_controller.temp_edge_end
+                if self.input_handler.current_mode == self.input_handler.EDIT_MODE
+                else None
+            ),
         )
 
         # Restore painter state

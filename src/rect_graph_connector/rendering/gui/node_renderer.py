@@ -153,11 +153,13 @@ class NodeRenderer(BaseRenderer):
         painter.setFont(self.style.font)
         text_color = self.style.get_text_color()
 
-        # Apply opacity to text if needed
-        if opacity < 1.0:
-            text_color.setAlphaF(text_color.alphaF() * opacity)
+        # Opacity is applied to background and border, but text should remain fully opaque
+        # if opacity < 1.0:
+        #     text_color.setAlphaF(text_color.alphaF() * opacity)
 
-        painter.setPen(text_color)
+        painter.setPen(
+            text_color
+        )  # Use original text color without opacity modification
 
         # Add padding to text rectangle
         text_rect = rect.adjusted(

@@ -16,15 +16,19 @@ class EditContextMenu(QMenu):
     toggling between different edit submodes.
     """
 
-    def __init__(self, parent=None):
+    def __init__(
+        self, parent=None, edit_mode_controller=None
+    ):  # Add controller to signature
         """
         Initialize the edit mode context menu.
 
         Args:
             parent: The parent widget (usually the Canvas)
+            edit_mode_controller: The controller managing edit mode state
         """
         super().__init__(parent)
-        self.canvas = parent
+        self.canvas = parent  # Keep canvas reference for actions needing it
+        self.controller = edit_mode_controller  # Store controller reference
         self._create_actions()
         self._build_menu()
 
@@ -294,32 +298,34 @@ class EditContextMenu(QMenu):
         """
         Prepare the menu before displaying it, updating state as needed.
         """
-        if self.canvas:
-            # Update delete edges action state (enabled only if edges are selected)
-            self.delete_edges_action.setEnabled(bool(self.canvas.selected_edges))
+        if self.controller:  # Check if controller exists
+            # Update delete edges action state (enabled only if edges are selected in the model)
+            self.delete_edges_action.setEnabled(
+                bool(self.controller.selection_model.selected_edges)
+            )
 
             # Update toggle knife action state
             self.toggle_knife_action.setChecked(
-                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_KNIFE
+                self.controller.edit_submode == self.controller.EDIT_SUBMODE_KNIFE
             )
 
             # Update All-For-One connection action state (add checkable property first)
             if not hasattr(self.all_for_one_action, "setCheckable"):
                 self.all_for_one_action.setCheckable(True)
             self.all_for_one_action.setChecked(
-                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_ALL_FOR_ONE
+                self.controller.edit_submode == self.controller.EDIT_SUBMODE_ALL_FOR_ONE
             )
 
             # Update Parallel connection action state
             if not hasattr(self.parallel_action, "setCheckable"):
                 self.parallel_action.setCheckable(True)
             self.parallel_action.setChecked(
-                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_PARALLEL
+                self.controller.edit_submode == self.controller.EDIT_SUBMODE_PARALLEL
             )
 
             # Update Bridge connection action state
             if not hasattr(self.bridge_action, "setCheckable"):
                 self.bridge_action.setCheckable(True)
             self.bridge_action.setChecked(
-                self.canvas.edit_submode == self.canvas.EDIT_SUBMODE_BRIDGE
+                self.controller.edit_submode == self.controller.EDIT_SUBMODE_BRIDGE
             )

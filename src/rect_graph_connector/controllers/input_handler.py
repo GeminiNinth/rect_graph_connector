@@ -5,7 +5,7 @@ This module provides the InputHandler class which centralizes all input processi
 and delegates to appropriate mode controllers based on the current mode.
 """
 
-from PyQt5.QtCore import QPointF, Qt
+from PyQt5.QtCore import QObject, QPointF, Qt, pyqtSignal  # Import QObject
 from PyQt5.QtWidgets import QWidget
 
 from ..config import config
@@ -15,10 +15,9 @@ from ..models.selection_model import SelectionModel
 from ..models.view_state_model import ViewStateModel
 
 
-class InputHandler:
+class InputHandler(QObject):  # Inherit from QObject
     """
     Centralized input handler for the canvas.
-
     This class manages all user input events (mouse and keyboard) and delegates
     to the appropriate mode controller based on the current mode. It provides
     a clean separation between input handling and rendering logic.
@@ -31,6 +30,8 @@ class InputHandler:
         current_mode (str): The current interaction mode
         current_mode_controller: The controller for the current mode
     """
+
+    mode_changed = pyqtSignal(str)  # Add signal definition
 
     def __init__(
         self,
@@ -50,6 +51,7 @@ class InputHandler:
             graph (Graph): The graph model
             canvas (QWidget): The canvas widget
         """
+        super().__init__()  # Call QObject initializer
         self.view_state = view_state
         self.selection_model = selection_model
         self.hover_state = hover_state
@@ -104,7 +106,8 @@ class InputHandler:
                 self.selection_model,
                 self.hover_state,
                 self.graph,
-                self.canvas,  # Pass canvas
+                self.canvas,
+                self,  # Pass input_handler (self)
             ),
         }
 
@@ -125,6 +128,15 @@ class InputHandler:
 
         # Reset interaction state
         self.hover_state.clear()
+
+        # Update cursor based on mode
+        if mode == self.EDIT_MODE:
+            self.canvas.setCursor(Qt.CrossCursor)
+        else:
+            self.canvas.setCursor(Qt.ArrowCursor)
+
+        # Emit signal
+        self.mode_changed.emit(self.current_mode)
 
     def request_mode_switch(self, requested_mode):
         """

@@ -88,6 +88,7 @@ class CompositeRenderer(BaseRenderer):
         selection_rect_data=None,
         knife_data=None,
         bridge_data=None,
+        temp_edge_data=None,  # Add temp_edge_data parameter
         **kwargs,
     ):
         """
@@ -124,6 +125,7 @@ class CompositeRenderer(BaseRenderer):
             selected_edges=selected_edges,
             hover_edge=hover_edge,
             hover_node=hover_node,
+            temp_edge_data=temp_edge_data,  # Pass temp_edge_data
         )
 
         # Draw nodes respecting group z-order

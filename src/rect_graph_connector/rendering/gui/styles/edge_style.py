@@ -4,6 +4,7 @@ Style configuration for edge rendering.
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPen
+
 from .base_style import BaseStyle
 
 
@@ -61,6 +62,20 @@ class EdgeStyle(BaseStyle):
             pen = QPen(self.line_color, self.line_width)
 
         pen.setStyle(self.line_style)
+        pen.setCapStyle(self.cap_style)
+        pen.setJoinStyle(self.join_style)
+        return pen
+
+    def get_temporary_edge_pen(self):
+        """
+        Get the pen for drawing the temporary edge during creation.
+
+        Returns:
+            QPen: The configured pen for temporary edge drawing
+        """
+        # Use a distinct style, e.g., dashed line
+        pen = QPen(self.line_color, self.line_width)
+        pen.setStyle(Qt.DashLine)
         pen.setCapStyle(self.cap_style)
         pen.setJoinStyle(self.join_style)
         return pen

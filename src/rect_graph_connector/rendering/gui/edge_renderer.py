@@ -2,9 +2,10 @@
 Edge renderer for drawing graph edges.
 """
 
+from math import atan2, cos, pi, sin
+
 from PyQt5.QtCore import QPointF, Qt
 from PyQt5.QtGui import QPainter, QPainterPath
-from math import atan2, cos, sin, pi
 
 from ...models.graph import Graph
 from ...models.view_state_model import ViewStateModel
@@ -42,10 +43,11 @@ class EdgeRenderer(BaseRenderer):
         painter: QPainter,
         selected_edges=None,
         hover_edge=None,
+        temp_edge_data=None,  # Add temp_edge_data parameter
         **kwargs,
     ):
         """
-        Draw all edges on the canvas.
+        Draw all edges and the temporary edge (if creating one) on the canvas.
 
         Args:
             painter (QPainter): The painter to use for drawing
@@ -74,6 +76,21 @@ class EdgeRenderer(BaseRenderer):
                 opacity = self.style.hover_opacity
 
             self._draw_edge(painter, edge, is_selected, is_hovered, opacity)
+
+        # Draw temporary edge if it exists
+        if temp_edge_data:
+            start_node = temp_edge_data[
+                0
+            ]  # Assuming temp_edge_data is (start_node, end_point)
+            end_point = temp_edge_data[1]
+            if start_node and end_point:
+                start_pos = QPointF(start_node.x, start_node.y)
+                # Use a distinct style for the temporary edge
+                temp_pen = (
+                    self.style.get_temporary_edge_pen()
+                )  # Assumes this method exists in EdgeStyle
+                painter.setPen(temp_pen)
+                painter.drawLine(start_pos, end_point)
 
     def _draw_edge(
         self,
