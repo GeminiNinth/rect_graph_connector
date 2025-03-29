@@ -160,6 +160,8 @@ class InputHandler(QObject):  # Inherit from QObject
                 edit_controller.set_edit_target_groups(
                     self.selection_model.selected_groups.copy()
                 )
+                # Clear node selection when entering edit mode, keep group selection
+                self.selection_model.select_nodes([], add_to_selection=False)
             elif requested_mode == self.NORMAL_MODE:
                 # Clear edit targets when switching back to normal
                 edit_controller = self.mode_controllers[self.EDIT_MODE]

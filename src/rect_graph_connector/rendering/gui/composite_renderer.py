@@ -88,7 +88,8 @@ class CompositeRenderer(BaseRenderer):
         selection_rect_data=None,
         knife_data=None,
         bridge_data=None,
-        temp_edge_data=None,  # Add temp_edge_data parameter
+        temp_edge_data=None,
+        edit_target_groups=None,  # Add edit_target_groups parameter
         **kwargs,
     ):
         """
@@ -142,6 +143,7 @@ class CompositeRenderer(BaseRenderer):
                     selected_nodes=selected_nodes,
                     hover_node=hover_node,
                     hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
+                    edit_target_groups=edit_target_groups,  # Pass edit_target_groups
                 )
                 drawn_node_ids.update(node.id for node in group_nodes)
 
@@ -156,6 +158,7 @@ class CompositeRenderer(BaseRenderer):
                 selected_nodes=selected_nodes,
                 hover_node=hover_node,
                 hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
+                edit_target_groups=edit_target_groups,  # Pass edit_target_groups
             )
 
         # Draw selection rectangle if selecting

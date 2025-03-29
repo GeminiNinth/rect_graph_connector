@@ -188,6 +188,23 @@ class CanvasView(QWidget):
         painter.translate(self.view_state.pan_offset)
         painter.scale(self.view_state.zoom, self.view_state.zoom)
 
+        # Prepare temporary edge data if applicable
+        temp_edge_data_tuple = None
+        if self.input_handler.current_mode == self.input_handler.EDIT_MODE:
+            controller = self.input_handler.current_mode_controller
+            if controller.current_edge_start and controller.temp_edge_end:
+                temp_edge_data_tuple = (
+                    controller.current_edge_start,
+                    controller.temp_edge_end,
+                )
+
+        # Prepare edit target groups if in edit mode
+        edit_target_groups_list = []
+        if self.input_handler.current_mode == self.input_handler.EDIT_MODE:
+            edit_target_groups_list = (
+                self.input_handler.current_mode_controller.edit_target_groups
+            )
+
         # Draw the graph using the composite renderer (now with transformed painter)
         self.renderer.draw(
             painter,
@@ -198,11 +215,8 @@ class CanvasView(QWidget):
             hover_edge=self.hover_state.hovered_edges,
             hover_connected_nodes=self.hover_state.hovered_connected_nodes,
             hover_group=None,  # TODO: Implement group hover if needed
-            temp_edge_data=(
-                self.input_handler.current_mode_controller.temp_edge_end
-                if self.input_handler.current_mode == self.input_handler.EDIT_MODE
-                else None
-            ),
+            temp_edge_data=temp_edge_data_tuple,  # Pass the prepared tuple
+            edit_target_groups=edit_target_groups_list,  # Pass edit target groups
         )
 
         # Restore painter state

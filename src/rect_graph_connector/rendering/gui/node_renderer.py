@@ -42,7 +42,8 @@ class NodeRenderer(BaseRenderer):
         painter: QPainter,
         selected_nodes=None,
         hover_node=None,
-        nodes_to_draw=None,  # Add parameter to specify which nodes to draw
+        nodes_to_draw=None,
+        edit_target_groups=None,  # Add edit_target_groups parameter
         **kwargs,
     ):
         """
@@ -91,6 +92,7 @@ class NodeRenderer(BaseRenderer):
         is_selected: bool,
         is_hovered: bool,
         opacity: float = 1.0,
+        edit_target_groups: list = None,  # Add edit_target_groups parameter
     ):
         """
         Draw a single node with its background, border, and label.
@@ -122,9 +124,20 @@ class NodeRenderer(BaseRenderer):
                 rect, self.style.corner_radius, self.style.corner_radius
             )
 
+        # Determine if the node is part of a target group in edit mode
+        is_edit_target_node = False
+        if edit_target_groups:
+            # Need to get the group the node belongs to
+            # Assuming self.graph is accessible and has get_group_for_node
+            node_group = self.graph.get_group_for_node(node)
+            if node_group and node_group in edit_target_groups:
+                is_edit_target_node = True
+
         # Set colors based on state
         background_color = self.style.get_background_color(
-            is_selected=is_selected, is_hovered=is_hovered
+            is_selected=is_selected,
+            is_hovered=is_hovered,
+            is_edit_target=is_edit_target_node,  # Pass edit target status
         )
 
         # Apply opacity if needed
@@ -137,7 +150,9 @@ class NodeRenderer(BaseRenderer):
 
         # Draw node border
         border_pen = self.style.get_border_pen(
-            is_selected=is_selected, is_hovered=is_hovered
+            is_selected=is_selected,
+            is_hovered=is_hovered,
+            is_edit_target=is_edit_target_node,  # Pass edit target status
         )
 
         # Apply opacity to the border pen if needed

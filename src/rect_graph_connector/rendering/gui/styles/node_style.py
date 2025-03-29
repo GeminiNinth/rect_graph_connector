@@ -3,9 +3,10 @@ Style configuration for node rendering.
 """
 
 from PyQt5.QtGui import QFont
+
 from .base_style import BaseStyle
-from .node_color_style import NodeColorStyle
 from .node_border_style import NodeBorderStyle
+from .node_color_style import NodeColorStyle
 
 
 class NodeStyle(BaseStyle):
@@ -45,6 +46,7 @@ class NodeStyle(BaseStyle):
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
         is_hovered: bool = False,
+        is_edit_target: bool = False,  # Add is_edit_target
     ):
         """
         Get the appropriate background color based on node state.
@@ -67,6 +69,7 @@ class NodeStyle(BaseStyle):
             is_bridge_source,
             is_bridge_target,
             is_hovered,
+            is_edit_target,  # Pass is_edit_target
         )
 
         # No opacity adjustment needed for hovered nodes
@@ -80,6 +83,7 @@ class NodeStyle(BaseStyle):
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
         is_hovered: bool = False,
+        is_edit_target: bool = False,  # Add is_edit_target
     ):
         """
         Get the appropriate border pen based on node state.
@@ -101,6 +105,7 @@ class NodeStyle(BaseStyle):
             is_parallel_selected,
             is_bridge_source,
             is_bridge_target,
+            is_edit_target,  # Pass is_edit_target
         )
 
     def get_text_color(self):

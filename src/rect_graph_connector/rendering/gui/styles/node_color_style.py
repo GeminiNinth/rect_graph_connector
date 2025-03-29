@@ -3,6 +3,7 @@ Color style configuration for nodes.
 """
 
 from PyQt5.QtGui import QColor
+
 from .base_style import BaseStyle
 
 
@@ -58,6 +59,7 @@ class NodeColorStyle(BaseStyle):
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
         is_hovered: bool = False,
+        is_edit_target: bool = False,  # Add is_edit_target
     ) -> QColor:
         """
         Get the appropriate fill color based on node state.
@@ -81,7 +83,7 @@ class NodeColorStyle(BaseStyle):
             return self.fill_all_for_one
         if is_parallel_selected:
             return self.fill_parallel
-        if is_selected:
+        if is_selected or is_edit_target:  # Treat edit target same as selected
             return self.fill_selected
         return self.fill_normal
 
@@ -93,6 +95,7 @@ class NodeColorStyle(BaseStyle):
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
         is_hovered: bool = False,
+        is_edit_target: bool = False,  # Add is_edit_target
     ) -> QColor:
         """
         Get the appropriate border color based on node state.
@@ -116,6 +119,6 @@ class NodeColorStyle(BaseStyle):
             return self.border_all_for_one
         if is_parallel_selected:
             return self.border_parallel
-        if is_selected:
+        if is_selected or is_edit_target:  # Treat edit target same as selected
             return self.border_selected
         return self.border_normal

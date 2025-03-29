@@ -3,6 +3,7 @@ Border style configuration for nodes.
 """
 
 from PyQt5.QtGui import QPen
+
 from .base_style import BaseStyle
 from .node_color_style import NodeColorStyle
 
@@ -45,6 +46,7 @@ class NodeBorderStyle(BaseStyle):
         is_bridge_source: bool = False,
         is_bridge_target: bool = False,
         is_hovered: bool = False,
+        is_edit_target: bool = False,  # Add is_edit_target
     ) -> QPen:
         """
         Get the appropriate pen for node border based on state.
@@ -68,6 +70,7 @@ class NodeBorderStyle(BaseStyle):
             is_bridge_source,
             is_bridge_target,
             is_hovered,
+            is_edit_target,  # Pass is_edit_target
         )
 
         # Get appropriate border width
@@ -77,7 +80,9 @@ class NodeBorderStyle(BaseStyle):
             width = self.width_all_for_one
         elif is_parallel_selected:
             width = self.width_parallel
-        elif is_selected:
+        elif (
+            is_selected or is_edit_target
+        ):  # Treat edit target same as selected for width
             width = self.width_selected
         else:
             width = self.width_normal
