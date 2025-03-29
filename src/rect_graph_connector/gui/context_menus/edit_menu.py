@@ -214,16 +214,20 @@ class EditContextMenu(QMenu):
         Connect all nodes in the current edit target groups in 8 directions by
         delegating to the graph service.
         """
-        if not self.canvas.edit_target_groups:
+        if (
+            not self.controller or not self.controller.edit_target_groups
+        ):  # Use self.controller
             return
 
         # Delegate the connection logic to the graph service
         from ...models.connectivity import connect_nodes_in_8_directions
 
         # Process each target group
-        for group in self.canvas.edit_target_groups:
+        for group in self.controller.edit_target_groups:  # Use self.controller
             # Get the nodes in the target group
-            group_nodes = group.get_nodes(self.canvas.graph.nodes)
+            group_nodes = group.get_nodes(
+                self.controller.graph.nodes
+            )  # Use self.controller.graph
             if group_nodes:
                 connect_nodes_in_8_directions(self.canvas.graph, group_nodes)
 
@@ -235,16 +239,20 @@ class EditContextMenu(QMenu):
         Connect all nodes in the current edit target groups in 4 directions by
         delegating to the graph service.
         """
-        if not self.canvas.edit_target_groups:
+        if (
+            not self.controller or not self.controller.edit_target_groups
+        ):  # Use self.controller
             return
 
         # Delegate the connection logic to the graph service
         from ...models.connectivity import connect_nodes_in_4_directions
 
         # Process each target group
-        for group in self.canvas.edit_target_groups:
+        for group in self.controller.edit_target_groups:  # Use self.controller
             # Get the nodes in the target group
-            group_nodes = group.get_nodes(self.canvas.graph.nodes)
+            group_nodes = group.get_nodes(
+                self.controller.graph.nodes
+            )  # Use self.controller.graph
             if group_nodes:
                 connect_nodes_in_4_directions(self.canvas.graph, group_nodes)
 

@@ -112,14 +112,23 @@ class ConnectModeHelper:
                     source_belongs = True
                     break
 
+            # Store nodes before resetting state
+            start_node = controller.current_edge_start
+            end_node = target_node
+
+            # Reset temporary edge state *before* modifying the graph
+            controller.current_edge_start = None
+            controller.temp_edge_end = None
+            controller.potential_target_node = None
+
             # Add edge if the source node belongs to the edit target groups
             if source_belongs:
-                controller.graph.add_edge(controller.current_edge_start, target_node)
-
-        # Reset
-        controller.current_edge_start = None
-        controller.temp_edge_end = None
-        controller.potential_target_node = None
+                controller.graph.add_edge(start_node, end_node)
+        else:
+            # If no valid target, still reset the state
+            controller.current_edge_start = None
+            controller.temp_edge_end = None
+            controller.potential_target_node = None
 
 
 class KnifeModeHelper:
@@ -222,15 +231,21 @@ class AllForOneModeHelper:
             controller.temp_edge_end = None
             return
 
-        # Create edges from all selected nodes to the target node
-        for source_node in controller.all_for_one_selected_nodes:
-            if source_node != target_node:  # Avoid self-loops
-                controller.graph.add_edge(source_node, target_node)
+        # Store nodes and state before resetting
+        selected_sources = controller.all_for_one_selected_nodes.copy()
+        final_target_node = target_node
 
-        # Reset
+        # Reset temporary edge state *before* modifying the graph
         controller.current_edge_start = None
         controller.temp_edge_end = None
         controller.potential_target_node = None
+        # Keep all_for_one_selected_nodes until user explicitly changes mode or deselects
+
+        # Create edges from all selected nodes to the target node
+        for source_node in selected_sources:
+            if source_node != final_target_node:  # Avoid self-loops
+                controller.graph.add_edge(source_node, final_target_node)
+        # Note: We don't reset all_for_one_selected_nodes here automatically
 
 
 class ParallelModeHelper:
@@ -312,6 +327,7 @@ class ParallelModeHelper:
         delta_vector = graph_point - start_pos
 
         # Create edges for each selected node if a target node exists at the endpoint
+        edges_to_add = []  # Collect edges to add after resetting state
         for source_node in controller.parallel_selected_nodes:
             if not source_node:
                 continue
@@ -349,14 +365,20 @@ class ParallelModeHelper:
                         break
 
                 # Add edge if source node belongs to the edit target groups
-                if source_belongs:
-                    controller.graph.add_edge(source_node, target_node)
+                # Store edge details before resetting state
+                edges_to_add.append((source_node, target_node))
 
-        # Reset
+        # Reset temporary edge state *before* modifying the graph
         controller.current_edge_start = None
         controller.temp_edge_end = None
         controller.parallel_edge_endpoints = []
         controller.potential_target_node = None
+        # Keep parallel_selected_nodes until user explicitly changes mode or deselects
+
+        # Add the collected edges
+        for start_node, end_node in edges_to_add:
+            controller.graph.add_edge(start_node, end_node)
+        # Note: We don't reset parallel_selected_nodes here automatically
 
     @staticmethod
     def update_edge_endpoints(controller, graph_point):

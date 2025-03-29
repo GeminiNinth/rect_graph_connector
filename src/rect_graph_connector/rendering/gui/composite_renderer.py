@@ -2,6 +2,7 @@
 Composite renderer that combines multiple renderers.
 """
 
+from PyQt5.QtCore import QPointF  # Add this import
 from PyQt5.QtGui import QPainter
 
 from ...models.graph import Graph
@@ -160,6 +161,17 @@ class CompositeRenderer(BaseRenderer):
                 hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
                 edit_target_groups=edit_target_groups,  # Pass edit_target_groups
             )
+
+        # Draw temporary edge if creating one (after nodes, before selection rect)
+        if temp_edge_data:
+            start_node = temp_edge_data[0]
+            end_point = temp_edge_data[1]
+            if start_node and end_point:
+                start_pos = QPointF(start_node.x, start_node.y)
+                # Use the edge renderer's style for consistency
+                temp_pen = self.edge_renderer.style.get_temporary_edge_pen()
+                painter.setPen(temp_pen)
+                painter.drawLine(start_pos, end_point)
 
         # Draw selection rectangle if selecting
         if selection_rect_data:

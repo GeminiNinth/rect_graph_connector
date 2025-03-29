@@ -62,12 +62,31 @@ class EdgeRenderer(BaseRenderer):
         # If we have a hover node but no hovered edges, we can get connected edges
         if hover_node and not hovered_edges:
             # This is a fallback if hover_edge is not provided
+            # Note: get_connected_edges returns List[Tuple[BaseNode, BaseNode]]
             hovered_edges = self.graph.get_connected_edges(hover_node)
 
+        # Create a node map for quick lookup
+        node_map = {node.id: node for node in self.graph.nodes}
+
         # Draw all edges
-        for edge in self.graph.edges:
-            is_selected = edge in selected_edges
-            is_hovered = edge in hovered_edges
+        for src_id, tgt_id in self.graph.edges:  # Iterate through ID tuples
+            source_node = node_map.get(src_id)
+            target_node = node_map.get(tgt_id)
+
+            if not source_node or not target_node:
+                continue  # Skip if nodes not found
+
+            # Check selection/hover status using node objects
+            # Assuming selected_edges and hovered_edges contain tuples of NODE OBJECTS
+            current_edge_tuple = (source_node, target_node)
+            is_selected = (
+                current_edge_tuple in selected_edges
+                or (target_node, source_node) in selected_edges
+            )
+            is_hovered = (
+                current_edge_tuple in hovered_edges
+                or (target_node, source_node) in hovered_edges
+            )
 
             # Apply opacity based on hover state
             opacity = 1.0
@@ -75,27 +94,18 @@ class EdgeRenderer(BaseRenderer):
                 # Apply reduced opacity to non-highlighted edges when hovering
                 opacity = self.style.hover_opacity
 
-            self._draw_edge(painter, edge, is_selected, is_hovered, opacity)
+            # Pass node objects to _draw_edge
+            self._draw_edge(
+                painter, source_node, target_node, is_selected, is_hovered, opacity
+            )
 
-        # Draw temporary edge if it exists
-        if temp_edge_data:
-            start_node = temp_edge_data[
-                0
-            ]  # Assuming temp_edge_data is (start_node, end_point)
-            end_point = temp_edge_data[1]
-            if start_node and end_point:
-                start_pos = QPointF(start_node.x, start_node.y)
-                # Use a distinct style for the temporary edge
-                temp_pen = (
-                    self.style.get_temporary_edge_pen()
-                )  # Assumes this method exists in EdgeStyle
-                painter.setPen(temp_pen)
-                painter.drawLine(start_pos, end_point)
+        # Temporary edge drawing is now handled by CompositeRenderer
 
     def _draw_edge(
         self,
         painter: QPainter,
-        edge,
+        source_node,  # Changed: Accept source_node
+        target_node,  # Changed: Accept target_node
         is_selected: bool,
         is_hovered: bool,
         opacity: float = 1.0,
@@ -105,13 +115,16 @@ class EdgeRenderer(BaseRenderer):
 
         Args:
             painter (QPainter): The painter to use for drawing
-            edge: The edge to draw
+            source_node: The source node object
+            target_node: The target node object
             is_selected (bool): Whether the edge is selected
             is_hovered (bool): Whether the edge is being hovered over
             opacity (float): Opacity level for the edge (0.0-1.0)
         """
         # Calculate edge endpoints considering node sizes
-        start_point, end_point = self.calculate_edge_endpoints(edge.source, edge.target)
+        start_point, end_point = self.calculate_edge_endpoints(
+            source_node, target_node
+        )  # Use node objects
 
         # Save painter state
         painter.save()
@@ -130,8 +143,9 @@ class EdgeRenderer(BaseRenderer):
         # Draw the edge line
         painter.drawLine(start_point, end_point)
 
-        # Draw arrow if edge is directed
-        if getattr(edge, "directed", True):
+        # Draw arrow if edge is directed (assuming True as default)
+        # TODO: If edge directionality needs to be stored/checked, update graph model
+        if True:  # Assuming directed edge for now
             # For arrow, we need to use a potentially modified pen
             arrow_pen = self.style.get_arrow_pen()
             if opacity < 1.0:
