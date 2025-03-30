@@ -6,6 +6,10 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QAction, QMenu
 
 from ...config import config
+from ...models.connectivity import (  # Import necessary functions
+    connect_nodes_in_4_directions,
+    connect_nodes_in_8_directions,
+)
 
 
 class EditContextMenu(QMenu):
@@ -146,17 +150,7 @@ class EditContextMenu(QMenu):
         )
         self.switch_to_normal_action.triggered.connect(self._switch_to_normal_mode)
 
-        # Toggle Grid action (Common action)
-        title = config.get_string("common_menu.toggle_grid.title", "Show Grid")
-        self.toggle_grid_action = QAction(title, self)
-        self.toggle_grid_action.setToolTip(
-            config.get_string(
-                "common_menu.toggle_grid.tooltip",
-                "Toggle the visibility of the background grid.",
-            )
-        )
-        self.toggle_grid_action.setCheckable(True)
-        self.toggle_grid_action.triggered.connect(self._toggle_grid)
+        # REMOVED: Toggle Grid action
 
     def _build_menu(self):
         """Build the menu structure by adding actions."""
@@ -178,8 +172,7 @@ class EditContextMenu(QMenu):
         self.addAction(self.delete_edges_action)
         self.addSeparator()
         self.addAction(self.toggle_knife_action)
-        self.addSeparator()
-        self.addAction(self.toggle_grid_action)  # Add grid toggle action
+        # REMOVED: Grid toggle action separator
         self.addSeparator()
         self.addAction(self.switch_to_normal_action)
 
@@ -239,9 +232,6 @@ class EditContextMenu(QMenu):
         ):  # Use self.controller
             return
 
-        # Delegate the connection logic to the graph service
-        from ...models.connectivity import connect_nodes_in_8_directions
-
         # Process each target group
         for group in self.controller.edit_target_groups:  # Use self.controller
             # Get the nodes in the target group
@@ -249,7 +239,8 @@ class EditContextMenu(QMenu):
                 self.controller.graph.nodes
             )  # Use self.controller.graph
             if group_nodes:
-                connect_nodes_in_8_directions(self.canvas.graph, group_nodes)
+                # Use the imported function directly
+                connect_nodes_in_8_directions(self.controller.graph, group_nodes)
 
         # Update display
         self.canvas.update()
@@ -264,9 +255,6 @@ class EditContextMenu(QMenu):
         ):  # Use self.controller
             return
 
-        # Delegate the connection logic to the graph service
-        from ...models.connectivity import connect_nodes_in_4_directions
-
         # Process each target group
         for group in self.controller.edit_target_groups:  # Use self.controller
             # Get the nodes in the target group
@@ -274,7 +262,8 @@ class EditContextMenu(QMenu):
                 self.controller.graph.nodes
             )  # Use self.controller.graph
             if group_nodes:
-                connect_nodes_in_4_directions(self.canvas.graph, group_nodes)
+                # Use the imported function directly
+                connect_nodes_in_4_directions(self.controller.graph, group_nodes)
 
         # Update display
         self.canvas.update()
@@ -297,31 +286,43 @@ class EditContextMenu(QMenu):
     def _delete_selected_edges(self):
         """
         Delete all currently selected edges.
+        Delegates to the controller.
         """
-        if self.canvas and self.canvas.selected_edges:
-            # Create a copy of the selected edges to avoid modifying the list during iteration
-            edges_to_delete = self.canvas.selected_edges.copy()
+        # TODO: Implement delete_selected_edges in EditModeController
+        if self.controller:
+            # Assuming EditModeController will have a method like this
+            # self.controller.delete_selected_edges()
+            print("Placeholder: Delete selected edges action triggered")
+            # Temporary direct access for now, needs refactoring
+            if self.controller.selection_model.selected_edges:
+                edges_to_delete = self.controller.selection_model.selected_edges.copy()
+                for source_node, target_node in edges_to_delete:
+                    edge_tuple = (source_node.id, target_node.id)
+                    if edge_tuple in self.controller.graph.edges:
+                        self.controller.graph.edges.remove(edge_tuple)
+                    elif (
+                        target_node.id,
+                        source_node.id,
+                    ) in self.controller.graph.edges:
+                        self.controller.graph.edges.remove(
+                            (target_node.id, source_node.id)
+                        )
 
-            for source_node, target_node in edges_to_delete:
-                edge_to_remove = None
-                for edge in self.canvas.graph.edges:
-                    if edge[0] == source_node.id and edge[1] == target_node.id:
-                        edge_to_remove = edge
-                        break
-                if edge_to_remove:
-                    self.canvas.graph.edges.remove(edge_to_remove)
-
-            # Clear the selection after deletion
-            self.canvas.selected_edges = []
-            self.canvas.update()
+                self.controller.selection_model.clear_selection()  # Clear edge selection
+                self.canvas.update()
 
     def _switch_to_normal_mode(self):
         """
         Switch from edit mode to normal mode.
         This uses the canvas's toggle_edit_mode method.
         """
-        if self.canvas:
-            self.canvas.toggle_edit_mode()
+        # Use input_handler on controller
+        if self.controller and self.controller.input_handler:
+            self.controller.input_handler.request_mode_switch(
+                self.controller.input_handler.NORMAL_MODE
+            )
+
+    # REMOVED: _toggle_grid method
 
     def prepare_for_display(self):
         """
@@ -359,17 +360,4 @@ class EditContextMenu(QMenu):
                 self.controller.edit_submode == self.controller.EDIT_SUBMODE_BRIDGE
             )
 
-            # Update grid action checked state
-            self.toggle_grid_action.setChecked(self.controller.view_state.grid_visible)
-
-    def _toggle_grid(self, checked):
-        """Toggle grid visibility."""
-        if self.controller:
-            self.controller.view_state.grid_visible = checked
-            # Emit signal if UI needs update (e.g., toolbar button)
-            if hasattr(self.canvas, "grid_state_changed"):
-                self.canvas.grid_state_changed.emit(
-                    self.controller.view_state.grid_visible,
-                    self.controller.view_state.snap_to_grid,
-                )
-            self.canvas.update()  # Trigger redraw
+            # REMOVED: Update grid action checked state

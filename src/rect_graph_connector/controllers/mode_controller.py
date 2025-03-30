@@ -183,7 +183,7 @@ class ModeController(ABC):
 
         from ..config import config
 
-        grid_size = config.get_dimension("grid.size", 20)
+        grid_size = config.get_dimension("node.node_to_node_distance", 50)
 
         snapped_x = round(x / grid_size) * grid_size
         snapped_y = round(y / grid_size) * grid_size

@@ -187,13 +187,17 @@ class CanvasView(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Border will be drawn last
+        # 1. Draw Background first (before transformations)
+        self.border_renderer.draw_background(painter)
 
-        # Save painter state
+        # 2. Save state & Apply Transformations
         painter.save()
 
-        # Apply view transformations (pan and zoom)
-        painter.translate(self.view_state.pan_offset)
+        # Apply view transformations (pan and zoom) relative to canvas center
+        canvas_center = self.rect().center()
+        painter.translate(
+            canvas_center + self.view_state.pan_offset
+        )  # Translate to center + pan
         painter.scale(self.view_state.zoom, self.view_state.zoom)
 
         # Prepare temporary edge data if applicable
@@ -254,11 +258,11 @@ class CanvasView(QWidget):
             potential_target_node=potential_target_node_obj,  # Pass potential target
         )
 
-        # Restore painter state (removes graph transformations)
+        # 4. Restore painter state (removes graph transformations)
         painter.restore()
 
-        # Draw border last (on top of everything, in widget coordinates)
-        self.border_renderer.draw(painter)
+        # 5. Draw border line last (on top, in widget coordinates)
+        self.border_renderer.draw_border(painter)
 
     # Property getters and setters
     @property

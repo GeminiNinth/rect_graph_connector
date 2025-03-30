@@ -31,10 +31,16 @@ class GridStyle(BaseStyle):
         self.axis_y_color = self.get_color("grid.axis_y", "rgba(0,255,0,128)")
 
         # Dimensions
+        node_to_node_distance = self.get_dimension(
+            "node.node_to_node_distance", 50  # Use the new key
+        )
+        self.minor_spacing = (
+            node_to_node_distance / 2.0
+        )  # Grid lines are half the node distance
+        self.major_spacing = self.minor_spacing * 5  # Major lines every 5 minor lines
+
         self.major_line_width = self.get_dimension("grid.major_line_width", 1.0)
         self.minor_line_width = self.get_dimension("grid.minor_line_width", 0.5)
-        self.major_spacing = self.get_dimension("grid.major_spacing", 100.0)
-        self.minor_spacing = self.get_dimension("grid.minor_spacing", 20.0)
 
         # Zoom thresholds
         self.min_zoom_visible = self.get_constant("grid.min_zoom_visible", 0.1)

@@ -158,8 +158,8 @@ class Graph:
         from ..config import config
 
         # Get configuration values
-        if spacing is None:
-            spacing = config.get_dimension("grid.spacing", 40.0)
+        # Use node_to_node_distance as the spacing
+        spacing = config.get_dimension("node.node_to_node_distance", 50)
 
         # Get node size and group margin
         node_size = config.get_dimension("node.default_size", 30.0)
@@ -173,13 +173,23 @@ class Graph:
         canvas_width = config.get_dimension("main_window.splitter.canvas", 650)
         canvas_height = config.get_dimension("canvas.min_height", 500)
 
-        # Calculate center position considering node size and group margin
+        # Calculate top-left position for the group to be centered
+        # The graph origin (0,0) is now the canvas center.
+        # We want the group's center to align with the graph origin (0,0).
+        group_center_x = 0
+        group_center_y = 0
+
+        # Calculate the top-left corner (base_x, base_y) needed to center the group
+        # The visual center of the node block needs to be at (0,0).
+        # The block spans from x=base_x to x=base_x+(cols-1)*spacing
+        # and from y=base_y to y=base_y+(rows-1)*spacing.
+        # The center x is base_x + (cols-1)*spacing/2
+        # The center y is base_y + (rows-1)*spacing/2
+        # We want center_x = 0 and center_y = 0.
         if base_x is None:
-            # Subtract node size to account for the node's own width
-            base_x = (canvas_width - total_width) / 2
+            base_x = 0 - (cols - 1) * spacing / 2
         if base_y is None:
-            # Subtract node size to account for the node's own height
-            base_y = (canvas_height - total_height) / 2
+            base_y = 0 - (rows - 1) * spacing / 2
 
         # Get starting node ID based on configuration and existing nodes
         next_id = config.node_id_start

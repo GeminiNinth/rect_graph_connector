@@ -256,17 +256,9 @@ class InputHandler(QObject):  # Inherit from QObject
         Returns:
             bool: True if the event was handled, False otherwise
         """
-        # Handle global keys first (like grid toggle)
-        if event.key() == Qt.Key_G:
-            self.view_state.grid_visible = not self.view_state.grid_visible
-            # Emit signal if UI needs update (e.g., toolbar button)
-            if hasattr(self.canvas, "grid_state_changed"):
-                self.canvas.grid_state_changed.emit(
-                    self.view_state.grid_visible, self.view_state.snap_to_grid
-                )
-            return True  # Event handled
+        # Grid toggle ('G') is now mode-specific (Normal mode only)
 
-        # If not handled globally, delegate to current mode controller
+        # Delegate key presses to current mode controller
         return self.current_mode_controller.handle_key_press(event)
 
     def handle_wheel(self, event, widget_point):
@@ -295,8 +287,11 @@ class InputHandler(QObject):  # Inherit from QObject
         # Set new zoom (will be clamped in the model)
         self.view_state.zoom = new_zoom
 
-        # Adjust pan offset to maintain mouse cursor position
-        new_pan = widget_point - (mouse_graph_pos * self.view_state.zoom)
+        # Adjust pan offset to maintain mouse cursor position relative to the new origin
+        canvas_center = self.canvas.rect().center()
+        new_pan = (
+            widget_point - canvas_center - (mouse_graph_pos * self.view_state.zoom)
+        )
         self.view_state.pan_offset = new_pan
 
         return True
@@ -311,7 +306,11 @@ class InputHandler(QObject):  # Inherit from QObject
         Returns:
             QPointF: The point in graph coordinates
         """
-        return (widget_point - self.view_state.pan_offset) / self.view_state.zoom
+        canvas_center = self.canvas.rect().center()
+        # Reverse the transformation: subtract center offset, subtract pan, divide by zoom
+        return (
+            widget_point - canvas_center - self.view_state.pan_offset
+        ) / self.view_state.zoom
 
     def _start_panning(self, widget_point):
         """

@@ -20,6 +20,7 @@ node:
     all_for_one_selected: 3
     parallel_selected: 3
     bridge_highlighted: 2
+  node_to_node_distance: 50 # Distance between centers of adjacent nodes
 
 group:
   border_width:
@@ -68,8 +69,10 @@ knife:
   path_width: 1 # Knife Pass Line Width
   highlight_width: 3.0 # Highlighted edge width when cutting
 
-grid:
-  spacing: 40.0
+grid: # Re-added section for grid dimensions
+  major_line_width: 1.0
+  minor_line_width: 0.5
+  # spacing is now derived from node.node_to_node_distance in GridStyle
 
 paste:
   offset_x: 40 # Default horizontal offset for pasting groups

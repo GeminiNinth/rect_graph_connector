@@ -77,20 +77,13 @@ class GridRenderer(BaseRenderer):
         """
         # Get widget size
         widget_rect = painter.viewport()
+        transform = painter.transform().inverted()[0]
 
-        # Convert to scene coordinates
-        top_left = (
-            painter.transform()
-            .inverted()[0]
-            .map(QPointF(widget_rect.left(), widget_rect.top()))
-        )
-        bottom_right = (
-            painter.transform()
-            .inverted()[0]
-            .map(QPointF(widget_rect.right(), widget_rect.bottom()))
-        )
+        # Map viewport corners to graph coordinates
+        top_left_graph = transform.map(widget_rect.topLeft())
+        bottom_right_graph = transform.map(widget_rect.bottomRight())
 
-        return QRectF(top_left, bottom_right)
+        return QRectF(top_left_graph, bottom_right_graph)
 
     def _draw_grid_lines(
         self,

@@ -299,6 +299,11 @@ class NormalModeController(ModeController):
                 for group in groups_to_delete:
                     self.graph.delete_group(group)
                 self.selection_model.clear_selection()
+                # Update main window list if needed
+                main_window = self.canvas.window()
+                if hasattr(main_window, "_update_group_list"):
+                    main_window._update_group_list()
+                self.canvas.update()
                 return True
 
         # Handle Ctrl+A for selecting all groups
@@ -314,12 +319,19 @@ class NormalModeController(ModeController):
                 # Store copied data in the context menu for now
                 # Ideally, this would use a dedicated clipboard model/service
                 self.context_menu.copied_groups_data = self.copy_selection()
+                # Update paste action state in menu
+                self.context_menu.paste_action.setEnabled(
+                    self.context_menu.copied_groups_data is not None
+                )
                 return True
 
         # Handle Ctrl+V for pasting groups
         elif event.key() == Qt.Key_V and event.modifiers() & Qt.ControlModifier:
             if self.context_menu.copied_groups_data:
                 self.paste(self.context_menu.copied_groups_data)
+                # Optionally clear clipboard after paste?
+                # self.context_menu.copied_groups_data = None
+                # self.context_menu.paste_action.setEnabled(False)
                 return True
 
         # Handle E key for switching to Edit mode
@@ -340,7 +352,19 @@ class NormalModeController(ModeController):
                 else:
                     # Rotate each group individually
                     self.graph.rotate_node_groups(self.selection_model.selected_groups)
+                self.canvas.update()  # Trigger redraw after rotation
                 return True
+
+        # Handle G key for toggling grid
+        elif event.key() == Qt.Key_G:
+            self.view_state.grid_visible = not self.view_state.grid_visible
+            # Emit signal if UI needs update (e.g., toolbar button)
+            if hasattr(self.canvas, "grid_state_changed"):
+                self.canvas.grid_state_changed.emit(
+                    self.view_state.grid_visible, self.view_state.snap_to_grid
+                )
+            self.canvas.update()  # Trigger redraw
+            return True  # Event handled
 
         return False
 

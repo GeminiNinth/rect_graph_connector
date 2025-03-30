@@ -30,30 +30,35 @@ class BorderRenderer(BaseRenderer):
 
     def draw(self, painter: QPainter, **kwargs):
         """
-        Draw the canvas border and background.
-
-        Args:
-            painter (QPainter): The painter to use for drawing
-            **kwargs: Additional drawing parameters
+        Abstract method implementation.
+        Actual drawing is handled by draw_background and draw_border.
         """
-        # Save painter state
-        painter.save()
+        # This method is required by BaseRenderer but the logic is split.
+        # Depending on usage, it might call both sub-methods or do nothing.
+        # For current usage from CanvasView, this can be empty.
+        pass
+        # Alternatively, if needed elsewhere:
+        # self.draw_background(painter)
+        # self.draw_border(painter)
 
-        # Get the viewport rectangle
+    def draw_background(self, painter: QPainter):
+        """Draw only the canvas background."""
         viewport_rect = painter.viewport()
-
-        # Draw background
         painter.fillRect(viewport_rect, QBrush(self.style.background_color))
 
-        # Draw border directly on the viewport edges
-        # Adjust slightly inwards by half the pen width for visual alignment
+    def draw_border(self, painter: QPainter):
+        """Draw only the canvas border line."""
+        # Save painter state to isolate pen changes
+        painter.save()
+
+        viewport_rect = painter.viewport()
         pen = self.style.get_border_pen()
         half_pen_width = pen.widthF() / 2.0
+        # Draw slightly inside the viewport for better visibility
         border_rect = QRectF(viewport_rect).adjusted(
             half_pen_width, half_pen_width, -half_pen_width, -half_pen_width
         )
 
-        # Draw border
         painter.setPen(pen)
         painter.drawRect(border_rect)
 
