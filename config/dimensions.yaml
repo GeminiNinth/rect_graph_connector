@@ -20,7 +20,7 @@ node:
     all_for_one_selected: 3
     parallel_selected: 3
     bridge_highlighted: 2
-  node_to_node_distance: 50 # Distance between centers of adjacent nodes
+  node_to_node_distance: 50 # Distance between centers of adjacent nodes. Grid size is determined by this value
 
 group:
   border_width:
@@ -31,7 +31,7 @@ group:
     fixed_width: 100
     height: 20
     text_margin: 10
-    position_margin: 30
+    position_margin: 5
 
 edge:
   width:

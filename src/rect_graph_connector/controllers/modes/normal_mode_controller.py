@@ -42,6 +42,7 @@ class NormalModeController(ModeController):
         self.context_menu = NormalContextMenu(
             self.canvas, self
         )  # Pass self (controller)
+        self.drag_initial_positions = {}  # Store initial node positions on drag start
 
     def handle_mouse_press(self, event, graph_point, widget_point):
         """
@@ -64,6 +65,8 @@ class NormalModeController(ModeController):
             shift_pressed = event.modifiers() & Qt.ShiftModifier
 
             if node:
+                # Store the clicked node immediately for potential drag reference
+                self.drag_start_node = node
                 # Handle node click
                 group = self.graph.get_group_for_node(node)
                 if (
@@ -76,10 +79,25 @@ class NormalModeController(ModeController):
                         self.pending_deselect = True
                         self.press_pos = QPointF(graph_point)
                 else:
-                    # Start dragging
+                    # Start dragging immediately
                     self.dragging = True
-                    self.drag_start = QPointF(graph_point)
-                    self.drag_start_node = node
+                    self.drag_start = QPointF(
+                        graph_point
+                    )  # Store the absolute start point of the drag
+                    # self.drag_start_node is already set above
+                    # Store initial positions of all selected nodes
+                    self.drag_initial_positions = {
+                        node.id: QPointF(node.x, node.y)
+                        for node in self.selection_model.selected_nodes
+                    }
+                    # Also add the start node if it wasn't part of the selection yet (e.g., single node drag)
+                    if (
+                        self.drag_start_node
+                        and self.drag_start_node.id not in self.drag_initial_positions
+                    ):
+                        self.drag_initial_positions[self.drag_start_node.id] = QPointF(
+                            self.drag_start_node.x, self.drag_start_node.y
+                        )
 
                     # Handle selection
                     if group:
@@ -96,57 +114,39 @@ class NormalModeController(ModeController):
                             )
                             self.graph.bring_group_to_front(group)
 
-                        # Update selected nodes
+                        # Update selected nodes (important to do this *before* storing initial positions)
                         self._update_selected_nodes_from_groups()
+                        # Re-store initial positions now that selection is updated
+                        self.drag_initial_positions = {
+                            node.id: QPointF(node.x, node.y)
+                            for node in self.selection_model.selected_nodes
+                        }
+
                     else:
                         # Node without group
                         if not shift_pressed:
                             self.selection_model.clear_selection()
                         self.selection_model.select_node(node)
+                        # Store initial position for the single selected node
+                        self.drag_initial_positions = {node.id: QPointF(node.x, node.y)}
 
                 return True
             else:
-                # Check for group click (without hitting a specific node)
-                group = self._find_group_at_position(graph_point)
-                if group:
-                    # Start dragging
-                    self.dragging = True
-                    self.drag_start = QPointF(graph_point)
+                # If no node is clicked, it's a background click
+                # Background click - start rectangle selection
+                self.is_selecting = True
+                self.selection_rect_start = QPointF(graph_point)
+                self.selection_rect_end = QPointF(graph_point)
 
-                    # Handle selection
-                    if shift_pressed:
-                        # Multi-selection with Shift
-                        self.selection_model.select_group(group, add_to_selection=True)
-                        self.graph.bring_group_to_front(group)
-                    else:
-                        # Single selection
-                        self.selection_model.select_group(group, add_to_selection=False)
-                        self.graph.bring_group_to_front(group)
+                # Deselect if background click deselection is enabled and not shift-clicking
+                if (
+                    self.selection_model.is_deselect_method_enabled("background")
+                    and self.selection_model.selected_groups
+                    and not shift_pressed
+                ):
+                    self.selection_model.clear_selection()
 
-                    # Update selected nodes
-                    self._update_selected_nodes_from_groups()
-
-                    # Store a reference node from the clicked group for movement
-                    group_nodes = group.get_nodes(self.graph.nodes)
-                    if group_nodes:
-                        self.drag_start_node = group_nodes[0]
-
-                    return True
-                else:
-                    # Background click - start rectangle selection
-                    self.is_selecting = True
-                    self.selection_rect_start = QPointF(graph_point)
-                    self.selection_rect_end = QPointF(graph_point)
-
-                    # Deselect if background click deselection is enabled and not shift-clicking
-                    if (
-                        self.selection_model.is_deselect_method_enabled("background")
-                        and self.selection_model.selected_groups
-                        and not shift_pressed
-                    ):
-                        self.selection_model.clear_selection()
-
-                    return True
+                return True
 
         elif event.button() == Qt.RightButton:
             # Right-click shows context menu (handled by canvas)
@@ -175,7 +175,21 @@ class NormalModeController(ModeController):
             if (graph_point - self.press_pos).manhattanLength() > drag_threshold:
                 self.pending_deselect = False
                 self.dragging = True
-                self.drag_start = self.press_pos
+                self.drag_start = (
+                    self.press_pos
+                )  # Start drag from original press position
+                # Store initial positions when drag confirmed after pending deselect
+                self.drag_initial_positions = {
+                    node.id: QPointF(node.x, node.y)
+                    for node in self.selection_model.selected_nodes
+                }
+                if (
+                    self.drag_start_node
+                    and self.drag_start_node.id not in self.drag_initial_positions
+                ):
+                    self.drag_initial_positions[self.drag_start_node.id] = QPointF(
+                        self.drag_start_node.x, self.drag_start_node.y
+                    )
 
                 # Move selected groups to front when starting drag
                 for group in self.selection_model.selected_groups:
@@ -218,8 +232,36 @@ class NormalModeController(ModeController):
             # End dragging
             if self.dragging:
                 self.dragging = False
+                # Final snap after drag release if snap is enabled
+                if self.view_state.snap_to_grid:
+                    # Snap based on the node that was initially dragged
+                    if (
+                        self.drag_start_node
+                        and self.drag_start_node.id in self.drag_initial_positions
+                    ):
+                        initial_ref_pos = self.drag_initial_positions[
+                            self.drag_start_node.id
+                        ]
+                        current_ref_pos = QPointF(
+                            self.drag_start_node.x, self.drag_start_node.y
+                        )
+                        snapped_target = self._snap_point_to_grid(
+                            current_ref_pos
+                        )  # Snap current pos
+
+                        final_dx = snapped_target.x() - self.drag_start_node.x
+                        final_dy = snapped_target.y() - self.drag_start_node.y
+
+                        if abs(final_dx) > 0.1 or abs(final_dy) > 0.1:
+                            for node in self.selection_model.selected_nodes:
+                                node.x += final_dx
+                                node.y += final_dy
+                            self.canvas.update()
+                    # else: Consider snapping groups if drag started on background? For now, do nothing extra.
+
                 self.drag_start = None
                 self.drag_start_node = None
+                self.drag_initial_positions = {}  # Clear initial positions
                 return True
 
             # Complete rectangle selection
@@ -370,57 +412,61 @@ class NormalModeController(ModeController):
 
     def _handle_dragging(self, graph_point):
         """
-        Handle dragging of selected nodes/groups.
+        Handle dragging of selected nodes/groups. Snaps based on the initially
+        clicked node (`drag_start_node`) if snap_to_grid is enabled.
 
         Args:
             graph_point: The current point in graph coordinates
         """
-        if not self.selection_model.selected_nodes:
+        if not self.selection_model.selected_nodes or not self.drag_start:
             return
 
-        dx = graph_point.x() - self.drag_start.x()
-        dy = graph_point.y() - self.drag_start.y()
+        # Calculate total displacement from the absolute start of the drag
+        total_dx = graph_point.x() - self.drag_start.x()
+        total_dy = graph_point.y() - self.drag_start.y()
+
+        # Determine the final displacement to apply
+        final_dx = total_dx
+        final_dy = total_dy
+        movement_applied = False  # Flag to track if nodes actually moved
 
         if self.view_state.grid_visible and self.view_state.snap_to_grid:
-            # Get reference node for snapping
-            reference_node = None
-            if (
-                self.drag_start_node
-                and self.drag_start_node in self.selection_model.selected_nodes
-            ):
-                reference_node = self.drag_start_node
-            elif self.selection_model.selected_nodes:
-                reference_node = self.selection_model.selected_nodes[0]
-            else:
-                return
+            reference_node = self.drag_start_node
+            if reference_node and reference_node.id in self.drag_initial_positions:
+                # Get the initial position of the reference node
+                initial_ref_pos = self.drag_initial_positions[reference_node.id]
 
-            # Calculate target position for reference node
-            target_x = reference_node.x + dx
-            target_y = reference_node.y + dy
+                # Calculate the ideal target position based on total displacement
+                ideal_target_x = initial_ref_pos.x() + total_dx
+                ideal_target_y = initial_ref_pos.y() + total_dy
 
-            # Snap to grid
-            snapped_x, snapped_y = self._snap_to_grid_point(target_x, target_y)
+                # Snap the ideal target position to the grid
+                snapped_target = self._snap_point_to_grid(
+                    QPointF(ideal_target_x, ideal_target_y)
+                )
 
-            # Calculate adjusted displacement
-            adjusted_dx = snapped_x - reference_node.x
-            adjusted_dy = snapped_y - reference_node.y
+                # Calculate the final displacement needed to move from initial to snapped target
+                final_dx = snapped_target.x() - initial_ref_pos.x()
+                final_dy = snapped_target.y() - initial_ref_pos.y()
+            # else: No valid reference node, use raw displacement (final_dx/dy remain total_dx/dy)
 
-            # Move all selected nodes
+        # Apply the final displacement relative to the *initial* positions
+        if abs(final_dx) > 0.1 or abs(final_dy) > 0.1:
             for node in self.selection_model.selected_nodes:
-                node.x += adjusted_dx
-                node.y += adjusted_dy
+                if node.id in self.drag_initial_positions:
+                    initial_pos = self.drag_initial_positions[node.id]
+                    new_x = initial_pos.x() + final_dx
+                    new_y = initial_pos.y() + final_dy
+                    # Check if position actually changed significantly before updating
+                    if abs(new_x - node.x) > 0.01 or abs(new_y - node.y) > 0.01:
+                        node.x = new_x
+                        node.y = new_y
+                        movement_applied = True
 
-            # Update drag start for next movement
-            self.drag_start = QPointF(
-                self.drag_start.x() + adjusted_dx, self.drag_start.y() + adjusted_dy
-            )
-        else:
-            # Normal movement without snapping
-            for node in self.selection_model.selected_nodes:
-                node.move(dx, dy)
-
-            # Update drag start for next movement
-            self.drag_start = graph_point
+        # Trigger redraw if any node moved
+        if movement_applied:
+            self.canvas.update()
+        # NOTE: drag_start is NOT updated here. It remains the initial press point.
 
     def _update_selected_nodes_from_groups(self):
         """Update selected nodes based on selected groups."""
@@ -433,6 +479,7 @@ class NormalModeController(ModeController):
         """
         Find a node group that contains the given point in graph coordinates.
         Returns the frontmost group (highest z-index) if multiple groups overlap.
+        NOTE: This is likely unused now due to selection logic change.
 
         Args:
             point (QPointF): The point in graph coordinates
@@ -586,4 +633,50 @@ class NormalModeController(ModeController):
         # TODO: Implement logic using self.graph.rotate_groups_around_center
         if len(self.selection_model.selected_groups) > 1:
             self.graph.rotate_groups_around_center(self.selection_model.selected_groups)
+            self.canvas.update()
+
+    def _snap_point_to_grid(self, point: QPointF) -> QPointF:
+        """Snaps a given point to the nearest grid intersection."""
+        # Grid spacing is based on node distance / 2
+        node_distance = config.get_dimension("node.node_to_node_distance", 50)
+        grid_spacing = node_distance / 2.0
+        if grid_spacing == 0:
+            return point  # Avoid division by zero
+
+        snapped_x = round(point.x() / grid_spacing) * grid_spacing
+        snapped_y = round(point.y() / grid_spacing) * grid_spacing
+        return QPointF(snapped_x, snapped_y)
+
+    def snap_all_groups_to_grid(self):
+        """Snaps ALL groups to the nearest grid intersection based on their center."""
+        if not self.view_state.snap_to_grid:
+            return
+
+        groups_moved = False
+        # Iterate through ALL groups in the graph
+        for group in self.graph.node_groups:
+            group_nodes = group.get_nodes(self.graph.nodes)
+            if not group_nodes:
+                continue
+
+            # Calculate current center
+            center_x = sum(node.x for node in group_nodes) / len(group_nodes)
+            center_y = sum(node.y for node in group_nodes) / len(group_nodes)
+            current_center = QPointF(center_x, center_y)
+
+            # Calculate snapped center
+            snapped_center = self._snap_point_to_grid(current_center)
+
+            # Calculate displacement and move nodes
+            dx = snapped_center.x() - current_center.x()
+            dy = snapped_center.y() - current_center.y()
+
+            if abs(dx) > 0.1 or abs(dy) > 0.1:  # Apply only if there's a change
+                for node in group_nodes:
+                    node.x += dx
+                    node.y += dy
+                groups_moved = True  # Mark that at least one group moved
+
+        # Update canvas only once if any group moved
+        if groups_moved:
             self.canvas.update()

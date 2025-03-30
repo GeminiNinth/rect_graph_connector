@@ -770,14 +770,23 @@ class MainWindow(QMainWindow):
         # Update canvas snap setting
         self.canvas.snap_to_grid = is_checked
 
-        # Snap all nodes to grid if enabled
-        if is_checked:
-            self.canvas._snap_all_nodes_to_grid()
+        # Snap ALL groups to grid if enabled and in Normal mode when toggled ON
+        if (
+            is_checked
+            and self.canvas.input_handler.current_mode
+            == self.canvas.input_handler.NORMAL_MODE
+        ):
+            normal_controller = self.canvas.input_handler.mode_controllers[
+                self.canvas.input_handler.NORMAL_MODE
+            ]
+            # Call the new method to snap all groups
+            normal_controller.snap_all_groups_to_grid()
+            # Controller's snap method should handle the canvas update
 
         # Emit the grid state changed signal to keep other components in sync
         self.canvas.grid_state_changed.emit(self.canvas.grid_visible, is_checked)
 
-        # Refresh the canvas
+        # Refresh the canvas (might be redundant if controller updates)
         self.canvas.update()
 
     def _handle_grid_state_changed(self, grid_visible, snap_enabled):
