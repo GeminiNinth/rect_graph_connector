@@ -23,6 +23,8 @@ light:
   grid:
     major_line: "rgba(200,200,200,128)" # Major grid lines (was grid.line)
     minor_line: "rgba(220,220,220,64)" # Minor grid lines
+    axis_x: "rgba(255,0,0,128)" # Red for X=0 axis
+    axis_y: "rgba(0,255,0,128)" # Green for Y=0 axis
 
   group:
     border:

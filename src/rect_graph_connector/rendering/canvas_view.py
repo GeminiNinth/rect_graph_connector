@@ -187,8 +187,7 @@ class CanvasView(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw border first (before transformations)
-        self.border_renderer.draw(painter)
+        # Border will be drawn last
 
         # Save painter state
         painter.save()
@@ -255,8 +254,11 @@ class CanvasView(QWidget):
             potential_target_node=potential_target_node_obj,  # Pass potential target
         )
 
-        # Restore painter state
+        # Restore painter state (removes graph transformations)
         painter.restore()
+
+        # Draw border last (on top of everything, in widget coordinates)
+        self.border_renderer.draw(painter)
 
     # Property getters and setters
     @property

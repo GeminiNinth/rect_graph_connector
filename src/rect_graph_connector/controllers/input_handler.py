@@ -256,7 +256,17 @@ class InputHandler(QObject):  # Inherit from QObject
         Returns:
             bool: True if the event was handled, False otherwise
         """
-        # Delegate to current mode controller
+        # Handle global keys first (like grid toggle)
+        if event.key() == Qt.Key_G:
+            self.view_state.grid_visible = not self.view_state.grid_visible
+            # Emit signal if UI needs update (e.g., toolbar button)
+            if hasattr(self.canvas, "grid_state_changed"):
+                self.canvas.grid_state_changed.emit(
+                    self.view_state.grid_visible, self.view_state.snap_to_grid
+                )
+            return True  # Event handled
+
+        # If not handled globally, delegate to current mode controller
         return self.current_mode_controller.handle_key_press(event)
 
     def handle_wheel(self, event, widget_point):

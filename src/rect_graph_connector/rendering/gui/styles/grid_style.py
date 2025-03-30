@@ -27,6 +27,8 @@ class GridStyle(BaseStyle):
         self.minor_line_color = self.get_color(
             "grid.minor_line", "rgba(220,220,220,64)"
         )
+        self.axis_x_color = self.get_color("grid.axis_x", "rgba(255,0,0,128)")
+        self.axis_y_color = self.get_color("grid.axis_y", "rgba(0,255,0,128)")
 
         # Dimensions
         self.major_line_width = self.get_dimension("grid.major_line_width", 1.0)
@@ -60,6 +62,18 @@ class GridStyle(BaseStyle):
         """
         pen = QPen(self.minor_line_color, self.minor_line_width)
         pen.setStyle(Qt.DotLine)
+        return pen
+
+    def get_axis_x_pen(self):
+        """Get the pen for drawing the X=0 axis."""
+        pen = QPen(self.axis_x_color, self.major_line_width)  # Use major width for axis
+        pen.setStyle(Qt.SolidLine)
+        return pen
+
+    def get_axis_y_pen(self):
+        """Get the pen for drawing the Y=0 axis."""
+        pen = QPen(self.axis_y_color, self.major_line_width)  # Use major width for axis
+        pen.setStyle(Qt.SolidLine)
         return pen
 
     def should_show_minor_lines(self, zoom: float) -> bool:

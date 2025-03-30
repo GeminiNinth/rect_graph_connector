@@ -146,6 +146,18 @@ class EditContextMenu(QMenu):
         )
         self.switch_to_normal_action.triggered.connect(self._switch_to_normal_mode)
 
+        # Toggle Grid action (Common action)
+        title = config.get_string("common_menu.toggle_grid.title", "Show Grid")
+        self.toggle_grid_action = QAction(title, self)
+        self.toggle_grid_action.setToolTip(
+            config.get_string(
+                "common_menu.toggle_grid.tooltip",
+                "Toggle the visibility of the background grid.",
+            )
+        )
+        self.toggle_grid_action.setCheckable(True)
+        self.toggle_grid_action.triggered.connect(self._toggle_grid)
+
     def _build_menu(self):
         """Build the menu structure by adding actions."""
         # Add delete selected edges action
@@ -166,6 +178,8 @@ class EditContextMenu(QMenu):
         self.addAction(self.delete_edges_action)
         self.addSeparator()
         self.addAction(self.toggle_knife_action)
+        self.addSeparator()
+        self.addAction(self.toggle_grid_action)  # Add grid toggle action
         self.addSeparator()
         self.addAction(self.switch_to_normal_action)
 
@@ -344,3 +358,18 @@ class EditContextMenu(QMenu):
             self.bridge_action.setChecked(
                 self.controller.edit_submode == self.controller.EDIT_SUBMODE_BRIDGE
             )
+
+            # Update grid action checked state
+            self.toggle_grid_action.setChecked(self.controller.view_state.grid_visible)
+
+    def _toggle_grid(self, checked):
+        """Toggle grid visibility."""
+        if self.controller:
+            self.controller.view_state.grid_visible = checked
+            # Emit signal if UI needs update (e.g., toolbar button)
+            if hasattr(self.canvas, "grid_state_changed"):
+                self.canvas.grid_state_changed.emit(
+                    self.controller.view_state.grid_visible,
+                    self.controller.view_state.snap_to_grid,
+                )
+            self.canvas.update()  # Trigger redraw
