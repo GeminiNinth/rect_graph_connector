@@ -4,6 +4,7 @@ Style configuration for grid rendering.
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPen
+
 from .base_style import BaseStyle
 
 
@@ -19,7 +20,7 @@ class GridStyle(BaseStyle):
         """Initialize grid style with default values."""
         super().__init__()
 
-        # Colors
+        # Colors (Using keys from colors.yaml)
         self.major_line_color = self.get_color(
             "grid.major_line", "rgba(200,200,200,128)"
         )

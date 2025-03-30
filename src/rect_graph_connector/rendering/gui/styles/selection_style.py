@@ -4,6 +4,7 @@ Style configuration for selection rectangle rendering.
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPen
+
 from .base_style import BaseStyle
 
 
@@ -19,7 +20,7 @@ class SelectionStyle(BaseStyle):
         """Initialize selection style with default values."""
         super().__init__()
 
-        # Colors
+        # Colors (Using keys from colors.yaml)
         self.fill_color = self.get_color(
             "selection.fill", "rgba(135,206,235,64)"
         )  # Light blue with transparency

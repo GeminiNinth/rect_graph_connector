@@ -3,7 +3,7 @@ Border renderer for drawing canvas border.
 """
 
 from PyQt5.QtCore import QRectF
-from PyQt5.QtGui import QPainter, QBrush
+from PyQt5.QtGui import QBrush, QPainter
 
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
@@ -45,17 +45,16 @@ class BorderRenderer(BaseRenderer):
         # Draw background
         painter.fillRect(viewport_rect, QBrush(self.style.background_color))
 
-        # Calculate border rectangle with margin
-        margin = self.style.margin
-        border_rect = QRectF(
-            viewport_rect.x() + margin,
-            viewport_rect.y() + margin,
-            viewport_rect.width() - 2 * margin,
-            viewport_rect.height() - 2 * margin,
+        # Draw border directly on the viewport edges
+        # Adjust slightly inwards by half the pen width for visual alignment
+        pen = self.style.get_border_pen()
+        half_pen_width = pen.widthF() / 2.0
+        border_rect = QRectF(viewport_rect).adjusted(
+            half_pen_width, half_pen_width, -half_pen_width, -half_pen_width
         )
 
         # Draw border
-        painter.setPen(self.style.get_border_pen())
+        painter.setPen(pen)
         painter.drawRect(border_rect)
 
         # Restore painter state

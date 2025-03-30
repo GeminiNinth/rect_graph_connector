@@ -20,7 +20,7 @@ class EdgeStyle(BaseStyle):
         """Initialize edge style with default values."""
         super().__init__()
 
-        # Colors
+        # Colors (Using keys from colors.yaml)
         self.line_color = self.get_color("edge.line", "rgba(100,100,100,255)")
         self.selected_color = self.get_color("edge.selected", "rgba(0,120,215,255)")
         self.hover_color = self.get_color("edge.hover", "rgba(150,150,150,255)")

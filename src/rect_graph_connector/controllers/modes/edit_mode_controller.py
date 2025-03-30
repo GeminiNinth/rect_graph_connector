@@ -417,7 +417,64 @@ class EditModeController(ModeController):
         Returns:
             bool: True if the event was handled, False otherwise
         """
+        # Handle E key to switch back to Normal mode
+        if event.key() == Qt.Key_E:
+            self.input_handler.request_mode_switch(self.input_handler.NORMAL_MODE)
+            return True
+
         if event.key() == Qt.Key_Escape:
+            # If in a special submode, Esc cancels the submode first
+            if self.edit_submode != self.EDIT_SUBMODE_CONNECT:
+                # Cancel All-For-One connection mode
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    self.all_for_one_selected_nodes = []
+                    self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                    return True
+                # Cancel Parallel connection mode
+                elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                    self.parallel_selected_nodes = []
+                    self.parallel_edge_endpoints = []
+                    self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                    return True
+                # Cancel Bridge mode (clear selection or exit)
+                elif self.edit_submode == self.EDIT_SUBMODE_BRIDGE:
+                    if self.bridge_selected_groups:
+                        self.bridge_selected_groups = []
+                        self.bridge_floating_menus = {}
+                        self.bridge_edge_nodes = {}
+                        self.bridge_preview_lines = {}
+                        # Don't switch mode yet, just clear selection
+                        return True
+                    else:
+                        # Exit bridge mode if no groups are selected
+                        self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                        return True
+                # Cancel Knife mode if active (though usually completed on release)
+                elif self.edit_submode == self.EDIT_SUBMODE_KNIFE:
+                    if self.is_cutting:
+                        self.is_cutting = False
+                        self.knife_path = []
+                        self.highlighted_edges = []
+                        # Don't switch mode, just cancel cutting
+                        return True
+                    else:
+                        # If not cutting, just switch back to connect submode
+                        self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                        return True
+
+            # If already in default connect submode, Esc switches to Normal mode
+            # OR if deselection by ESC is enabled, deselect edges first
+            if (
+                self.selection_model.selected_edges
+                and self.selection_model.is_deselect_method_enabled("escape")
+            ):
+                self.selection_model.clear_selection()  # Deselect edges first
+                return True
+            else:
+                # No edges selected or deselection disabled, switch to Normal mode
+                self.input_handler.request_mode_switch(self.input_handler.NORMAL_MODE)
+                return True
+
             # Handle special edit submodes
             if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
                 # Cancel All-For-One connection mode and go back to connect mode

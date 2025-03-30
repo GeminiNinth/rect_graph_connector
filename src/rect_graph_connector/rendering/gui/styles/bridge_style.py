@@ -4,6 +4,7 @@ Style configuration for bridge connection rendering.
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPen
+
 from .base_style import BaseStyle
 
 
@@ -19,7 +20,7 @@ class BridgeStyle(BaseStyle):
         """Initialize bridge style with default values."""
         super().__init__()
 
-        # Colors
+        # Colors (Using keys from colors.yaml)
         self.preview_color = self.get_color(
             "bridge.preview", "rgba(0,191,255,180)"
         )  # Deep sky blue

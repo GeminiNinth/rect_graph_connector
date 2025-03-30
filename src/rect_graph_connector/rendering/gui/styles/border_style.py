@@ -4,6 +4,7 @@ Style configuration for canvas border rendering.
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPen
+
 from .base_style import BaseStyle
 
 
@@ -19,15 +20,19 @@ class BorderStyle(BaseStyle):
         """Initialize border style with default values."""
         super().__init__()
 
-        # Colors
-        self.border_color = self.get_color("border.color", "rgba(180,180,180,255)")
+        # Colors (Using new keys from colors.yaml)
+        self.border_color = self.get_color(
+            "canvas.border.default", "rgba(180,180,180,255)"
+        )
         self.background_color = self.get_color(
-            "border.background", "rgba(255,255,255,255)"
+            "canvas.background", "rgba(255,255,255,255)"
         )
 
         # Dimensions
-        self.border_width = self.get_dimension("border.width", 1.0)
-        self.margin = self.get_dimension("border.margin", 10.0)
+        self.border_width = self.get_dimension(
+            "canvas.border_width", 1.0
+        )  # Use canvas.border_width
+        # self.margin = self.get_dimension("border.margin", 10.0) # Margin no longer used for border rect
 
         # Border style configuration
         self.line_style = Qt.SolidLine
