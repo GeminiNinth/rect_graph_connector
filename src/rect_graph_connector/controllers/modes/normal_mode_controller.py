@@ -9,6 +9,7 @@ from PyQt5.QtCore import QPointF, QRectF, Qt
 from PyQt5.QtWidgets import QApplication, QWidget
 
 from ...config import config
+
 from ...gui.context_menus.normal_menu import NormalContextMenu
 from ..mode_controller import ModeController
 
@@ -38,8 +39,10 @@ class NormalModeController(ModeController):
         super().__init__(view_state, selection_model, hover_state, graph)
         self.canvas = canvas
         self.input_handler = input_handler  # Store input_handler reference
-        # Initialize the context menu specific to this mode
-        self.context_menu = NormalContextMenu(self.canvas)
+        # Initialize the context menu specific to this mode, passing the controller
+        self.context_menu = NormalContextMenu(
+            self.canvas, self
+        )  # Pass self (controller)
 
     def handle_mouse_press(self, event, graph_point, widget_point):
         """
@@ -452,3 +455,98 @@ class NormalModeController(ModeController):
         # Show the normal mode context menu at the global position
         self.context_menu.exec_(global_point)
         return True
+
+    def copy_selection(self):
+        """
+        Copies the selected groups' data.
+
+        Returns:
+            dict: Data representing the copied groups, nodes, and internal edges,
+                  or None if no groups are selected.
+        """
+        if not self.selection_model.selected_groups:
+            return None
+        # Use the graph's copy_groups method
+        copied_data = self.graph.copy_groups(self.selection_model.selected_groups)
+        # Store this data temporarily within the controller or a dedicated clipboard model
+        # For now, let the menu store it, but ideally, it belongs here.
+        return copied_data
+
+    def paste(self, copied_data):
+        """
+        Pastes the previously copied group data into the graph.
+
+        Args:
+            copied_data (dict): The data returned by copy_groups.
+        """
+        if not copied_data:
+            return
+
+        # Use the graph's paste_groups method
+        # TODO: Determine appropriate offset, maybe based on cursor or last paste?
+        offset_x = config.get_dimension("paste.offset_x", 40)
+        offset_y = config.get_dimension("paste.offset_y", 40)
+        new_groups = self.graph.paste_groups(copied_data, offset_x, offset_y)
+
+        if new_groups:
+            # Clear current selection and select the newly created groups
+            self.selection_model.select_groups(new_groups)
+            self._update_selected_nodes_from_groups()  # Update selected nodes as well
+
+            # Trigger necessary updates (e.g., main window list, canvas redraw)
+            # This might involve emitting signals or calling update methods
+            # on the input_handler or canvas if necessary.
+            # For now, assume SelectionModel signals trigger canvas update.
+
+            # Update the parent window's group list (if possible)
+            # This coupling is not ideal, consider signals/events later
+            main_window = self.canvas.window()
+            if hasattr(main_window, "_update_group_list"):
+                main_window._update_group_list()
+
+            # Explicitly trigger canvas update if SelectionModel signal isn't enough
+            self.canvas.update()
+
+    def delete_selection(self):
+        """
+        Deletes the currently selected groups and/or nodes.
+        (Placeholder - Actual logic might involve graph model methods)
+        """
+        print("Placeholder: NormalModeController.delete_selection()")
+        # TODO: Implement logic using self.graph.delete_group or similar
+        # Ensure self.selection_model is updated and canvas redraw is triggered.
+        if self.selection_model.selected_groups:
+            groups_to_delete = self.selection_model.selected_groups.copy()
+            for group in groups_to_delete:
+                self.graph.delete_group(group)  # Assuming this handles nodes and edges
+            self.selection_model.clear_selection()  # Clear selection after delete
+            # Update main window list if needed
+            main_window = self.canvas.window()
+            if hasattr(main_window, "_update_group_list"):
+                main_window._update_group_list()
+            self.canvas.update()
+
+    def rotate_selection(self):
+        """
+        Rotates the selected groups/nodes individually around their centers.
+        (Placeholder - Actual logic might involve graph model methods)
+        """
+        print("Placeholder: NormalModeController.rotate_selection()")
+        # TODO: Implement logic using self.graph.rotate_node_groups or similar
+        if self.selection_model.selected_groups:
+            self.graph.rotate_node_groups(self.selection_model.selected_groups)
+            self.canvas.update()
+        elif self.selection_model.selected_nodes:
+            # Handle rotation for individually selected nodes if needed
+            pass
+
+    def rotate_selection_together(self):
+        """
+        Rotates the selected groups together around their common center.
+        (Placeholder - Actual logic might involve graph model methods)
+        """
+        print("Placeholder: NormalModeController.rotate_selection_together()")
+        # TODO: Implement logic using self.graph.rotate_groups_around_center
+        if len(self.selection_model.selected_groups) > 1:
+            self.graph.rotate_groups_around_center(self.selection_model.selected_groups)
+            self.canvas.update()

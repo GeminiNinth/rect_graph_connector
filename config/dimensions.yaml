@@ -71,6 +71,9 @@ knife:
 grid:
   spacing: 40.0
 
+paste:
+  offset_x: 40 # Default horizontal offset for pasting groups
+  offset_y: 40 # Default vertical offset for pasting groups
 dialog:
   import:
     min_width: 600 # Minimum width of import dialog

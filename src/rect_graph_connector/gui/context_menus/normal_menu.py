@@ -15,18 +15,22 @@ class NormalContextMenu(QMenu):
     and other normal mode specific operations.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, controller=None):  # Add controller parameter
         """
         Initialize the normal mode context menu.
 
         Args:
             parent: The parent widget (usually the Canvas)
+            controller: The NormalModeController instance
         """
         super().__init__(parent)
-        self.canvas = parent
+        self.canvas = parent  # Keep canvas ref for mapping coordinates if needed
+        self.controller = controller  # Store controller reference
         self._create_actions()
         self._build_menu()
-        self.copied_groups_data = None  # Store copied groups data
+        self.copied_groups_data = (
+            None  # Store copied groups data (maybe move to controller?)
+        )
 
     def _create_actions(self):
         """Create the actions for the context menu."""
@@ -136,26 +140,28 @@ class NormalContextMenu(QMenu):
         Update action states based on the current selection when the menu is shown.
         """
         super().showEvent(event)
-        # Check if there are selected groups or nodes
-        has_selection = (
-            len(self.canvas.graph.selected_groups) > 0
-            or len(self.canvas.graph.selected_nodes) > 0
-        )
+        if not self.controller:
+            return
 
-        # Enable/disable copy action based on selection
-        self.copy_action.setEnabled(len(self.canvas.graph.selected_groups) > 0)
+        # Use selection model from controller
+        has_groups_selection = len(self.controller.selection_model.selected_groups) > 0
+        has_nodes_selection = len(self.controller.selection_model.selected_nodes) > 0
+        has_selection = has_groups_selection or has_nodes_selection
+
+        # Enable/disable copy action based on group selection
+        self.copy_action.setEnabled(has_groups_selection)
         # Enable/disable paste action based on whether groups have been copied
         self.paste_action.setEnabled(self.copied_groups_data is not None)
         # Enable/disable delete and rotate actions based on selection
         self.delete_action.setEnabled(has_selection)
         self.rotate_action.setEnabled(has_selection)
         # Enable rotate_group_action only if multiple groups are selected
-        self.rotate_group_action.setEnabled(len(self.canvas.graph.selected_groups) > 1)
+        self.rotate_group_action.setEnabled(
+            len(self.controller.selection_model.selected_groups) > 1
+        )
         # Enable switch_to_edit_action only if there are selected groups
         # (since edit mode requires target groups)
-        self.switch_to_edit_action.setEnabled(
-            len(self.canvas.graph.selected_groups) > 0
-        )
+        self.switch_to_edit_action.setEnabled(has_groups_selection)
 
     def _set_node_id_start_index(self):
         """
@@ -191,77 +197,61 @@ class NormalContextMenu(QMenu):
         """
         Copy the currently selected node groups.
         """
-        if not self.canvas.graph.selected_groups:
-            return
-
-        # Use the graph's copy_groups method to create a deep copy of the selected groups
-        self.copied_groups_data = self.canvas.graph.copy_groups(
-            self.canvas.graph.selected_groups
-        )
+        if self.controller and self.controller.selection_model.selected_groups:
+            # Call controller method to handle copying
+            self.copied_groups_data = self.controller.copy_selection()
+            # Update paste action state immediately
+            self.paste_action.setEnabled(self.copied_groups_data is not None)
 
     def _paste_groups(self):
         """
         Paste the previously copied node groups.
         The new groups will be positioned at the bottom right of the original groups.
         """
-        if not self.copied_groups_data:
-            return
+        if self.controller and self.copied_groups_data:
+            # Call controller method to handle pasting
+            self.controller.paste(self.copied_groups_data)
+            # Optionally clear copied data after paste? Or allow multiple pastes?
+            # self.copied_groups_data = None
+            # self.paste_action.setEnabled(False)
 
-        # Use the graph's paste_groups method to create new groups
-        # This method handles creating new UUIDs and node IDs
-        new_groups = self.canvas.graph.paste_groups(self.copied_groups_data)
-
-        if new_groups:
-            # Clear current selection and select the newly created groups
-            self.canvas.graph.selected_groups = new_groups
-
-            # Update selected nodes
-            self.canvas.graph.selected_nodes = []
-            for group in new_groups:
-                self.canvas.graph.selected_nodes.extend(
-                    group.get_nodes(self.canvas.graph.nodes)
-                )
-
-            # Update the parent window's group list
-            main_window = self.canvas.window()
-            if hasattr(main_window, "_update_group_list"):
-                main_window._update_group_list()
-
-            # Redraw the canvas
-            self.canvas.update()
+            # Controller should handle selection updates and canvas update
 
     def _delete_selected_groups(self):
         """
         Delete the currently selected node groups or nodes.
-        This calls the main window's _handle_delete method.
+        This delegates the action to the NormalModeController.
         """
-        main_window = self.canvas.window()
-        if hasattr(main_window, "_handle_delete"):
-            main_window._handle_delete()
+        if self.controller:
+            self.controller.delete_selection()
+            # Controller should handle graph updates and canvas redraw
 
     def _rotate_selected_groups(self):
         """
         Rotate each selected group or node around its own center point individually.
-        This calls the main window's _handle_rotate method.
+        This delegates the action to the NormalModeController.
         """
-        main_window = self.canvas.window()
-        if hasattr(main_window, "_handle_rotate"):
-            main_window._handle_rotate()
+        if self.controller:
+            self.controller.rotate_selection()
+            # Controller should handle graph updates and canvas redraw
 
     def _rotate_groups_together(self):
         """
         Rotate multiple selected groups as a single unit around their common center point.
-        This calls the main window's _handle_rotate_groups method.
+        This delegates the action to the NormalModeController.
         """
-        main_window = self.canvas.window()
-        if hasattr(main_window, "_handle_rotate_groups"):
-            main_window._handle_rotate_groups()
+        if self.controller:
+            self.controller.rotate_selection_together()
+            # Controller should handle graph updates and canvas redraw
 
     def _switch_to_edit_mode(self):
         """
         Switch from normal mode to edit mode.
-        This uses the canvas's toggle_edit_mode method.
+        This uses the input handler's mode switching mechanism.
         """
-        if self.canvas:
-            # If there are selected groups, they will be used as edit targets
-            self.canvas.toggle_edit_mode()
+        if self.controller and self.controller.input_handler:
+            # Request mode switch via InputHandler
+            # Assumes EDIT_MODE constant is accessible, e.g., via input_handler
+            self.controller.input_handler.request_mode_switch(
+                self.controller.input_handler.EDIT_MODE
+            )
