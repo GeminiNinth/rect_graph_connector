@@ -9,7 +9,6 @@ from PyQt5.QtCore import QPointF, QRectF, Qt
 from PyQt5.QtWidgets import QApplication, QWidget
 
 from ...config import config
-
 from ...gui.context_menus.normal_menu import NormalContextMenu
 from ..mode_controller import ModeController
 
@@ -307,6 +306,20 @@ class NormalModeController(ModeController):
             if self.graph.node_groups:
                 self.selection_model.select_groups(list(self.graph.node_groups))
                 self._update_selected_nodes_from_groups()
+                return True
+
+        # Handle Ctrl+C for copying selected groups
+        elif event.key() == Qt.Key_C and event.modifiers() & Qt.ControlModifier:
+            if self.selection_model.selected_groups:
+                # Store copied data in the context menu for now
+                # Ideally, this would use a dedicated clipboard model/service
+                self.context_menu.copied_groups_data = self.copy_selection()
+                return True
+
+        # Handle Ctrl+V for pasting groups
+        elif event.key() == Qt.Key_V and event.modifiers() & Qt.ControlModifier:
+            if self.context_menu.copied_groups_data:
+                self.paste(self.context_menu.copied_groups_data)
                 return True
 
         # Handle E key for switching to Edit mode

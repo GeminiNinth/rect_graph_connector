@@ -50,6 +50,8 @@ interaction:
 keyboard_shortcuts:
   edit_mode: "E" # Switching edit mode
   select_all: "Ctrl+A" # Select all node groups
+  copy: "Ctrl+C" # Copy selected groups
+  paste: "Ctrl+V" # Paste copied groups
   delete: "Delete" # Delete selected node group
   escape: "Escape" # Deselect
   rotate_individual: "R" # Rotate each selected element around its own center

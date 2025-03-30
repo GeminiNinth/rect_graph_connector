@@ -41,7 +41,7 @@ class CompositeRenderer(BaseRenderer):
         view_state: ViewStateModel,
         graph: Graph,
         grid_renderer: GridRenderer = None,
-        border_renderer: BorderRenderer = None,
+        # border_renderer removed - handled by CanvasView
         group_renderer: GroupRenderer = None,
         edge_renderer: EdgeRenderer = None,
         node_renderer: NodeRenderer = None,
@@ -68,7 +68,7 @@ class CompositeRenderer(BaseRenderer):
         self.graph = graph
 
         # Initialize renderers with defaults if not provided
-        self.border_renderer = border_renderer or BorderRenderer(view_state)
+        # self.border_renderer removed
         self.grid_renderer = grid_renderer or GridRenderer(view_state)
         self.group_renderer = group_renderer or GroupRenderer(view_state, graph)
         self.edge_renderer = edge_renderer or EdgeRenderer(view_state, graph)
@@ -113,8 +113,7 @@ class CompositeRenderer(BaseRenderer):
             bridge_data (dict, optional): Bridge connection data
             **kwargs: Additional drawing parameters
         """
-        # Draw border and background first
-        self.border_renderer.draw(painter)
+        # Border is now drawn by CanvasView before transformations
 
         # Draw grid if visible
         if self.view_state.grid_visible:

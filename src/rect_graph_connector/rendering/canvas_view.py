@@ -102,8 +102,13 @@ class CanvasView(QWidget):
         self.node_renderer = NodeRenderer(self.view_state, self.graph, node_style)
         self.group_renderer = GroupRenderer(self.view_state, self.graph, group_style)
         self.edge_renderer = EdgeRenderer(self.view_state, self.graph, edge_style)
+        # Instantiate BorderRenderer here as it needs to draw before transformations
+        from .gui.border_renderer import BorderRenderer
+        from .gui.styles.border_style import BorderStyle
 
-        # Initialize composite renderer with core renderers
+        self.border_renderer = BorderRenderer(self.view_state, BorderStyle())
+
+        # Initialize composite renderer (without border renderer)
         self.renderer = CompositeRenderer(
             self.view_state,
             self.graph,
@@ -181,6 +186,9 @@ class CanvasView(QWidget):
         """
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
+
+        # Draw border first (before transformations)
+        self.border_renderer.draw(painter)
 
         # Save painter state
         painter.save()

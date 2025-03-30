@@ -81,8 +81,6 @@ class NodeRenderer(BaseRenderer):
                 # Apply reduced opacity to non-highlighted nodes when hovering
                 opacity = self.style.get_hover_opacity()
 
-            # print(f"Node {node.id}: hover={node==hover_node}, connected={node in hovered_connected_nodes}, potential={is_potential_target}, opacity={opacity}") # DEBUG
-
             self._draw_node(
                 painter,
                 node,
@@ -121,7 +119,6 @@ class NodeRenderer(BaseRenderer):
         painter.save()
 
         # Apply overall opacity for hover effect
-        print(f"Node {node.id}: Setting painter opacity to {opacity}")  # DEBUG
         painter.setOpacity(opacity)
 
         # Create path for node shape
