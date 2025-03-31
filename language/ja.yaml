@@ -6,8 +6,33 @@ normal_menu:
     prompt: "ノードIDの開始インデックスを入力してください（0以上）："
   copy:
     title: "グループをコピー"
+    tooltip: "選択したノードグループを後で貼り付けるためにコピーします。"
   paste:
     title: "グループを貼り付け"
+    tooltip: "以前にコピーしたノードグループを貼り付けます。"
+  delete:
+    title: "削除"
+    tooltip: "選択したノードグループまたはノードを削除します。"
+  rotate_individual:
+    title: "個別に回転"
+    tooltip: "選択した各グループまたはノードを、それぞれの中心点を中心に90度回転させます。"
+  rotate_common_center:
+    title: "共通の中心で回転"
+    tooltip: "選択した複数のグループを、共通の中心点を中心に単一のユニットとして90度回転させます。"
+  connect_all_for_one:
+    title: "All-For-One接続を作成"
+    tooltip: "選択したグループ間にAll-For-One接続を作成します（2つ以上のグループが必要です）。"
+  connect_parallel:
+    title: "Parallel接続を作成"
+    tooltip: "選択したグループ間にParallel接続を作成します（2つ以上のグループが必要です）。"
+  switch_to_edit:
+    title: "編集モードに切り替え"
+    tooltip: "ノード間の接続を作成・変更するために編集モードに切り替えます。"
+
+common_menu: # Common items for multiple menus
+  toggle_grid:
+    title: "グリッド表示/非表示"
+    tooltip: "背景グリッドの表示を切り替えます。"
 
 edit_menu:
   connection:
@@ -60,3 +85,10 @@ import_dialog:
       description: "このモードでは、既存のグラフを完全にリセットし、新しいデータだけを読み込みます。現在の作業内容はすべて失われます。これは新しいプロジェクトを開始する場合や、完全に置き換えたい場合に使用します。"
       example: "例：既存のグラフに「グループA」と「グループB」があり、インポートするファイルに「グループC」と「グループD」がある場合、結果として「グループC」「グループD」のみが存在することになります。「グループA」と「グループB」は完全に削除されます。"
       guidance: "このモードは以下の場合に適しています：\n・新しいプロジェクトを開始する場合\n・現在の作業内容を破棄して新しいデータに置き換えたい場合\n・クリーンな状態から始めたい場合\n※注意：このモードは現在の作業内容をすべて削除します。必要に応じて事前にエクスポートしてください。"
+
+canvas:
+  tooltip:
+    node_id: "ノードID:"
+    group_name: "グループ:"
+    no_group: "グループなし"
+    edge: "エッジ:"

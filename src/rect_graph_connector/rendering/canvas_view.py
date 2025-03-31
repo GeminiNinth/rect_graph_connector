@@ -25,9 +25,11 @@ from .gui.composite_renderer import CompositeRenderer
 from .gui.edge_renderer import EdgeRenderer
 from .gui.group_renderer import GroupRenderer
 from .gui.node_renderer import NodeRenderer
+from .gui.selection_renderer import SelectionRenderer  # Import SelectionRenderer
 from .gui.styles.edge_style import EdgeStyle
 from .gui.styles.group_style import GroupStyle
 from .gui.styles.node_style import NodeStyle
+from .gui.styles.selection_style import SelectionStyle  # Import SelectionStyle
 
 logger = get_logger(__name__)
 
@@ -97,6 +99,7 @@ class CanvasView(QWidget):
         node_style = NodeStyle()
         group_style = GroupStyle()
         edge_style = EdgeStyle()
+        selection_style = SelectionStyle()  # Initialize SelectionStyle
 
         # Initialize renderers
         self.node_renderer = NodeRenderer(self.view_state, self.graph, node_style)
@@ -116,6 +119,8 @@ class CanvasView(QWidget):
             edge_renderer=self.edge_renderer,
             node_renderer=self.node_renderer,
         )
+        # Initialize SelectionRenderer
+        self.selection_renderer = SelectionRenderer(self.view_state, selection_style)
 
         # Initialize input handler (dependency injection)
         if input_handler:
@@ -242,6 +247,22 @@ class CanvasView(QWidget):
                 self.input_handler.current_mode_controller.potential_target_node
             )
 
+        # Prepare All-For-One and Parallel preview data if applicable
+        all_for_one_preview = None
+        parallel_preview = None
+        edit_submode = None
+        all_for_one_selected = None
+        parallel_selected = None
+        if self.input_handler.current_mode == self.input_handler.EDIT_MODE:
+            # We know the controller is EditModeController here
+            controller = self.input_handler.current_mode_controller
+            edit_submode = controller.edit_submode
+            all_for_one_preview = controller.all_for_one_preview_data
+            parallel_preview = controller.parallel_preview_data
+            all_for_one_selected = controller.all_for_one_selected_nodes
+            parallel_selected = controller.parallel_selected_nodes
+            parallel_preview = controller.parallel_preview_data
+
         # Draw the graph using the composite renderer (now with transformed painter)
         self.renderer.draw(
             painter,
@@ -256,7 +277,20 @@ class CanvasView(QWidget):
             edit_target_groups=edit_target_groups_list,  # Pass edit target groups
             knife_data=knife_data_dict,  # Pass knife data
             potential_target_node=potential_target_node_obj,  # Pass potential target
+            all_for_one_preview=all_for_one_preview,
+            parallel_preview=parallel_preview,
+            # Pass data needed for node highlighting
+            edit_submode=edit_submode,
+            all_for_one_selected_nodes=all_for_one_selected,
+            parallel_selected_nodes=parallel_selected,
         )
+
+        # 3.5 Draw Selection Rectangle (within transformed state)
+        selection_rect_data = self.input_handler.selection_rectangle_data
+        if selection_rect_data:
+            self.selection_renderer.draw(
+                painter, selection_rect_data=selection_rect_data
+            )
 
         # 4. Restore painter state (removes graph transformations)
         painter.restore()

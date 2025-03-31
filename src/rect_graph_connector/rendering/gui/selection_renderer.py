@@ -3,7 +3,7 @@ Selection renderer for drawing selection rectangle.
 """
 
 from PyQt5.QtCore import QPointF, QRectF
-from PyQt5.QtGui import QPainter, QBrush
+from PyQt5.QtGui import QPainter
 
 from ...models.view_state_model import ViewStateModel
 from .base_renderer import BaseRenderer
@@ -15,7 +15,8 @@ class SelectionRenderer(BaseRenderer):
     Renderer for drawing the selection rectangle.
 
     This class handles rendering of the selection rectangle during
-    drag selection operations, including fill and border styles.
+    drag selection operations, including fill and border styles that
+    change based on the selection direction (rightward vs. leftward).
     """
 
     def __init__(self, view_state: ViewStateModel, style: SelectionStyle = None):
@@ -23,39 +24,53 @@ class SelectionRenderer(BaseRenderer):
         Initialize the selection renderer.
 
         Args:
-            view_state (ViewStateModel): The view state model
-            style (SelectionStyle, optional): The style object for this renderer
+            view_state (ViewStateModel): The view state model.
+            style (SelectionStyle, optional): The style object for this renderer.
+                                              Defaults to SelectionStyle().
         """
-        super().__init__(view_state, style or SelectionStyle())
+        # Ensure style is an instance of SelectionStyle
+        actual_style = style or SelectionStyle()
+        if not isinstance(actual_style, SelectionStyle):
+            raise TypeError("Style must be an instance of SelectionStyle")
+        super().__init__(view_state, actual_style)
+        # Explicitly type hint self.style for clarity
+        self.style: SelectionStyle = actual_style
 
     def draw(self, painter: QPainter, selection_rect_data=None, **kwargs):
         """
         Draw the selection rectangle if selection is active.
 
         Args:
-            painter (QPainter): The painter to use for drawing
+            painter (QPainter): The painter to use for drawing.
             selection_rect_data (dict, optional): Selection rectangle data containing
-                                               'start' and 'end' points
-            **kwargs: Additional drawing parameters
+                                               'start' and 'end' QPointF points.
+            **kwargs: Additional drawing parameters (unused).
         """
-        if not selection_rect_data:
+        if (
+            not selection_rect_data
+            or "start" not in selection_rect_data
+            or "end" not in selection_rect_data
+        ):
             return
 
         # Save painter state
         painter.save()
 
-        # Apply view transformations
-        self.apply_transform(painter)
+        # Transformation is already applied by the painter passed from CanvasView
+        # self.apply_transform(painter) # DO NOT apply transform again here
 
         # Get selection rectangle points
-        start_point = selection_rect_data["start"]
-        end_point = selection_rect_data["end"]
+        start_point: QPointF = selection_rect_data["start"]
+        end_point: QPointF = selection_rect_data["end"]
+
+        # Determine selection direction
+        direction = "leftward" if end_point.x() < start_point.x() else "rightward"
 
         # Calculate selection rectangle
         rect = self._calculate_selection_rect(start_point, end_point)
 
-        # Draw selection rectangle
-        self._draw_selection_rect(painter, rect)
+        # Draw selection rectangle using direction-specific style
+        self._draw_selection_rect(painter, rect, direction)
 
         # Restore painter state
         painter.restore()
@@ -67,11 +82,11 @@ class SelectionRenderer(BaseRenderer):
         Calculate the selection rectangle from start and end points.
 
         Args:
-            start_point (QPointF): Starting point of selection
-            end_point (QPointF): Ending point of selection
+            start_point (QPointF): Starting point of selection in view coordinates.
+            end_point (QPointF): Ending point of selection in view coordinates.
 
         Returns:
-            QRectF: The calculated selection rectangle
+            QRectF: The calculated selection rectangle in view coordinates.
         """
         # Calculate top-left and bottom-right points
         x1, y1 = start_point.x(), start_point.y()
@@ -85,17 +100,22 @@ class SelectionRenderer(BaseRenderer):
 
         return QRectF(left, top, width, height)
 
-    def _draw_selection_rect(self, painter: QPainter, rect: QRectF):
+    def _draw_selection_rect(self, painter: QPainter, rect: QRectF, direction: str):
         """
-        Draw the selection rectangle with fill and border.
+        Draw the selection rectangle with fill and border based on direction.
 
         Args:
-            painter (QPainter): The painter to use for drawing
-            rect (QRectF): The rectangle to draw
+            painter (QPainter): The painter to use for drawing.
+            rect (QRectF): The rectangle to draw in view coordinates.
+            direction (str): The selection direction ('rightward' or 'leftward').
         """
+        # Get direction-specific brush and pen from the style object
+        fill_brush = self.style.get_fill_brush(direction)
+        border_pen = self.style.get_border_pen(direction)
+
         # Draw fill
-        painter.fillRect(rect, QBrush(self.style.fill_color))
+        painter.fillRect(rect, fill_brush)
 
         # Draw border
-        painter.setPen(self.style.get_border_pen())
+        painter.setPen(border_pen)
         painter.drawRect(rect)

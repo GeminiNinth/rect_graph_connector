@@ -86,10 +86,11 @@ class ConnectModeHelper:
 
                 return True
 
-        # If no valid node was clicked, start rectangle selection
-        controller.is_selecting = True
-        controller.selection_rect_start = QPointF(graph_point)
-        controller.selection_rect_end = QPointF(graph_point)
+        # If no valid node was clicked, start rectangle selection via InputHandler
+        controller.input_handler.start_rectangle_selection(QPointF(graph_point))
+        # controller.is_selecting = True # Managed by InputHandler
+        # controller.selection_rect_start = QPointF(graph_point) # Managed by InputHandler
+        # controller.selection_rect_end = QPointF(graph_point) # Managed by InputHandler
         return True
 
     @staticmethod
@@ -207,10 +208,11 @@ class AllForOneModeHelper:
 
                 return True
 
-        # If no node was clicked, start rectangle selection
-        controller.is_selecting = True
-        controller.selection_rect_start = QPointF(graph_point)
-        controller.selection_rect_end = QPointF(graph_point)
+        # If no node was clicked, start rectangle selection via InputHandler
+        controller.input_handler.start_rectangle_selection(QPointF(graph_point))
+        # controller.is_selecting = True # Managed by InputHandler
+        # controller.selection_rect_start = QPointF(graph_point) # Managed by InputHandler
+        # controller.selection_rect_end = QPointF(graph_point) # Managed by InputHandler
         if not shift_pressed:
             controller.all_for_one_selected_nodes = []
         return True
@@ -299,10 +301,11 @@ class ParallelModeHelper:
 
                 return True
 
-        # If no node was clicked, start rectangle selection
-        controller.is_selecting = True
-        controller.selection_rect_start = QPointF(graph_point)
-        controller.selection_rect_end = QPointF(graph_point)
+        # If no node was clicked, start rectangle selection via InputHandler
+        controller.input_handler.start_rectangle_selection(QPointF(graph_point))
+        # controller.is_selecting = True # Managed by InputHandler
+        # controller.selection_rect_start = QPointF(graph_point) # Managed by InputHandler
+        # controller.selection_rect_end = QPointF(graph_point) # Managed by InputHandler
         # Clear selection if shift is not pressed
         if not shift_pressed:
             controller.parallel_selected_nodes = []

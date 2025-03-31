@@ -5,8 +5,8 @@ This module provides the InputHandler class which centralizes all input processi
 and delegates to appropriate mode controllers based on the current mode.
 """
 
-from PyQt5.QtCore import QObject, QPointF, Qt, pyqtSignal  # Import QObject
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtCore import QObject, QPointF, QRectF, Qt, pyqtSignal  # Import QRectF
+from PyQt5.QtWidgets import QApplication, QWidget  # Import QApplication
 
 from ..config import config
 from ..models.graph import Graph
@@ -75,10 +75,10 @@ class InputHandler(QObject):  # Inherit from QObject
         self.pending_deselect = False
         self.press_pos = None
 
-        # Rectangle selection state
+        # Rectangle selection state (managed here, updated by controllers)
         self.is_selecting = False
-        self.selection_rect_start = None
-        self.selection_rect_end = None
+        self.selection_rect_start: QPointF | None = None
+        self.selection_rect_end: QPointF | None = None
 
         # Panning state
         self.panning = False
@@ -335,3 +335,234 @@ class InputHandler(QObject):  # Inherit from QObject
         """End the panning operation."""
         self.panning = False
         self.view_state.end_panning()
+
+    def update_selection_rectangle(
+        self, start_point: QPointF | None, end_point: QPointF | None
+    ):
+        """
+        Update the selection rectangle coordinates. Called by mode controllers.
+
+        Args:
+            start_point (QPointF | None): The starting point in graph coordinates.
+            end_point (QPointF | None): The current end point in graph coordinates.
+        """
+        self.selection_rect_start = start_point
+        self.selection_rect_end = end_point
+
+    def start_rectangle_selection(self, start_point: QPointF):
+        """
+        Start rectangle selection. Called by mode controllers.
+
+        Args:
+            start_point (QPointF): The starting point in graph coordinates.
+        """
+        self.is_selecting = True
+        self.selection_rect_start = start_point
+        self.selection_rect_end = start_point  # Initialize end point
+
+    def end_rectangle_selection(self):
+        """
+        End rectangle selection. Called by mode controllers.
+        """
+        self.is_selecting = False
+        # Keep start/end points for potential use by the controller that finishes selection
+        # They will be cleared when a new selection starts or mode changes etc.
+
+    def clear_selection_rectangle(self):
+        """Clear the selection rectangle state."""
+        self.is_selecting = False
+        self.selection_rect_start = None
+        self.selection_rect_end = None
+
+    @property
+    def selection_rectangle_data(self) -> dict | None:
+        """
+        Get the current selection rectangle data for rendering.
+
+        Returns:
+            dict | None: A dictionary with 'start' and 'end' QPointF points
+                          if selection is active, otherwise None.
+        """
+        if self.is_selecting and self.selection_rect_start and self.selection_rect_end:
+            return {"start": self.selection_rect_start, "end": self.selection_rect_end}
+        return None
+
+    def _perform_rectangle_selection(self):
+        """
+        Performs the selection logic based on the current rectangle selection
+        and the active mode/submode. Updates the appropriate selection lists.
+        """
+        if not self.selection_rectangle_data:
+            self.clear_selection_rectangle()
+            return
+
+        start_point = self.selection_rectangle_data["start"]
+        end_point = self.selection_rectangle_data["end"]
+        selection_rect = QRectF(start_point, end_point).normalized()
+        leftward_selection = end_point.x() < start_point.x()
+        shift_pressed = QApplication.keyboardModifiers() & Qt.ShiftModifier
+
+        # Determine target type based on mode
+        if self.current_mode == self.NORMAL_MODE:
+            # --- Normal Mode: Select NodeGroups ---
+            # A group is selected if the rectangle selects any of its nodes according
+            # to the leftward (intersect) or rightward (contain) rule.
+            newly_selected_groups = []
+            for group in self.graph.node_groups:
+                group_nodes = group.get_nodes(self.graph.nodes)
+                if not group_nodes:
+                    continue
+
+                group_should_be_selected = False
+                if leftward_selection:
+                    # Leftward: Select if ANY node intersects
+                    for node in group_nodes:
+                        node_rect = QRectF(
+                            node.x - node.size / 2,
+                            node.y - node.size / 2,
+                            node.size,
+                            node.size,
+                        )
+                        if selection_rect.intersects(node_rect):
+                            group_should_be_selected = True
+                            break
+                else:
+                    # Rightward: Select only if ALL nodes are contained
+                    all_nodes_contained = True
+                    for node in group_nodes:
+                        node_rect = QRectF(
+                            node.x - node.size / 2,
+                            node.y - node.size / 2,
+                            node.size,
+                            node.size,
+                        )
+                        if not selection_rect.contains(node_rect):
+                            all_nodes_contained = False
+                            break
+                    if all_nodes_contained:
+                        group_should_be_selected = True
+
+                if group_should_be_selected:
+                    newly_selected_groups.append(group)
+
+            # Update SelectionModel based on shift key
+            if shift_pressed:
+                for group in newly_selected_groups:
+                    self.selection_model.select_group(group, add_to_selection=True)
+            else:
+                self.selection_model.select_groups(
+                    newly_selected_groups
+                )  # Replaces existing
+
+            # Update selected nodes based on the final selected groups in the model
+            # This should be done by the controller after this method returns.
+
+        elif self.current_mode == self.EDIT_MODE:
+            controller = self.current_mode_controller
+            edit_submode = controller.edit_submode
+            edit_target_groups = controller.edit_target_groups
+
+            if edit_submode in [
+                controller.EDIT_SUBMODE_ALL_FOR_ONE,
+                controller.EDIT_SUBMODE_PARALLEL,
+            ]:
+                # --- All-For-One / Parallel Mode: Select Nodes ---
+                newly_selected_nodes = []
+                for node in self.graph.nodes:
+                    node_rect = QRectF(
+                        node.x - node.size / 2,
+                        node.y - node.size / 2,
+                        node.size,
+                        node.size,
+                    )
+                    node_group = self.graph.get_group_for_node(node)
+                    # Select only nodes belonging to the target groups for editing
+                    if node_group and node_group in edit_target_groups:
+                        node_should_be_selected = False
+                        if leftward_selection:
+                            if selection_rect.intersects(node_rect):
+                                node_should_be_selected = True
+                        else:
+                            if selection_rect.contains(node_rect):
+                                node_should_be_selected = True
+
+                        if node_should_be_selected:
+                            newly_selected_nodes.append(node)
+
+                # Update the specific node list in the EditModeController
+                target_list = None
+                if edit_submode == controller.EDIT_SUBMODE_ALL_FOR_ONE:
+                    target_list = controller.all_for_one_selected_nodes
+                else:  # Parallel
+                    target_list = controller.parallel_selected_nodes
+
+                if shift_pressed:
+                    # Add newly selected nodes without duplicates
+                    current_ids = {n.id for n in target_list}
+                    for node in newly_selected_nodes:
+                        if node.id not in current_ids:
+                            target_list.append(node)
+                else:
+                    # Replace selection
+                    if edit_submode == controller.EDIT_SUBMODE_ALL_FOR_ONE:
+                        controller.all_for_one_selected_nodes = newly_selected_nodes
+                    else:  # Parallel
+                        controller.parallel_selected_nodes = newly_selected_nodes
+
+            else:  # Default Edit Mode (Connect) or others: Select Edges
+                # --- Connect Mode: Select Edges ---
+                newly_selected_edges = []
+                for edge in self.graph.edges:
+                    try:
+                        source_node = next(
+                            n for n in self.graph.nodes if n.id == edge[0]
+                        )
+                        target_node = next(
+                            n for n in self.graph.nodes if n.id == edge[1]
+                        )
+
+                        # Check if edge belongs to target groups being edited
+                        source_group = self.graph.get_group_for_node(source_node)
+                        target_group = self.graph.get_group_for_node(target_node)
+                        if not (
+                            source_group in edit_target_groups
+                            or target_group in edit_target_groups
+                        ):
+                            continue
+
+                        # Check if edge should be selected based on rect and direction
+                        source_pos = QPointF(source_node.x, source_node.y)
+                        target_pos = QPointF(target_node.x, target_node.y)
+                        edge_should_be_selected = False
+                        if leftward_selection:
+                            # Leftward: Select if edge intersects (either endpoint inside is sufficient)
+                            if selection_rect.contains(
+                                source_pos
+                            ) or selection_rect.contains(target_pos):
+                                edge_should_be_selected = True
+                        else:
+                            # Rightward: Select if edge is fully contained (both endpoints inside)
+                            if selection_rect.contains(
+                                source_pos
+                            ) and selection_rect.contains(target_pos):
+                                edge_should_be_selected = True
+
+                        if edge_should_be_selected:
+                            newly_selected_edges.append((source_node, target_node))
+                    except StopIteration:
+                        continue
+
+                # Update selection model for edges
+                if shift_pressed:
+                    for edge_tuple in newly_selected_edges:
+                        self.selection_model.select_edge(
+                            edge_tuple, add_to_selection=True
+                        )
+                else:
+                    self.selection_model.select_edges(
+                        newly_selected_edges
+                    )  # Replaces existing
+
+        # Clear the rectangle state after processing
+        self.clear_selection_rectangle()
+        # This method doesn't need to return anything

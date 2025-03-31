@@ -82,3 +82,6 @@ dialog:
     min_width: 600 # Minimum width of import dialog
     min_height: 500 # Minimum height for import dialog
     detail_height: 200 # Detailed description Minimum height of area
+
+selection: # Added section for selection rectangle dimensions
+  border_width: 1 # Width of the selection rectangle border

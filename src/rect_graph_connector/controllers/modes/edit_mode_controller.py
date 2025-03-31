@@ -229,7 +229,38 @@ class EditModeController(ModeController):
         Returns:
             bool: True if the event was handled, False otherwise
         """
-        # Update hover state
+        # Check if we need to initiate a drag for AllForOne/Parallel modes
+        if self._pending_parallel_drag and self.press_pos:
+            drag_threshold = QApplication.startDragDistance()
+            if (graph_point - self.press_pos).manhattanLength() >= drag_threshold:
+                # Sufficient movement detected, start the edge creation drag
+                if self.drag_start_node and self.edit_submode in [
+                    self.EDIT_SUBMODE_ALL_FOR_ONE,
+                    self.EDIT_SUBMODE_PARALLEL,
+                ]:
+                    # Check if the node is actually in the selected list for the current mode
+                    is_selected = False
+                    if (
+                        self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
+                        and self.drag_start_node in self.all_for_one_selected_nodes
+                    ):
+                        is_selected = True
+                    elif (
+                        self.edit_submode == self.EDIT_SUBMODE_PARALLEL
+                        and self.drag_start_node in self.parallel_selected_nodes
+                    ):
+                        is_selected = True
+
+                    if is_selected:
+                        self.current_edge_start = self.drag_start_node
+                        self.temp_edge_end = QPointF(graph_point)  # Initialize temp end
+
+                # Reset pending state regardless of whether drag started successfully
+                self._pending_parallel_drag = False
+                self.press_pos = None
+                # Keep drag_start_node as it's now current_edge_start if drag initiated
+
+        # Update hover state (moved after drag initiation check)
         new_hovered_node = self.graph.find_node_at_position(graph_point)
 
         # When creating an edge, we're interested in potential target nodes
@@ -303,14 +334,18 @@ class EditModeController(ModeController):
                 new_hovered_node, connected_nodes, edges
             )
 
-        # Handle dragging
+        # Handle node dragging (moving nodes, distinct from edge creation drag)
         if self.dragging and self.drag_start:
             self._handle_dragging(graph_point)
             return True
 
-        # Update selection rectangle
-        if self.is_selecting:
-            self.selection_rect_end = QPointF(graph_point)
+        # Update selection rectangle via InputHandler
+        if self.input_handler.is_selecting:
+            # Ensure start point exists before updating
+            if self.input_handler.selection_rect_start:
+                self.input_handler.update_selection_rectangle(
+                    self.input_handler.selection_rect_start, QPointF(graph_point)
+                )
             return True
 
         # Handle knife mode
@@ -396,13 +431,12 @@ class EditModeController(ModeController):
                 self.highlighted_edges = []
                 return True
 
-            # Handle rectangle selection completion
-            elif (
-                self.is_selecting
-                and self.selection_rect_start
-                and self.selection_rect_end
-            ):
+            # Handle rectangle selection completion via InputHandler
+            elif self.input_handler.is_selecting:
                 self._complete_rectangle_selection()
+                # Note: _complete_rectangle_selection now calls clear_selection_rectangle
+                # which also sets is_selecting to False. end_rectangle_selection is redundant.
+                # self.input_handler.end_rectangle_selection() # No longer needed here
                 return True
 
         return False
@@ -417,10 +451,31 @@ class EditModeController(ModeController):
         Returns:
             bool: True if the event was handled, False otherwise
         """
-        # Handle E key to switch back to Normal mode
+        # Handle E key: Revert special submodes to Connect, or switch to Normal mode
         if event.key() == Qt.Key_E:
-            self.input_handler.request_mode_switch(self.input_handler.NORMAL_MODE)
-            return True
+            if self.edit_submode != self.EDIT_SUBMODE_CONNECT:
+                # If in a special submode, revert to Connect submode
+                if self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE:
+                    self.all_for_one_selected_nodes = []
+                elif self.edit_submode == self.EDIT_SUBMODE_PARALLEL:
+                    self.parallel_selected_nodes = []
+                    self.parallel_edge_endpoints = []
+                elif self.edit_submode == self.EDIT_SUBMODE_BRIDGE:
+                    self.bridge_selected_groups = []
+                    self.bridge_floating_menus = {}
+                    self.bridge_edge_nodes = {}
+                    self.bridge_preview_lines = {}
+                elif self.edit_submode == self.EDIT_SUBMODE_KNIFE:
+                    self.is_cutting = False
+                    self.knife_path = []
+                    self.highlighted_edges = []
+                # Set back to connect mode
+                self.set_edit_submode(self.EDIT_SUBMODE_CONNECT)
+                return True
+            else:
+                # If already in Connect submode, switch to Normal mode
+                self.input_handler.request_mode_switch(self.input_handler.NORMAL_MODE)
+                return True
 
         if event.key() == Qt.Key_Escape:
             # If in a special submode, Esc cancels the submode first
@@ -661,3 +716,53 @@ class EditModeController(ModeController):
         # Show the edit mode context menu at the global position
         self.context_menu.exec_(global_point)
         return True
+
+    def _complete_rectangle_selection(self):
+        """
+        Completes rectangle selection by calling the common logic in InputHandler.
+        """
+        # Call the common selection logic in InputHandler
+        self.input_handler._perform_rectangle_selection()
+        # The logic for selecting nodes/edges based on mode is now in InputHandler
+
+    # Properties to expose preview data for rendering
+    @property
+    def all_for_one_preview_data(self):
+        """
+        Provides data for rendering All-For-One preview edges.
+
+        Returns:
+            dict | None: {'sources': [Node, ...], 'target_pos': QPointF} or None
+        """
+        if (
+            self.edit_submode == self.EDIT_SUBMODE_ALL_FOR_ONE
+            and self.current_edge_start
+            and self.temp_edge_end
+            and self.all_for_one_selected_nodes
+        ):
+            return {
+                "sources": self.all_for_one_selected_nodes,
+                "target_pos": self.temp_edge_end,
+            }
+        return None
+
+    @property
+    def parallel_preview_data(self):
+        """
+        Provides data for rendering Parallel preview edges.
+
+        Returns:
+            dict | None: {'sources': [Node, ...], 'endpoints': [(x, y), ...]} or None
+        """
+        if (
+            self.edit_submode == self.EDIT_SUBMODE_PARALLEL
+            and self.current_edge_start
+            and self.parallel_selected_nodes
+            and self.parallel_edge_endpoints
+            and len(self.parallel_selected_nodes) == len(self.parallel_edge_endpoints)
+        ):
+            return {
+                "sources": self.parallel_selected_nodes,
+                "endpoints": self.parallel_edge_endpoints,
+            }
+        return None

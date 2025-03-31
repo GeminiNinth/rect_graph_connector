@@ -95,8 +95,111 @@ light:
           border: "#A0A0A0"
 
   selection: # Added section for selection rectangle
-    fill: "rgba(135,206,235,64)" # Light blue with transparency
-    border: "rgba(70,130,180,255)" # Steel blue
+    # Default/Rightward selection (Blueish)
+    rightward_fill: "rgba(135, 206, 235, 80)" # Light Sky Blue with more opacity
+    rightward_border: "rgba(70, 130, 180, 255)" # Steel Blue
+    # Leftward selection (Greenish)
+    leftward_fill: "rgba(144, 238, 144, 80)" # Light Green with more opacity
+    leftward_border: "rgba(60, 179, 113, 255)" # Medium Sea Green
 
 # Dark Mode
 dark:
+  canvas:
+    border:
+      default: "rgba(100,100,100,255)"
+      normal: "#FFFFFF"
+      edit: "#FF8080"
+    background: "rgba(40,40,40,255)"
+
+  edge:
+    line: "rgba(180,180,180,255)"
+    selected: "rgba(100,180,255,255)"
+    hover: "rgba(200,200,200,255)"
+    arrow: "rgba(180,180,180,255)"
+    highlighted: "#FF4040"
+
+  knife:
+    path: "#FF4040"
+    highlight: "rgba(255,180,80,200)"
+
+  grid:
+    major_line: "rgba(100,100,100,255)"
+    minor_line: "rgba(70,70,70,255)"
+    axis_x: "rgba(255,50,50,128)"
+    axis_y: "rgba(50,255,50,128)"
+
+  group:
+    border:
+      normal: "#606060"
+      selected: "#A0A0FF"
+    background:
+      normal: "rgba(60, 60, 60, 100)"
+      selected: "rgba(70, 70, 100, 120)"
+    label:
+      text: "#E0E0E0"
+      background:
+        normal: "rgba(50, 50, 50, 180)"
+        selected: "rgba(60, 60, 80, 200)"
+
+  node:
+    fill:
+      normal: "#4682B4" # Steel Blue
+      selected: "#5F9EA0" # Cadet Blue
+      all_for_one_selected: "#CD5C5C" # Indian Red
+      parallel_selected: "#3CB371" # Medium Sea Green
+      bridge_target_highlighted: "#20B2AA" # Light Sea Green
+      bridge_source_highlighted: "#DB7093" # Pale Violet Red
+    border:
+      normal: "#A0A0A0" # Gray
+      selected: "#ADD8E6" # Light Blue
+      all_for_one_selected: "#FF6347" # Tomato
+      parallel_selected: "#98FB98" # Pale Green
+      bridge_target_highlighted: "#48D1CC" # Medium Turquoise
+      bridge_source_highlighted: "#FFB6C1" # Light Pink
+    text: "#E0E0E0" # Light Gray text
+
+  mode_indicator:
+    normal: "rgba(60, 60, 60, 180)"
+    edit: "rgba(100, 60, 60, 180)"
+    text: "#E0E0E0"
+
+  bridge:
+    preview: "rgba(30,144,255,180)" # Dodger Blue
+    highlight: "rgba(255,225,100,180)" # Lighter Gold
+    indicator: "rgba(124,252,0,255)" # Lawn Green
+    floating_menu:
+      background: "rgba(50, 50, 50, 220)"
+      text: "#E0E0E0"
+      border: "#808080"
+      source_border: "#FFB6C1" # Light Pink
+      target_border: "#48D1CC" # Medium Turquoise
+      button:
+        background: "#606060"
+        hover: "#707070"
+        text: "#E0E0E0"
+        border: "#808080"
+    window:
+      background: "rgba(45, 45, 45, 240)"
+      border: "#808080"
+      title_bar: "#483D8B" # Dark Slate Blue
+      node_area:
+        background: "#383838"
+        connection_line: "#87CEEB" # Sky Blue
+      controls:
+        button:
+          background: "#606060"
+          hover: "#707070"
+          text: "#E0E0E0"
+          border: "#808080"
+        counter:
+          text: "#E0E0E0"
+          background: "#505050"
+          border: "#808080"
+
+  selection: # Added section for selection rectangle
+    # Default/Rightward selection (Blueish)
+    rightward_fill: "rgba(70, 130, 180, 80)" # Steel Blue with transparency
+    rightward_border: "rgba(135, 206, 250, 255)" # Light Sky Blue
+    # Leftward selection (Greenish)
+    leftward_fill: "rgba(60, 179, 113, 80)" # Medium Sea Green with transparency
+    leftward_border: "rgba(144, 238, 144, 255)" # Light Green

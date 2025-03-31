@@ -95,6 +95,12 @@ class CompositeRenderer(BaseRenderer):
         temp_edge_data=None,
         edit_target_groups=None,
         potential_target_node=None,  # Add potential_target_node parameter
+        all_for_one_preview=None,
+        parallel_preview=None,
+        # Parameters needed for NodeRenderer highlighting
+        edit_submode=None,
+        all_for_one_selected_nodes=None,
+        parallel_selected_nodes=None,
         **kwargs,
     ):
         """
@@ -131,6 +137,8 @@ class CompositeRenderer(BaseRenderer):
             hover_edge=hover_edge,
             hover_node=hover_node,
             temp_edge_data=temp_edge_data,  # Pass temp_edge_data
+            all_for_one_preview=all_for_one_preview,  # Pass All-For-One preview
+            parallel_preview=parallel_preview,  # Pass Parallel preview
         )
 
         # Draw temporary edge if creating one (before nodes)
@@ -159,7 +167,11 @@ class CompositeRenderer(BaseRenderer):
                     hover_node=hover_node,
                     hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
                     edit_target_groups=edit_target_groups,
-                    potential_target_node=potential_target_node,  # Pass potential target
+                    potential_target_node=potential_target_node,
+                    # Pass connection mode specific data
+                    edit_submode=edit_submode,
+                    all_for_one_selected_nodes=all_for_one_selected_nodes,
+                    parallel_selected_nodes=parallel_selected_nodes,
                 )
                 drawn_node_ids.update(node.id for node in group_nodes)
 
@@ -175,7 +187,11 @@ class CompositeRenderer(BaseRenderer):
                 hover_node=hover_node,
                 hover_connected_nodes=kwargs.get("hover_connected_nodes", []),
                 edit_target_groups=edit_target_groups,
-                potential_target_node=potential_target_node,  # Pass potential target
+                potential_target_node=potential_target_node,
+                # Pass connection mode specific data
+                edit_submode=edit_submode,
+                all_for_one_selected_nodes=all_for_one_selected_nodes,
+                parallel_selected_nodes=parallel_selected_nodes,
             )
 
         # Temporary edge drawing moved before nodes

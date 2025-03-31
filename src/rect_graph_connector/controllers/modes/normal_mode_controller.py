@@ -133,10 +133,8 @@ class NormalModeController(ModeController):
                 return True
             else:
                 # If no node is clicked, it's a background click
-                # Background click - start rectangle selection
-                self.is_selecting = True
-                self.selection_rect_start = QPointF(graph_point)
-                self.selection_rect_end = QPointF(graph_point)
+                # Background click - start rectangle selection via InputHandler
+                self.input_handler.start_rectangle_selection(QPointF(graph_point))
 
                 # Deselect if background click deselection is enabled and not shift-clicking
                 if (
@@ -200,9 +198,13 @@ class NormalModeController(ModeController):
             self._handle_dragging(graph_point)
             return True
 
-        # Update selection rectangle
-        if self.is_selecting:
-            self.selection_rect_end = QPointF(graph_point)
+        # Update selection rectangle via InputHandler
+        if self.input_handler.is_selecting:
+            # Ensure start point exists before updating
+            if self.input_handler.selection_rect_start:
+                self.input_handler.update_selection_rectangle(
+                    self.input_handler.selection_rect_start, QPointF(graph_point)
+                )
             return True
 
         return False
@@ -264,56 +266,11 @@ class NormalModeController(ModeController):
                 self.drag_initial_positions = {}  # Clear initial positions
                 return True
 
-            # Complete rectangle selection
-            if (
-                self.is_selecting
-                and self.selection_rect_start
-                and self.selection_rect_end
-            ):
-                left_to_right, min_x, min_y, width, height = (
-                    self._complete_rectangle_selection()
-                )
-                rect = QRectF(min_x, min_y, width, height)
-
-                # Find groups in the selection rectangle
-                selected_groups = []
-                for group in self.graph.node_groups:
-                    group_nodes = group.get_nodes(self.graph.nodes)
-                    if not group_nodes:
-                        continue
-
-                    # Check if group is in selection rectangle
-                    group_in_rect = False
-                    if left_to_right:
-                        # Strict containment (all nodes must be inside)
-                        group_in_rect = all(
-                            rect.contains(node.x, node.y) for node in group_nodes
-                        )
-                    else:
-                        # Intersection (any node inside is enough)
-                        group_in_rect = any(
-                            rect.contains(node.x, node.y) for node in group_nodes
-                        )
-
-                    if group_in_rect:
-                        selected_groups.append(group)
-
-                # Update selection
-                shift_pressed = QApplication.keyboardModifiers() & Qt.ShiftModifier
-                if selected_groups:
-                    if shift_pressed:
-                        # Add to current selection
-                        for group in selected_groups:
-                            self.selection_model.select_group(
-                                group, add_to_selection=True
-                            )
-                    else:
-                        # Replace current selection
-                        self.selection_model.select_groups(selected_groups)
-
-                    # Update selected nodes
-                    self._update_selected_nodes_from_groups()
-
+            # Complete rectangle selection via InputHandler
+            elif self.input_handler.is_selecting:
+                self.input_handler._perform_rectangle_selection()
+                # Update nodes based on the groups now selected in the model
+                self._update_selected_nodes_from_groups()
                 return True
 
         return False
@@ -680,3 +637,64 @@ class NormalModeController(ModeController):
         # Update canvas only once if any group moved
         if groups_moved:
             self.canvas.update()
+
+    # Removed _complete_rectangle_selection as logic is now inline in handle_mouse_release
+    # TODO: Move the inline logic to a common handler
+
+    def create_all_for_one_connection(self):
+        """
+        Creates All-For-One connections between the selected groups.
+
+        This method is triggered by the context menu action. It retrieves the
+        selected groups and calls the graph model to create the necessary edges.
+        Requires at least two groups to be selected.
+        """
+        selected_groups = self.selection_model.selected_groups
+        if len(selected_groups) < 2:
+            print(
+                "Warning: At least two groups must be selected for All-For-One connection."
+            )
+            return
+
+        # Assuming graph model has a method to handle this connection type
+        # TODO: Implement create_all_for_one_edges in Graph model if it doesn't exist
+        if hasattr(self.graph, "create_all_for_one_edges"):
+            success = self.graph.create_all_for_one_edges(selected_groups)
+            if success:
+                print(
+                    f"Created All-For-One connections for groups: {[g.name for g in selected_groups]}"
+                )
+                self.canvas.update()  # Redraw to show new edges
+            else:
+                print("Failed to create All-For-One connections.")
+        else:
+            print("Error: Graph model does not have 'create_all_for_one_edges' method.")
+
+    def create_parallel_connection(self):
+        """
+        Creates Parallel connections between the selected groups.
+
+        This method is triggered by the context menu action. It retrieves the
+        selected groups and calls the graph model to create the necessary edges.
+        Requires at least two groups to be selected.
+        """
+        selected_groups = self.selection_model.selected_groups
+        if len(selected_groups) < 2:
+            print(
+                "Warning: At least two groups must be selected for Parallel connection."
+            )
+            return
+
+        # Assuming graph model has a method to handle this connection type
+        # TODO: Implement create_parallel_edges in Graph model if it doesn't exist
+        if hasattr(self.graph, "create_parallel_edges"):
+            success = self.graph.create_parallel_edges(selected_groups)
+            if success:
+                print(
+                    f"Created Parallel connections for groups: {[g.name for g in selected_groups]}"
+                )
+                self.canvas.update()  # Redraw to show new edges
+            else:
+                print("Failed to create Parallel connections.")
+        else:
+            print("Error: Graph model does not have 'create_parallel_edges' method.")

@@ -1429,3 +1429,114 @@ class Graph:
                 connected_nodes.append(connected_node)
 
         return connected_nodes
+
+    def create_all_for_one_edges(self, groups: List[NodeGroup]) -> bool:
+        """
+        Create 'All-For-One' connections between the specified groups.
+
+        Connects corresponding nodes (same row/col index) between all pairs of groups.
+        Assumes all groups have the same dimensions.
+
+        Args:
+            groups (List[NodeGroup]): A list of NodeGroup objects (requires >= 2).
+
+        Returns:
+            bool: True if edges were successfully created, False otherwise.
+        """
+        if len(groups) < 2:
+            logger.warning("All-For-One connection requires at least two groups.")
+            return False
+
+        # Check if all groups have the same dimensions (number of nodes)
+        first_group_node_count = len(groups[0].node_ids)
+        if not all(len(g.node_ids) == first_group_node_count for g in groups):
+            logger.warning(
+                "All groups must have the same number of nodes for All-For-One connection."
+            )
+            return False
+
+        nodes_added = 0
+        # Iterate through all pairs of groups
+        for i in range(len(groups)):
+            for j in range(i + 1, len(groups)):
+                group1 = groups[i]
+                group2 = groups[j]
+
+                nodes1 = sorted(
+                    group1.get_nodes(self.nodes), key=lambda n: (n.row, n.col)
+                )
+                nodes2 = sorted(
+                    group2.get_nodes(self.nodes), key=lambda n: (n.row, n.col)
+                )
+
+                # Connect corresponding nodes
+                for node1, node2 in zip(nodes1, nodes2):
+                    if not self.has_edge(node1, node2):
+                        self.add_edge(node1, node2)
+                        nodes_added += 1
+
+        if nodes_added > 0:
+            logger.info(
+                f"Created {nodes_added} All-For-One edges between {len(groups)} groups."
+            )
+            return True
+        else:
+            logger.info(
+                "No new All-For-One edges were created (they might already exist)."
+            )
+            return False
+
+    def create_parallel_edges(self, groups: List[NodeGroup]) -> bool:
+        """
+        Create 'Parallel' connections between the specified groups.
+
+        Connects nodes from the first group to corresponding nodes (same row/col index)
+        in all other subsequent groups. Assumes all groups have the same dimensions.
+
+        Args:
+            groups (List[NodeGroup]): A list of NodeGroup objects (requires >= 2).
+
+        Returns:
+            bool: True if edges were successfully created, False otherwise.
+        """
+        if len(groups) < 2:
+            logger.warning("Parallel connection requires at least two groups.")
+            return False
+
+        # Check if all groups have the same dimensions (number of nodes)
+        first_group_node_count = len(groups[0].node_ids)
+        if not all(len(g.node_ids) == first_group_node_count for g in groups):
+            logger.warning(
+                "All groups must have the same number of nodes for Parallel connection."
+            )
+            return False
+
+        nodes_added = 0
+        first_group = groups[0]
+        first_group_nodes = sorted(
+            first_group.get_nodes(self.nodes), key=lambda n: (n.row, n.col)
+        )
+
+        # Iterate through the other groups
+        for i in range(1, len(groups)):
+            other_group = groups[i]
+            other_group_nodes = sorted(
+                other_group.get_nodes(self.nodes), key=lambda n: (n.row, n.col)
+            )
+
+            # Connect corresponding nodes from the first group to the other group
+            for node1, node_other in zip(first_group_nodes, other_group_nodes):
+                if not self.has_edge(node1, node_other):
+                    self.add_edge(node1, node_other)
+                    nodes_added += 1
+
+        if nodes_added > 0:
+            logger.info(
+                f"Created {nodes_added} Parallel edges from group '{first_group.name}' to {len(groups)-1} other groups."
+            )
+            return True
+        else:
+            logger.info(
+                "No new Parallel edges were created (they might already exist)."
+            )
+            return False

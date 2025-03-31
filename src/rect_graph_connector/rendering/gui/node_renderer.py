@@ -45,6 +45,9 @@ class NodeRenderer(BaseRenderer):
         nodes_to_draw=None,
         edit_target_groups=None,
         potential_target_node=None,  # Add potential_target_node parameter
+        edit_submode=None,  # Add edit_submode parameter
+        all_for_one_selected_nodes=None,  # Add all_for_one_selected_nodes parameter
+        parallel_selected_nodes=None,  # Add parallel_selected_nodes parameter
         **kwargs,
     ):
         """
@@ -87,6 +90,10 @@ class NodeRenderer(BaseRenderer):
                 node in selected_nodes,
                 node == hover_node,
                 opacity=opacity,
+                edit_target_groups=edit_target_groups,  # Pass edit_target_groups
+                edit_submode=edit_submode,  # Pass edit_submode
+                all_for_one_selected_nodes=all_for_one_selected_nodes,  # Pass all_for_one_selected_nodes
+                parallel_selected_nodes=parallel_selected_nodes,  # Pass parallel_selected_nodes
             )
 
     def _draw_node(
@@ -96,7 +103,10 @@ class NodeRenderer(BaseRenderer):
         is_selected: bool,
         is_hovered: bool,
         opacity: float = 1.0,
-        edit_target_groups: list = None,  # Add edit_target_groups parameter
+        edit_target_groups: list = None,
+        edit_submode: str = None,  # Add edit_submode parameter
+        all_for_one_selected_nodes: list = None,  # Add all_for_one_selected_nodes parameter
+        parallel_selected_nodes: list = None,  # Add parallel_selected_nodes parameter
     ):
         """
         Draw a single node with its background, border, and label.
@@ -140,11 +150,25 @@ class NodeRenderer(BaseRenderer):
             if node_group and node_group in edit_target_groups:
                 is_edit_target_node = True
 
+        # Determine connection mode selection status
+        is_all_for_one_selected = (
+            edit_submode == "all_for_one"  # Use actual constant name if available
+            and all_for_one_selected_nodes is not None
+            and node in all_for_one_selected_nodes
+        )
+        is_parallel_selected = (
+            edit_submode == "parallel"  # Use actual constant name if available
+            and parallel_selected_nodes is not None
+            and node in parallel_selected_nodes
+        )
+
         # Set colors based on state
         background_color = self.style.get_background_color(
             is_selected=is_selected,
+            is_all_for_one_selected=is_all_for_one_selected,  # Pass flag
+            is_parallel_selected=is_parallel_selected,  # Pass flag
             is_hovered=is_hovered,
-            is_edit_target=is_edit_target_node,  # Pass edit target status
+            is_edit_target=is_edit_target_node,
         )
 
         # Opacity is now handled by painter.setOpacity()
@@ -155,8 +179,10 @@ class NodeRenderer(BaseRenderer):
         # Draw node border
         border_pen = self.style.get_border_pen(
             is_selected=is_selected,
+            is_all_for_one_selected=is_all_for_one_selected,  # Pass flag
+            is_parallel_selected=is_parallel_selected,  # Pass flag
             is_hovered=is_hovered,
-            is_edit_target=is_edit_target_node,  # Pass edit target status
+            is_edit_target=is_edit_target_node,
         )
 
         # Opacity is now handled by painter.setOpacity()

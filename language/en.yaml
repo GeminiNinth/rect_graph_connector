@@ -6,8 +6,33 @@ normal_menu:
     prompt: "Enter the starting index for node IDs (0 or higher):"
   copy:
     title: "Copy Group"
+    tooltip: "Copy the selected node group to be pasted later."
   paste:
     title: "Paste Group"
+    tooltip: "Paste the previously copied node group."
+  delete:
+    title: "Delete"
+    tooltip: "Delete the selected node group or nodes."
+  rotate_individual:
+    title: "Rotate Individual Elements"
+    tooltip: "Rotate each selected group or node around its own center point by 90 degrees."
+  rotate_common_center:
+    title: "Rotate Around Common Center"
+    tooltip: "Rotate multiple selected groups as a single unit around their common center point by 90 degrees."
+  connect_all_for_one:
+    title: "Connect All-For-One"
+    tooltip: "Create All-For-One connections between selected groups (requires >= 2 groups)."
+  connect_parallel:
+    title: "Connect Parallel"
+    tooltip: "Create Parallel connections between selected groups (requires >= 2 groups)."
+  switch_to_edit:
+    title: "Switch to Edit-Mode"
+    tooltip: "Switch to edit mode to create and modify connections between nodes."
+
+common_menu: # Common items for multiple menus
+  toggle_grid:
+    title: "Toggle Grid"
+    tooltip: "Toggle the visibility of the background grid."
 
 edit_menu:
   connection:
@@ -60,3 +85,10 @@ import_dialog:
       description: "In this mode, the existing graph is completely reset and only new data is loaded. All current work will be lost. This is used when starting a new project or when you want to completely replace the existing data."
       example: "Example: If the existing graph has 'Group A' and 'Group B', and the imported file has 'Group C' and 'Group D', the result will only have 'Group C' and 'Group D'. 'Group A' and 'Group B' will be completely deleted."
       guidance: "This mode is suitable when:\n・Starting a new project\n・Want to discard current work and replace with new data\n・Want to start from a clean state\n※Note: This mode deletes all current work. Export if needed before proceeding."
+
+canvas:
+  tooltip:
+    node_id: "Node ID:"
+    group_name: "Group:"
+    no_group: "No Group"
+    edge: "Edge:"

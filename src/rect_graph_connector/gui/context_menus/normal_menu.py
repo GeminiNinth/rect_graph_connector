@@ -11,8 +11,8 @@ class NormalContextMenu(QMenu):
     """
     Context menu for the normal mode operations.
 
-    This menu provides options like setting node ID starting index
-    and other normal mode specific operations.
+    This menu provides options like setting node ID starting index,
+    copy/paste, delete, rotate, and creating special connections.
     """
 
     def __init__(self, parent=None, controller=None):  # Add controller parameter
@@ -35,101 +35,103 @@ class NormalContextMenu(QMenu):
     def _create_actions(self):
         """Create the actions for the context menu."""
         # Set node ID start index action
-        title = config.get_string(
-            "normal_menu.set_node_id.title", "Set Node ID Starting Index"
-        )
+        title = config.get_text("normal_menu.set_node_id.title")  # Removed default
         self.set_node_id_start_action = QAction(title, self)
         self.set_node_id_start_action.setToolTip(
-            config.get_string(
-                "normal_menu.set_node_id.tooltip",
-                "Change the starting index for node IDs in the graph.",
-            )
+            config.get_text("normal_menu.set_node_id.tooltip")  # Removed default
         )
         self.set_node_id_start_action.triggered.connect(self._set_node_id_start_index)
 
         # Copy group action
-        title = config.get_string("normal_menu.copy.title", "Copy Group")
+        title = config.get_text("normal_menu.copy.title")  # Removed default
         self.copy_action = QAction(title, self)
         self.copy_action.setToolTip(
-            config.get_string(
-                "normal_menu.copy.tooltip",
-                "Copy the selected node group to be pasted later.",
-            )
+            config.get_text("normal_menu.copy.tooltip")  # Removed default
         )
         self.copy_action.triggered.connect(self._copy_selected_groups)
         self.copy_action.setEnabled(False)  # Initially disabled
 
         # Paste group action
-        title = config.get_string("normal_menu.paste.title", "Paste Group")
+        title = config.get_text("normal_menu.paste.title")  # Removed default
         self.paste_action = QAction(title, self)
         self.paste_action.setToolTip(
-            config.get_string(
-                "normal_menu.paste.tooltip", "Paste the previously copied node group."
-            )
+            config.get_text("normal_menu.paste.tooltip")  # Removed default
         )
         self.paste_action.triggered.connect(self._paste_groups)
         self.paste_action.setEnabled(False)  # Initially disabled
 
         # Delete group action
-        title = config.get_string("normal_menu.delete.title", "Delete Group")
+        title = config.get_text("normal_menu.delete.title")  # Removed default
         self.delete_action = QAction(title, self)
         self.delete_action.setToolTip(
-            config.get_string(
-                "normal_menu.delete.tooltip", "Delete the selected node group or nodes."
-            )
+            config.get_text("normal_menu.delete.tooltip")  # Removed default
         )
         self.delete_action.triggered.connect(self._delete_selected_groups)
         self.delete_action.setEnabled(False)  # Initially disabled
 
         # Rotate group action
-        title = config.get_string(
-            "normal_menu.rotate_individual.title", "Rotate Individual Elements"
-        )
+        title = config.get_text(
+            "normal_menu.rotate_individual.title"
+        )  # Removed default
         self.rotate_action = QAction(title, self)
         self.rotate_action.setToolTip(
-            config.get_string(
-                "normal_menu.rotate_individual.tooltip",
-                "Rotate each selected group or node around its own center point by 90 degrees.",
-            )
+            config.get_text("normal_menu.rotate_individual.tooltip")  # Removed default
         )
         self.rotate_action.triggered.connect(self._rotate_selected_groups)
         self.rotate_action.setEnabled(False)  # Initially disabled
 
         # Rotate groups together action
-        title = config.get_string(
-            "normal_menu.rotate_common_center.title", "Rotate Around Common Center"
-        )
+        title = config.get_text(
+            "normal_menu.rotate_common_center.title"
+        )  # Removed default
         self.rotate_group_action = QAction(title, self)
         self.rotate_group_action.setToolTip(
-            config.get_string(
-                "normal_menu.rotate_common_center.tooltip",
-                "Rotate multiple selected groups as a single unit around their common center point by 90 degrees.",
-            )
+            config.get_text(
+                "normal_menu.rotate_common_center.tooltip"
+            )  # Removed default
         )
         self.rotate_group_action.triggered.connect(self._rotate_groups_together)
         self.rotate_group_action.setEnabled(False)  # Initially disabled
 
-        # Switch to Edit-Mode action
-        title = config.get_string(
-            "normal_menu.switch_to_edit.title", "Switch to Edit-Mode"
+        # --- New Connection Actions ---
+        # All-For-One Connection action
+        title = config.get_text(
+            "normal_menu.connect_all_for_one.title"
+        )  # Removed default
+        self.connect_all_for_one_action = QAction(title, self)
+        self.connect_all_for_one_action.setToolTip(
+            config.get_text(
+                "normal_menu.connect_all_for_one.tooltip"
+            )  # Removed default
         )
+        self.connect_all_for_one_action.triggered.connect(
+            self._create_all_for_one_connection
+        )
+        self.connect_all_for_one_action.setEnabled(False)  # Initially disabled
+
+        # Parallel Connection action
+        title = config.get_text("normal_menu.connect_parallel.title")  # Removed default
+        self.connect_parallel_action = QAction(title, self)
+        self.connect_parallel_action.setToolTip(
+            config.get_text("normal_menu.connect_parallel.tooltip")  # Removed default
+        )
+        self.connect_parallel_action.triggered.connect(self._create_parallel_connection)
+        self.connect_parallel_action.setEnabled(False)  # Initially disabled
+        # --- End New Connection Actions ---
+
+        # Switch to Edit-Mode action
+        title = config.get_text("normal_menu.switch_to_edit.title")  # Removed default
         self.switch_to_edit_action = QAction(title, self)
         self.switch_to_edit_action.setToolTip(
-            config.get_string(
-                "normal_menu.switch_to_edit.tooltip",
-                "Switch to edit mode to create and modify connections between nodes.",
-            )
+            config.get_text("normal_menu.switch_to_edit.tooltip")  # Removed default
         )
         self.switch_to_edit_action.triggered.connect(self._switch_to_edit_mode)
 
         # Toggle Grid action
-        title = config.get_string("common_menu.toggle_grid.title", "Show Grid")
+        title = config.get_text("common_menu.toggle_grid.title")  # Removed default
         self.toggle_grid_action = QAction(title, self)
         self.toggle_grid_action.setToolTip(
-            config.get_string(
-                "common_menu.toggle_grid.tooltip",
-                "Toggle the visibility of the background grid.",
-            )
+            config.get_text("common_menu.toggle_grid.tooltip")  # Removed default
         )
         self.toggle_grid_action.setCheckable(True)
         self.toggle_grid_action.triggered.connect(self._toggle_grid)
@@ -145,6 +147,10 @@ class NormalContextMenu(QMenu):
         self.addAction(self.rotate_action)
         self.addAction(self.rotate_group_action)
         self.addSeparator()
+        # Add new connection actions
+        self.addAction(self.connect_all_for_one_action)
+        self.addAction(self.connect_parallel_action)
+        self.addSeparator()
         self.addAction(self.toggle_grid_action)
         self.addSeparator()
         self.addAction(self.switch_to_edit_action)
@@ -158,9 +164,11 @@ class NormalContextMenu(QMenu):
             return
 
         # Use selection model from controller
-        has_groups_selection = len(self.controller.selection_model.selected_groups) > 0
+        selected_groups_count = len(self.controller.selection_model.selected_groups)
+        has_groups_selection = selected_groups_count > 0
         has_nodes_selection = len(self.controller.selection_model.selected_nodes) > 0
         has_selection = has_groups_selection or has_nodes_selection
+        multiple_groups_selected = selected_groups_count > 1
 
         # Enable/disable copy action based on group selection
         self.copy_action.setEnabled(has_groups_selection)
@@ -170,9 +178,12 @@ class NormalContextMenu(QMenu):
         self.delete_action.setEnabled(has_selection)
         self.rotate_action.setEnabled(has_selection)
         # Enable rotate_group_action only if multiple groups are selected
-        self.rotate_group_action.setEnabled(
-            len(self.controller.selection_model.selected_groups) > 1
-        )
+        self.rotate_group_action.setEnabled(multiple_groups_selected)
+
+        # Enable/disable connection actions only if multiple groups are selected
+        self.connect_all_for_one_action.setEnabled(multiple_groups_selected)
+        self.connect_parallel_action.setEnabled(multiple_groups_selected)
+
         # Enable switch_to_edit_action only if there are selected groups
         # (since edit mode requires target groups)
         self.switch_to_edit_action.setEnabled(has_groups_selection)
@@ -189,10 +200,10 @@ class NormalContextMenu(QMenu):
         current_start = config.node_id_start
 
         # Show an input dialog to get the new starting index
-        title = config.get_string(
+        title = config.get_text(  # Use get_text
             "normal_menu.set_node_id.title", "Set Node ID Starting Index"
         )
-        prompt = config.get_string(
+        prompt = config.get_text(  # Use get_text
             "normal_menu.set_node_id.prompt",
             "Enter the starting index for node IDs (0 or higher):",
         )
@@ -260,6 +271,39 @@ class NormalContextMenu(QMenu):
         if self.controller:
             self.controller.rotate_selection_together()
             # Controller should handle graph updates and canvas redraw
+
+    # --- New Connection Handlers ---
+    def _create_all_for_one_connection(self):
+        """
+        Trigger the creation of All-For-One connections between selected groups.
+        Delegates the action to the NormalModeController.
+        """
+        if self.controller:
+            # TODO: Implement create_all_for_one_connection in NormalModeController
+            if hasattr(self.controller, "create_all_for_one_connection"):
+                self.controller.create_all_for_one_connection()
+            else:
+                print(
+                    "Warning: NormalModeController.create_all_for_one_connection not implemented yet."
+                )
+            # Controller should handle graph updates and canvas redraw
+
+    def _create_parallel_connection(self):
+        """
+        Trigger the creation of Parallel connections between selected groups.
+        Delegates the action to the NormalModeController.
+        """
+        if self.controller:
+            # TODO: Implement create_parallel_connection in NormalModeController
+            if hasattr(self.controller, "create_parallel_connection"):
+                self.controller.create_parallel_connection()
+            else:
+                print(
+                    "Warning: NormalModeController.create_parallel_connection not implemented yet."
+                )
+            # Controller should handle graph updates and canvas redraw
+
+    # --- End New Connection Handlers ---
 
     def _switch_to_edit_mode(self):
         """

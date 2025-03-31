@@ -99,16 +99,26 @@ class SelectionModel:
             groups (list): The groups to select
             add_to_selection (bool): If True, add to current selection; if False, replace it
         """
+        # Store the set of initially selected group IDs for comparison
+        initial_selected_ids = {id(g) for g in self.selected_groups}
+
         if not add_to_selection:
+            # If replacing selection and the new list is identical to the old, no change.
+            # However, clearing and re-adding is simpler and covers edge cases.
             self.selected_groups.clear()
+            for group in groups:
+                # Avoid duplicates even when replacing, though clear() handles it mostly.
+                if group not in self.selected_groups:
+                    self.selected_groups.append(group)
+        else:
+            # Add to selection, only adding new groups
+            for group in groups:
+                if group not in self.selected_groups:
+                    self.selected_groups.append(group)
 
-        changed = False
-        for group in groups:
-            if group not in self.selected_groups:
-                self.selected_groups.append(group)
-                changed = True
-
-        if changed:
+        # Check if the final set of selected group IDs is different from the initial set
+        final_selected_ids = {id(g) for g in self.selected_groups}
+        if initial_selected_ids != final_selected_ids:
             self.selection_changed.emit()
 
     def deselect_group(self, group):

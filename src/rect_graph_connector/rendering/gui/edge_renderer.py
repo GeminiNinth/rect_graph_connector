@@ -45,6 +45,8 @@ class EdgeRenderer(BaseRenderer):
         selected_edges=None,
         hover_edge=None,
         temp_edge_data=None,  # Add temp_edge_data parameter
+        all_for_one_preview=None,  # Add All-For-One preview data
+        parallel_preview=None,  # Add Parallel preview data
         **kwargs,
     ):
         """
@@ -100,7 +102,15 @@ class EdgeRenderer(BaseRenderer):
                 painter, source_node, target_node, is_selected, is_hovered, opacity
             )
 
-        # Temporary edge drawing is now handled by CompositeRenderer
+        # Draw All-For-One preview edges
+        if all_for_one_preview:
+            self._draw_all_for_one_preview(painter, all_for_one_preview)
+
+        # Draw Parallel preview edges
+        if parallel_preview:
+            self._draw_parallel_preview(painter, parallel_preview)
+
+        # Temporary edge drawing (single edge) is now handled by CompositeRenderer
 
     def _draw_edge(
         self,
@@ -197,3 +207,135 @@ class EdgeRenderer(BaseRenderer):
         painter.setPen(self.style.get_arrow_pen())
         painter.fillPath(arrow_path, self.style.arrow_color)
         painter.drawPath(arrow_path)
+
+    def calculate_edge_endpoints(self, source_node, target_node):
+        """
+        Calculate the start and end points of an edge, adjusted for node boundaries.
+
+        Args:
+            source_node: The source node object.
+            target_node: The target node object.
+
+        Returns:
+            tuple: (QPointF, QPointF) representing the adjusted start and end points.
+        """
+        start_pos = QPointF(source_node.x, source_node.y)
+        end_pos = QPointF(target_node.x, target_node.y)
+
+        # Calculate direction vector
+        dx = end_pos.x() - start_pos.x()
+        dy = end_pos.y() - start_pos.y()
+        dist = (dx**2 + dy**2) ** 0.5
+
+        if dist == 0:
+            return start_pos, end_pos  # Avoid division by zero
+
+        # Normalize direction vector
+        nx, ny = dx / dist, dy / dist
+
+        # Calculate intersection points with node boundaries (assuming square nodes for simplicity)
+        # TODO: Adapt for different node shapes if necessary
+        start_offset = source_node.size / 2
+        end_offset = target_node.size / 2
+
+        # Adjust start and end points along the normalized direction vector
+        adjusted_start_point = QPointF(
+            start_pos.x() + nx * start_offset, start_pos.y() + ny * start_offset
+        )
+        adjusted_end_point = QPointF(
+            end_pos.x() - nx * end_offset, end_pos.y() - ny * end_offset
+        )
+
+        return adjusted_start_point, adjusted_end_point
+
+    def _draw_all_for_one_preview(self, painter: QPainter, preview_data: dict):
+        """
+        Draw preview lines for All-For-One connection mode.
+
+        Args:
+            painter (QPainter): The painter to use.
+            preview_data (dict): Data containing 'sources' (list of nodes) and 'target_pos' (QPointF).
+        """
+        sources = preview_data.get("sources", [])
+        target_pos = preview_data.get("target_pos")
+
+        if not sources or not target_pos:
+            return
+
+        painter.save()
+        temp_pen = self.style.get_temporary_edge_pen()
+        painter.setPen(temp_pen)
+
+        for source_node in sources:
+            if not source_node:
+                continue
+            start_pos = QPointF(source_node.x, source_node.y)
+
+            # Calculate direction vector towards target_pos
+            dx = target_pos.x() - start_pos.x()
+            dy = target_pos.y() - start_pos.y()
+            dist = (dx**2 + dy**2) ** 0.5
+
+            if dist == 0:
+                continue
+
+            # Normalize direction vector
+            nx, ny = dx / dist, dy / dist
+            start_offset = source_node.size / 2
+
+            # Calculate adjusted start point on node boundary
+            adjusted_start_point = QPointF(
+                start_pos.x() + nx * start_offset, start_pos.y() + ny * start_offset
+            )
+
+            # Draw line from adjusted start to target position
+            painter.drawLine(adjusted_start_point, target_pos)
+
+        painter.restore()
+
+    def _draw_parallel_preview(self, painter: QPainter, preview_data: dict):
+        """
+        Draw preview lines for Parallel connection mode.
+
+        Args:
+            painter (QPainter): The painter to use.
+            preview_data (dict): Data containing 'sources' (list of nodes) and 'endpoints' (list of (x, y) tuples).
+        """
+        sources = preview_data.get("sources", [])
+        endpoints = preview_data.get("endpoints", [])
+
+        if not sources or not endpoints or len(sources) != len(endpoints):
+            return
+
+        painter.save()
+        temp_pen = self.style.get_temporary_edge_pen()
+        painter.setPen(temp_pen)
+
+        for source_node, endpoint_tuple in zip(sources, endpoints):
+            if not source_node:
+                continue
+
+            start_pos = QPointF(source_node.x, source_node.y)
+            target_pos = QPointF(endpoint_tuple[0], endpoint_tuple[1])
+
+            # Calculate direction vector towards target_pos
+            dx = target_pos.x() - start_pos.x()
+            dy = target_pos.y() - start_pos.y()
+            dist = (dx**2 + dy**2) ** 0.5
+
+            if dist == 0:
+                continue
+
+            # Normalize direction vector
+            nx, ny = dx / dist, dy / dist
+            start_offset = source_node.size / 2
+
+            # Calculate adjusted start point on node boundary
+            adjusted_start_point = QPointF(
+                start_pos.x() + nx * start_offset, start_pos.y() + ny * start_offset
+            )
+
+            # Draw line from adjusted start to target position
+            painter.drawLine(adjusted_start_point, target_pos)
+
+        painter.restore()
